@@ -39,6 +39,17 @@ jobs:
           cd site
           sha256sum -c ../PROTECTED_0_1_VISUAL_SHA256.txt
 
+      - name: Verify protected 0.3.2 non-conversation runtime is byte-exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "f99882addf9a263ae8c41f12f111b9f03b5ed73d"
+          test "$(git rev-parse HEAD:site/ios-audio-stability.js)" = "d8254b160719a647fc07164a96f3955d8b268bfd"
+          test "$(git rev-parse HEAD:site/index.html)" = "9a5163b054bdabbefaa0761eeff58701b5e6d1de"
+          test "$(git rev-parse HEAD:site/mobile.css)" = "a815f2314ac5a749435a73e41b3880922a0ca1d8"
+          test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
+          test "$(git rev-parse HEAD:site/sw.js)" = "f65be5534df529c8f3e409b6a5e1ca6f29967725"
+
       - name: Verify JavaScript syntax
         shell: bash
         run: |
@@ -49,22 +60,26 @@ jobs:
           node --check site/ios-audio-stability.js
           node --check site/sw.js
 
-      - name: Verify iOS 0.3.2 native Live audio stability
+      - name: Verify iOS 0.3.2R2 rebuilt Live conversation lifecycle
         shell: bash
         run: |
           set -euo pipefail
           grep -F "const BUILD='0.3.2'" site/app.js
           grep -F "phase:'gemini-live-native'" site/app.js
           grep -F '"version": "0.3.2"' site/version.json
+          grep -F "version:'0.3.2R2-conversation-rebuild'" site/live-mobile.js
           grep -F 'BidiGenerateContentConstrained' site/live-mobile.js
           grep -F 'raw instanceof Blob' site/live-mobile.js
           grep -F 'raw instanceof ArrayBuffer' site/live-mobile.js
-          grep -F "ws.binaryType='arraybuffer'" site/live-mobile.js
-          grep -F 'LIVE_SETUP_TIMEOUT' site/live-mobile.js
           grep -F "audio/pcm;rate=16000" site/live-mobile.js
           grep -F 'createBuffer(1,samples.length,24000)' site/live-mobile.js
           grep -F 'getUserMedia' site/live-mobile.js
           grep -F 'START_OF_ACTIVITY_INTERRUPTS' site/live-mobile.js
+          grep -F 'contextWindowCompression:{slidingWindow:{}}' site/live-mobile.js
+          grep -F 'attachActiveHandlers(ws);' site/live-mobile.js
+          grep -F 'if(state.ws!==ws)return;' site/live-mobile.js
+          grep -F 'if(state.connectingWs!==ws)return;' site/live-mobile.js
+          grep -F 'const auth=await requestToken(!resume);' site/live-mobile.js
           grep -F "navigator.audioSession.type=type" site/ios-audio-stability.js
           grep -F "await ctx.suspend()" site/ios-audio-stability.js
           grep -F "await ctx.resume()" site/ios-audio-stability.js
@@ -84,7 +99,7 @@ jobs:
           set -euo pipefail
           URL='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
           curl -fsS "$URL" -o /tmp/loky-health.json
-          node -e "const x=require('/tmp/loky-health.json'); if(!x.ok||!x.geminiConfigured||x.model!=='models/gemini-3.8-live') process.exit(2);"
+          node -e "const x=require('/tmp/loky-health.json'); if(!x.ok||!x.geminiConfigured||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2);"
           code=$(curl -sS -o /tmp/loky-denied.json -w '%{http_code}' -X POST -H 'x-loky-device: invalid-device' "$URL")
           test "$code" = '401'
 
