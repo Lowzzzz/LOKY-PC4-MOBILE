@@ -24,12 +24,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Rebuild frozen app icon 180
+      - name: Rebuild exact frozen app icons
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p site/icons
           cat deploy/icon180.part00 deploy/icon180.part01 deploy/icon180.part02 | tr -d '\r\n ' | base64 --decode > site/icons/icon-180.png
+          cat deploy/icon512.part00 deploy/icon512.part01 deploy/icon512.part02 deploy/icon512.part03 deploy/icon512.part04a deploy/icon512.part04b | tr -d '\r\n ' | base64 --decode > site/icons/icon-512.png
 
       - name: Verify OWNER PASS baseline byte-for-byte
         shell: bash
