@@ -1,12 +1,13 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F1R1-timing-fix';
+  const VERSION='0.3.2R4F1R2-thinking-input-gate';
   const MEMORY_KEY='loky_pc4_mobile_memory_v1';
   const MEMORY_LIMIT=12;
   const MEMORY_TEXT_LIMIT=140;
   const MEMORY_CONTEXT_LIMIT=1200;
   const SILENCE_SENTINEL=Number.MAX_SAFE_INTEGER;
+  const THINKING_GATE_MAX_MS=6500;
 
   const live=window.LOKY_PC4_LIVE;
   const liveState=live?.state||null;
@@ -18,6 +19,8 @@
   let silenced=false;
   let rawSuppress=liveState?.suppressPlaybackUntil||0;
   let lastUserTurn='';
+  let thinkingGateActive=false;
+  let thinkingGateTimer=0;
 
   function normalize(text){
     return String(text||'')
@@ -101,9 +104,68 @@
     }
   }
 
+  function micTracks(){
+    try{
+      const stream=liveState?.mediaStream;
+      if(!stream)return [];
+      if(typeof stream.getAudioTracks==='function')return stream.getAudioTracks();
+      if(typeof stream.getTracks==='function')return stream.getTracks().filter(t=>t?.kind==='audio');
+    }catch{}
+    return [];
+  }
+
+  function setMicEnabled(enabled){
+    let changed=0;
+    for(const track of micTracks()){
+      try{
+        if(track.readyState&&track.readyState!=='live')continue;
+        if(track.enabled!==Boolean(enabled)){
+          track.enabled=Boolean(enabled);
+          changed++;
+        }
+      }catch{}
+    }
+    return changed;
+  }
+
+  function clearThinkingGate(){
+    if(thinkingGateTimer){
+      clearTimeout(thinkingGateTimer);
+      thinkingGateTimer=0;
+    }
+    thinkingGateActive=false;
+    setMicEnabled(true);
+  }
+
+  function enterThinkingGate(){
+    if(silenced)return setMicEnabled(true);
+    if(thinkingGateActive)return;
+    thinkingGateActive=true;
+    setMicEnabled(false);
+    if(thinkingGateTimer)clearTimeout(thinkingGateTimer);
+    thinkingGateTimer=setTimeout(()=>{
+      thinkingGateTimer=0;
+      if(!thinkingGateActive)return;
+      // Fail-open recovery: never leave the owner without a usable mic forever.
+      thinkingGateActive=false;
+      setMicEnabled(true);
+    },THINKING_GATE_MAX_MS);
+  }
+
+  function syncThinkingGate(){
+    const state=String(conversationState?.textContent||'').trim();
+    if(silenced)return clearThinkingGate();
+    if(state==='PENSANDO'){
+      enterThinkingGate();
+      return;
+    }
+    clearThinkingGate();
+  }
+
   function silence(){
     if(silenced)return;
     silenced=true;
+    clearThinkingGate();
     stopQueuedPlayback();
     if(liveState)rawSuppress=liveState.suppressPlaybackUntil||0;
     body?.classList.add('loky-silenced');
@@ -115,6 +177,7 @@
     rawSuppress=0;
     if(liveState)liveState.suppressPlaybackUntil=0;
     body?.classList.remove('loky-silenced');
+    syncThinkingGate();
   }
 
   // Isolated output gate only. The frozen R4 Conversation Core remains byte-exact.
@@ -165,6 +228,7 @@
   if(conversationState){
     new MutationObserver(()=>{
       if(String(conversationState.textContent||'').trim()==='PENSANDO')captureFinishedTurn();
+      syncThinkingGate();
     }).observe(conversationState,{childList:true,subtree:true,characterData:true});
   }
 
@@ -213,6 +277,8 @@
     }
   }
 
+  syncThinkingGate();
+
   window.LOKY_PC4_FEATURES={
     version:VERSION,
     get silenced(){return silenced;},
@@ -222,5 +288,10 @@
     isStableMemoryCandidate,
     memory,
     slots,
+    thinkingGate:{
+      get active(){return thinkingGateActive;},
+      sync:syncThinkingGate,
+      setMicEnabled,
+    },
   };
 })();
