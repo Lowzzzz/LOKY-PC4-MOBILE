@@ -60,29 +60,34 @@ jobs:
           node --check site/ios-audio-stability.js
           node --check site/sw.js
 
-      - name: Verify iOS 0.3.2R3R1 conversation stability
+      - name: Verify iOS 0.3.2R4 PC4 conversation port
         shell: bash
         run: |
           set -euo pipefail
           grep -F "const BUILD='0.3.2'" site/app.js
           grep -F "phase:'gemini-live-native'" site/app.js
           grep -F '"version": "0.3.2"' site/version.json
-          grep -F "const VERSION='0.3.2R3R1-bargein-voice-stability'" site/live-mobile.js
+          grep -F "const VERSION='0.3.2R4-pc4-conversation-port'" site/live-mobile.js
           grep -F 'const MIC_BUFFER_SIZE=2048' site/live-mobile.js
-          grep -F 'const END_SILENCE_MS=250' site/live-mobile.js
-          grep -F 'const LOCAL_BARGE_MIN_RMS=0.04' site/live-mobile.js
-          grep -F 'const LOCAL_BARGE_FRAMES=2' site/live-mobile.js
-          grep -F 'const LOCAL_BARGE_SUPPRESS_MS=900' site/live-mobile.js
-          grep -F 'detectLocalBargeIn(input);' site/live-mobile.js
-          grep -F 'if(Date.now()<state.suppressPlaybackUntil)return;' site/live-mobile.js
+          grep -F 'const END_SILENCE_MS=420' site/live-mobile.js
+          grep -F 'const START_FRAMES_IDLE=3' site/live-mobile.js
+          grep -F 'const START_FRAMES_BARGE=2' site/live-mobile.js
+          grep -F 'automaticActivityDetection:{disabled:true}' site/live-mobile.js
+          grep -F "sendRealtime(ws,{activityStart:{}})" site/live-mobile.js
+          grep -F "sendRealtime(ws,{activityEnd:{}})" site/live-mobile.js
+          grep -F "START_OF_ACTIVITY_INTERRUPTS" site/live-mobile.js
           grep -F "prebuiltVoiceConfig:{voiceName:'Kore'}" site/live-mobile.js
-          grep -F 'if(resume?.resumable===true&&resume?.newHandle)' site/live-mobile.js
-          grep -F 'START_OF_ACTIVITY_INTERRUPTS' site/live-mobile.js
           grep -F 'contextWindowCompression:{slidingWindow:{}}' site/live-mobile.js
+          grep -F 'replaySpeakingHandover(ws)' site/live-mobile.js
+          grep -F 'state.playbackLeakFloor*1.75' site/live-mobile.js
           grep -F "navigator.audioSession.type=type" site/ios-audio-stability.js
           grep -F "await ctx.suspend()" site/ios-audio-stability.js
           grep -F "await ctx.resume()" site/ios-audio-stability.js
           grep -F 'ios-audio-stability.js?v=0.3.2' site/index.html
+          if grep -Fq 'interimInputTranscription' site/live-mobile.js; then
+            echo 'Interim input transcription is forbidden in PC4 turn-ownership port'
+            exit 1
+          fi
           if grep -R -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then
             echo 'Secret/API key material must never be present in public Mobile files'
             exit 1
@@ -92,11 +97,11 @@ jobs:
             exit 1
           fi
 
-      - name: Run conversation stability test
+      - name: Run PC4 Attention turn-ownership tests
         shell: bash
         run: |
           set -euo pipefail
-          node .github/tests/ios032r3r1-conversation.test.cjs
+          node .github/tests/ios032r4-pc4-conversation-port.test.cjs
 
       - name: Verify secure token backend health
         shell: bash
