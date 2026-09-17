@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#06111b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LOKY PC4">
+  <meta name="format-detection" content="telephone=no">
+  <title>LOKY PC4 Mobile</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/icon-180.png">
+  <link rel="stylesheet" href="./mobile.css">
+</head>
+<body>
+  <main id="app" class="app-shell" aria-label="LOKY PC4 Mobile iOS">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span>LOKY PC4</span>
+      </div>
+      <div id="status" class="status">READY</div>
+    </header>
+
+    <section class="stage" aria-label="Esfera LOKY">
+      <div class="cosmic-background" aria-hidden="true">
+        <div class="nebula"></div>
+        <div class="stars"></div>
+        <div class="stars soft"></div>
+      </div>
+      <div class="sphere-wrap">
+        <canvas id="lokySphere" aria-label="Esfera de partículas LOKY PC4"></canvas>
+        <div class="orbital-ring ring-a" aria-hidden="true"></div>
+        <div class="orbital-ring ring-b" aria-hidden="true"></div>
+      </div>
+      <div id="fallback" class="fallback hidden" role="status">
+        GPU visual no disponible.
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span id="buildLabel">iOS 0.1.0 · SPHERE CORE</span>
+      <button id="updateButton" class="update-button hidden" type="button">ACTUALIZAR</button>
+    </footer>
+  </main>
+
+  <script src="./sphere-mobile.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
