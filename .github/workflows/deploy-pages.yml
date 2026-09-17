@@ -60,27 +60,25 @@ jobs:
           node --check site/ios-audio-stability.js
           node --check site/sw.js
 
-      - name: Verify iOS 0.3.2R3 zero-rebuild low-latency conversation
+      - name: Verify iOS 0.3.2R3R1 conversation stability
         shell: bash
         run: |
           set -euo pipefail
           grep -F "const BUILD='0.3.2'" site/app.js
           grep -F "phase:'gemini-live-native'" site/app.js
           grep -F '"version": "0.3.2"' site/version.json
-          grep -F "const VERSION='0.3.2R3-conversation-zero-rebuild-lowlatency'" site/live-mobile.js
+          grep -F "const VERSION='0.3.2R3R1-bargein-voice-stability'" site/live-mobile.js
           grep -F 'const MIC_BUFFER_SIZE=2048' site/live-mobile.js
           grep -F 'const END_SILENCE_MS=250' site/live-mobile.js
-          grep -F 'const PREFIX_PADDING_MS=60' site/live-mobile.js
-          grep -F 'BidiGenerateContentConstrained' site/live-mobile.js
-          grep -F 'raw instanceof Blob' site/live-mobile.js
-          grep -F 'raw instanceof ArrayBuffer' site/live-mobile.js
-          grep -F "audio/pcm;rate=16000" site/live-mobile.js
-          grep -F 'createBuffer(1,samples.length,24000)' site/live-mobile.js
-          grep -F 'getUserMedia' site/live-mobile.js
+          grep -F 'const LOCAL_BARGE_MIN_RMS=0.04' site/live-mobile.js
+          grep -F 'const LOCAL_BARGE_FRAMES=2' site/live-mobile.js
+          grep -F 'const LOCAL_BARGE_SUPPRESS_MS=900' site/live-mobile.js
+          grep -F 'detectLocalBargeIn(input);' site/live-mobile.js
+          grep -F 'if(Date.now()<state.suppressPlaybackUntil)return;' site/live-mobile.js
+          grep -F "prebuiltVoiceConfig:{voiceName:'Kore'}" site/live-mobile.js
+          grep -F 'if(resume?.resumable===true&&resume?.newHandle)' site/live-mobile.js
           grep -F 'START_OF_ACTIVITY_INTERRUPTS' site/live-mobile.js
           grep -F 'contextWindowCompression:{slidingWindow:{}}' site/live-mobile.js
-          grep -F "message.goAway.timeLeft" site/live-mobile.js
-          grep -F "resume?.resumable!==false" site/live-mobile.js
           grep -F "navigator.audioSession.type=type" site/ios-audio-stability.js
           grep -F "await ctx.suspend()" site/ios-audio-stability.js
           grep -F "await ctx.resume()" site/ios-audio-stability.js
@@ -93,6 +91,12 @@ jobs:
             echo 'Local robotic voice fallback is forbidden in native Live build'
             exit 1
           fi
+
+      - name: Run conversation stability test
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/tests/ios032r3r1-conversation.test.cjs
 
       - name: Verify secure token backend health
         shell: bash
