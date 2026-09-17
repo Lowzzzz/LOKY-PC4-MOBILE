@@ -76,7 +76,7 @@ const context={
   CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail;}},
   fetch:async()=>({ok:true,json:async()=>({features:[]})}),
   Map,Set,Math,Date,JSON,Number,Array,String,
-  addEventListener(){},
+  addEventListener(){},dispatchEvent(){},
 };
 context.window=context;
 context.devicePixelRatio=2;
