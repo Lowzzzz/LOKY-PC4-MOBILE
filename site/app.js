@@ -1,12 +1,16 @@
 (() => {
   'use strict';
-  const BUILD='0.1.0';
+  const BUILD='0.2.0';
   const status=document.getElementById('status');
   const fallback=document.getElementById('fallback');
   const updateButton=document.getElementById('updateButton');
   const buildLabel=document.getElementById('buildLabel');
+  const infoButton=document.getElementById('infoButton');
+  const statusSheet=document.getElementById('statusSheet');
+  const closeSheet=document.getElementById('closeSheet');
+  const sheetBackdrop=document.getElementById('sheetBackdrop');
 
-  buildLabel.textContent=`iOS ${BUILD} · SPHERE CORE`;
+  buildLabel.textContent=`iOS ${BUILD} · UI SHELL`;
 
   let sphere=null;
   try{
@@ -25,9 +29,19 @@
     if(count)status.textContent=`SPHERE · ${Math.round(count/1000)}K ADAPTIVE`;
   });
 
+  function setSheet(open){
+    statusSheet.classList.toggle('hidden',!open);
+    sheetBackdrop.classList.toggle('hidden',!open);
+    infoButton.setAttribute('aria-expanded',String(open));
+  }
+  infoButton.addEventListener('click',()=>setSheet(infoButton.getAttribute('aria-expanded')!=='true'));
+  closeSheet.addEventListener('click',()=>setSheet(false));
+  sheetBackdrop.addEventListener('click',()=>setSheet(false));
+
   window.LOKY_PC4_MOBILE={
     build:BUILD,
     platform:'ios-pwa',
+    phase:'ui-shell',
     sphereStats:()=>sphere?.stats?.()||null
   };
 
