@@ -1,0 +1,55 @@
+name: Validate iOS 0.3.1 Candidate
+
+on:
+  push:
+    branches: [candidate/ios-0.3.1-live-frame-decode]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild exact frozen app icons
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p site/icons
+          cat deploy/icon180.part00 deploy/icon180.part01 deploy/icon180.part02 | tr -d '\r\n ' | base64 --decode > site/icons/icon-180.png
+          cat deploy/icon512.part00 deploy/icon512.part01 deploy/icon512.part02 deploy/icon512.part03 deploy/icon512.part04a deploy/icon512.fix00 deploy/icon512.fix01 deploy/icon512.fix02 deploy/icon512.fix03 | tr -d '\r\n ' | base64 --decode > site/icons/icon-512.png
+
+      - name: Verify protected visual core
+        run: |
+          set -euo pipefail
+          cd site
+          sha256sum -c ../PROTECTED_0_1_VISUAL_SHA256.txt
+
+      - name: Syntax and 0.3.1 scope checks
+        run: |
+          set -euo pipefail
+          node --check site/sphere-mobile.js
+          node --check site/app.js
+          node --check site/live-mobile.js
+          node --check site/sw.js
+          grep -F "const BUILD='0.3.1'" site/app.js
+          grep -F 'raw instanceof Blob' site/live-mobile.js
+          grep -F 'raw instanceof ArrayBuffer' site/live-mobile.js
+          grep -F "ws.binaryType='arraybuffer'" site/live-mobile.js
+          grep -F 'LIVE_SETUP_TIMEOUT' site/live-mobile.js
+          grep -F 'BidiGenerateContentConstrained' site/live-mobile.js
+          grep -F 'live-mobile.js?v=0.3.1' site/index.html
+          if grep -R -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then exit 1; fi
+          if grep -R -E -qi 'QWEN|FALLBACK LOCAL|speechSynthesis' site; then exit 1; fi
+
+      - name: Verify current Gemini Live server setup path
+        run: |
+          set -euo pipefail
+          URL='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token?liveprobe=1'
+          curl -fsS "$URL" -o /tmp/probe.json
+          cat /tmp/probe.json
+          node -e "const x=require('/tmp/probe.json'); if(!x.ok||!Array.isArray(x.results)||!x.results.every(r=>r.ok)) process.exit(2);"
