@@ -49,15 +49,17 @@ jobs:
           test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
           test "$(git rev-parse HEAD:site/sw.js)" = "f65be5534df529c8f3e409b6a5e1ca6f29967725"
 
-      - name: Verify R4F1 isolated feature runtime
+      - name: Verify R4F1 presentation and R4F1R1 isolated feature runtime
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD:site/index.html)" = "b88b10867fa418a1ea521235ecc0be9c44f5e99c"
           test "$(git rev-parse HEAD:site/mobile.css)" = "d416bf9a4d56300d149cf985c361c7bcdd74f5a1"
-          test "$(git rev-parse HEAD:site/mobile-features.js)" = "cb946bdd2a52edcb5886f00d5b33136434d5450a"
+          test "$(git rev-parse HEAD:site/mobile-features.js)" = "e6aba6725a60df267cf37ff874f67ea947336ca9"
           grep -F '<script src="./mobile-features.js?v=0.3.2r4f1"></script>' site/index.html
-          grep -F "const VERSION='0.3.2R4F1-silence-memory-slots'" site/mobile-features.js
+          grep -F "const VERSION='0.3.2R4F1R1-timing-fix'" site/mobile-features.js
+          grep -F "!data.startsWith('{\"setup\":')" site/mobile-features.js
+          grep -F "return (silenced||liveState.userSpeaking===true)" site/mobile-features.js
           grep -F 'body.loky-silenced #lokySphere' site/mobile.css
           grep -F '.future-op-button' site/mobile.css
 
@@ -91,7 +93,7 @@ jobs:
           grep -F "await ctx.resume()" site/ios-audio-stability.js
           if grep -Fq 'interimInputTranscription' site/live-mobile.js; then exit 1; fi
 
-      - name: Run frozen conversation and R4F1 feature tests
+      - name: Run frozen conversation and R4F1R1 feature tests
         shell: bash
         run: |
           set -euo pipefail
