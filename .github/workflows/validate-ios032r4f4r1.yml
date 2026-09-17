@@ -1,0 +1,80 @@
+name: Validate iOS 0.3.2R4F4R1 Single Earth Thermal
+
+on:
+  push:
+    branches: [candidate/ios-0.3.2R4F4R1-single-renderer-thermal]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify isolated runtime scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=9165541bbc78f9ff434c22620552441e86b82455
+          changed="$(git diff --name-only "$BASE"..HEAD | grep -v '^\.github/' || true)"
+          expected=$'site/mobile-earth-reference.js\nsite/mobile-seismic.js'
+          test "$changed" = "$expected"
+
+      - name: Verify protected runtime byte-exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/live-mobile.js)" = "af201c91e1db634ef62cd6505696a602e293bc83"
+          test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "f99882addf9a263ae8c41f12f111b9f03b5ed73d"
+          test "$(git rev-parse HEAD:site/ios-audio-stability.js)" = "d8254b160719a647fc07164a96f3955d8b268bfd"
+          test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
+          test "$(git rev-parse HEAD:site/sw.js)" = "f65be5534df529c8f3e409b6a5e1ca6f29967725"
+          test "$(git rev-parse HEAD:site/mobile-features.js)" = "a9c02db6ffcf8efcb76d8e1bc35ca5439240a81f"
+          test "$(git rev-parse HEAD:site/mobile.css)" = "b4eff4577685dce6b07867cc040d4b8369be2a51"
+          test "$(git rev-parse HEAD:site/mobile-noise-guard.js)" = "c632c64738c0bb34d7e372d28a5532d238b23398"
+          test "$(git rev-parse HEAD:site/index.html)" = "1ba7f53b7ea201572c0a517640cc7d6b7d11901a"
+
+      - name: Verify single renderer contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check site/mobile-seismic.js
+          node --check site/mobile-earth-reference.js
+          node .github/tests/ios032r4f4r1-single-renderer.test.cjs
+          if grep -Fq 'lokySeismicGlobe' site/mobile-seismic.js; then exit 1; fi
+          if grep -Fq 'function drawGlobe(' site/mobile-seismic.js; then exit 1; fi
+          grep -F '.loky-seismic-mode .sphere-wrap{display:none!important}' site/mobile-seismic.js
+          grep -F 'function rebuildStatic(' site/mobile-earth-reference.js
+          grep -F 'const DPR_CAP=1.5' site/mobile-earth-reference.js
+
+      - name: Re-run frozen conversation tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/tests/ios032r4-pc4-conversation-port.test.cjs
+          node .github/tests/ios032r4f2-settings-memory-windows.test.cjs
+          node .github/tests/ios032r4f2r1-noise-guard.test.cjs
+
+      - name: Verify Natural Earth and USGS
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson'
+          curl -fsS "$BASE/ne_50m_land.geojson" -o /tmp/land.json
+          curl -fsS "$BASE/ne_110m_admin_0_countries.geojson" -o /tmp/countries.json
+          curl -fsS 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson' -o /tmp/quakes.json
+          node -e "for(const p of ['/tmp/land.json','/tmp/countries.json']){const x=require(p);if(x.type!=='FeatureCollection'||!Array.isArray(x.features)||x.features.length<20)process.exit(2)};const q=require('/tmp/quakes.json');if(q.type!=='FeatureCollection'||!Array.isArray(q.features)||!q.metadata)process.exit(3)"
+
+      - name: Verify secure Gemini token backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
+          curl -fsS "$URL" -o /tmp/loky-health.json
+          node -e "const x=require('/tmp/loky-health.json'); if(!x.ok||!x.geminiConfigured||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2);"
