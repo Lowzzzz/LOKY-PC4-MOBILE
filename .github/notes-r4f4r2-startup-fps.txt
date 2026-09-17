@@ -1,0 +1,1 @@
+R4F4R2 candidate preparation marker. Runtime changes are isolated to mobile-earth-reference.js only; remove before promotion if needed.
