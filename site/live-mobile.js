@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R3-conversation-zero-rebuild-lowlatency';
+  const VERSION='0.3.2R3R1-bargein-voice-stability';
   const TOKEN_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token';
   const DEFAULT_MODEL='models/gemini-3.8-live';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
@@ -11,6 +11,9 @@
   const PREFIX_PADDING_MS=60;
   const CONNECT_TIMEOUT_MS=12000;
   const SETUP_TIMEOUT_MS=8000;
+  const LOCAL_BARGE_MIN_RMS=0.04;
+  const LOCAL_BARGE_FRAMES=2;
+  const LOCAL_BARGE_SUPPRESS_MS=900;
 
   const state={
     desired:false,
@@ -33,6 +36,9 @@
     playCursor:0,
     playing:new Set(),
     setupReady:false,
+    noiseFloor:0.006,
+    bargeFrames:0,
+    suppressPlaybackUntil:0,
   };
 
   const $=id=>document.getElementById(id);
@@ -144,6 +150,39 @@
     return bytes;
   }
 
+  function rmsLevel(input){
+    if(!input?.length)return 0;
+    let sum=0;
+    for(let i=0;i<input.length;i++)sum+=input[i]*input[i];
+    return Math.sqrt(sum/input.length);
+  }
+
+  function detectLocalBargeIn(input){
+    const level=rmsLevel(input);
+    const playbackActive=state.playing.size>0;
+
+    if(!playbackActive){
+      state.bargeFrames=0;
+      state.noiseFloor=(state.noiseFloor*0.97)+(level*0.03);
+      return false;
+    }
+
+    const threshold=Math.max(LOCAL_BARGE_MIN_RMS,state.noiseFloor*4.5);
+    if(level>=threshold){
+      state.bargeFrames++;
+    }else{
+      state.bargeFrames=Math.max(0,state.bargeFrames-1);
+    }
+
+    if(state.bargeFrames<LOCAL_BARGE_FRAMES)return false;
+
+    state.bargeFrames=0;
+    state.suppressPlaybackUntil=Date.now()+LOCAL_BARGE_SUPPRESS_MS;
+    clearPlayback();
+    setState('ESCUCHANDO','Interrupción detectada');
+    return true;
+  }
+
   async function primeAudio(){
     const AudioContextCtor=window.AudioContext||window.webkitAudioContext;
     if(!AudioContextCtor)throw new Error('AUDIO_CONTEXT_UNAVAILABLE');
@@ -181,6 +220,7 @@
       const ws=state.activeWs;
       if(!state.desired||!state.setupReady||ws?.readyState!==WebSocket.OPEN)return;
       const input=event.inputBuffer.getChannelData(0);
+      detectLocalBargeIn(input);
       const pcm=floatToPcm16Bytes(downsampleTo16k(input,ctx.sampleRate));
       try{
         ws.send(JSON.stringify({
@@ -219,11 +259,13 @@
     }
     state.playing.clear();
     state.playCursor=state.audioContext?.currentTime||0;
+    state.bargeFrames=0;
   }
 
   function playPcm24k(base64){
     const ctx=state.audioContext;
     if(!ctx||ctx.state==='closed')return;
+    if(Date.now()<state.suppressPlaybackUntil)return;
     const samples=base64ToInt16(base64);
     if(!samples.length)return;
 
@@ -287,7 +329,7 @@
         },
         systemInstruction:{
           parts:[{
-            text:'Eres LOKY, un asistente de voz natural, cercano y eficiente. Habla principalmente en español salvo que el usuario cambie de idioma. Responde de forma conversacional, fluida y breve por defecto. No menciones Gemini, modelos, APIs ni detalles técnicos salvo que el usuario los pregunte. Permite interrupciones naturales y continúa la conversación sin frases robóticas de relleno.',
+            text:'Eres LOKY, un asistente de voz natural, cercano y eficiente. Habla principalmente en español salvo que el usuario cambie de idioma. Responde de forma conversacional, fluida y breve por defecto. Mantén siempre la misma identidad vocal y estilo de voz durante toda la sesión. No menciones Gemini, modelos, APIs ni detalles técnicos salvo que el usuario los pregunte. Permite interrupciones naturales y continúa la conversación sin frases robóticas de relleno.',
           }],
         },
         inputAudioTranscription:{},
@@ -323,13 +365,6 @@
     state.goAwayTimer=0;
   }
 
-  function parseDurationMs(value){
-    const text=String(value||'').trim();
-    const match=text.match(/^([0-9]+(?:\.[0-9]+)?)s$/i);
-    if(!match)return 0;
-    return Math.max(0,Math.round(Number(match[1])*1000));
-  }
-
   function retryDelay(){
     return [120,250,500,900,1500][Math.min(state.retryAttempt,4)]||1500;
   }
@@ -358,6 +393,7 @@
     if(!content)return;
 
     if(content.interrupted){
+      state.suppressPlaybackUntil=Date.now()+250;
       clearPlayback();
       setState('ESCUCHANDO','Interrupción detectada');
     }
@@ -379,6 +415,7 @@
     }
 
     if(content.turnComplete){
+      state.suppressPlaybackUntil=0;
       setState('ESCUCHANDO','Habla normalmente.');
       if(ui.loky&&ui.loky.textContent.length>240){
         ui.loky.textContent=ui.loky.textContent.slice(-240);
@@ -395,6 +432,10 @@
     state.activeWs=ws;
     state.setupReady=true;
     state.retryAttempt=0;
+
+    if(previous&&previous!==ws){
+      clearPlayback();
+    }
 
     attachActiveHandlers(ws);
     setState('ESCUCHANDO','Habla normalmente. Puedes interrumpir a LOKY.');
@@ -424,22 +465,22 @@
     }
 
     const resume=message.sessionResumptionUpdate;
-    if(resume?.resumable!==false&&resume?.newHandle){
+    if(resume?.resumable===true&&resume?.newHandle){
       state.resumeHandle=resume.newHandle;
+    }else if(resume?.resumable===false){
+      state.resumeHandle='';
     }
 
     if(message.goAway){
       if(role==='active'&&state.activeWs===ws){
         clearTimeout(state.goAwayTimer);
-        const timeLeft=parseDurationMs(message.goAway.timeLeft);
-        const waitMs=timeLeft>0?Math.max(0,timeLeft-1200):0;
         state.goAwayTimer=setTimeout(()=>{
           state.goAwayTimer=0;
           resumeSession('goaway').catch(error=>{
             console.warn('LOKY goaway resume',error);
             scheduleRecovery('goaway-failed');
           });
-        },waitMs);
+        },0);
       }
       return;
     }
@@ -562,6 +603,9 @@
     state.resumeHandle='';
     state.retryAttempt=0;
     state.setupReady=false;
+    state.noiseFloor=0.006;
+    state.bargeFrames=0;
+    state.suppressPlaybackUntil=0;
     clearReconnectTimers();
     clearTimers();
     if(ui.me)ui.me.textContent='—';
@@ -576,6 +620,8 @@
     state.setupReady=false;
     state.resumeHandle='';
     state.retryAttempt=0;
+    state.bargeFrames=0;
+    state.suppressPlaybackUntil=0;
     clearReconnectTimers();
     clearTimers();
 
