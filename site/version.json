@@ -1,8 +1,8 @@
 {
   "product": "LOKY PC4 MOBILE",
   "platform": "ios",
-  "version": "0.3.1",
-  "channel": "ios-gemini-live-native",
+  "version": "0.3.2",
+  "channel": "ios-gemini-live-native-audio-stable",
   "minSupported": "0.1.0",
   "released": "2026-09-17"
 }
