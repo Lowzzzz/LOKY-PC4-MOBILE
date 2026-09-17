@@ -51,25 +51,30 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "a9c02db6ffcf8efcb76d8e1bc35ca5439240a81f"
           test "$(git rev-parse HEAD:site/mobile.css)" = "b4eff4577685dce6b07867cc040d4b8369be2a51"
           test "$(git rev-parse HEAD:site/mobile-noise-guard.js)" = "c632c64738c0bb34d7e372d28a5532d238b23398"
-          test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "4616876813ba0c990d0dc9eb131f3d553c204d29"
 
-      - name: Verify R4F4 Earth reference runtime exact
+      - name: Verify R4F4R1 single Earth runtime exact
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD:site/index.html)" = "1ba7f53b7ea201572c0a517640cc7d6b7d11901a"
-          test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "ba04a1a0111da61c00e0a7fe3f47ffe2f01bae64"
+          test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
+          test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "c7cdc79b15bd6dcce9629f6ccd09018ef6d5a2ca"
           if test -e site/mobile-continent-detail.js; then exit 1; fi
           grep -F '<script src="./mobile-earth-reference.js?v=0.3.2r4f4"></script>' site/index.html
-          grep -F "const VERSION='0.3.2R4F4-earth-reference-rebuild'" site/mobile-earth-reference.js
+          grep -F "const VERSION='0.3.2R4F4R1-seismic-controller'" site/mobile-seismic.js
+          grep -F "const VERSION='0.3.2R4F4R1-single-earth-thermal'" site/mobile-earth-reference.js
+          if grep -Fq 'lokySeismicGlobe' site/mobile-seismic.js; then echo 'Legacy globe must be deleted'; exit 1; fi
+          if grep -Fq 'function drawGlobe(' site/mobile-seismic.js; then echo 'Legacy draw loop must be deleted'; exit 1; fi
+          grep -F '.loky-seismic-mode .sphere-wrap{display:none!important}' site/mobile-seismic.js
+          grep -F 'const cacheCanvas=document.createElement' site/mobile-earth-reference.js
+          grep -F 'function rebuildStatic(' site/mobile-earth-reference.js
+          grep -F 'const ACTIVE_FPS=24' site/mobile-earth-reference.js
+          grep -F 'const IDLE_FPS=18' site/mobile-earth-reference.js
           grep -F "const NE_COMMIT='ca96624a56bd078437bca8184e78163e5039ad19'" site/mobile-earth-reference.js
-          grep -F 'ne_50m_land.geojson' site/mobile-earth-reference.js
-          grep -F 'ne_110m_admin_0_countries.geojson' site/mobile-earth-reference.js
           grep -F 'const MAX_DOTS=9800' site/mobile-earth-reference.js
-          grep -F '#lokySeismicGlobe{opacity:0!important;pointer-events:auto!important}' site/mobile-earth-reference.js
-          grep -F 'drawQuakes(radius,cx,cy,now)' site/mobile-earth-reference.js
-          grep -F 'drawLocation(radius,cx,cy,now)' site/mobile-earth-reference.js
-          if grep -Eq 'getUserMedia\s*\(|new\s+WebSocket\s*\(|LOKY_PC4_LIVE' site/mobile-earth-reference.js; then exit 1; fi
+          grep -F 'function pickQuake(' site/mobile-earth-reference.js
+          grep -F 'PROFUNDIDAD' site/mobile-seismic.js
+          if grep -R -E -q 'getUserMedia\s*\(|new\s+WebSocket\s*\(|LOKY_PC4_LIVE' site/mobile-seismic.js site/mobile-earth-reference.js; then exit 1; fi
 
       - name: Verify JavaScript syntax
         shell: bash
@@ -104,15 +109,14 @@ jobs:
           grep -F "await ctx.resume()" site/ios-audio-stability.js
           if grep -Fq 'interimInputTranscription' site/live-mobile.js; then exit 1; fi
 
-      - name: Run frozen conversation Sismos and R4F4 tests
+      - name: Run frozen conversation and R4F4R1 tests
         shell: bash
         run: |
           set -euo pipefail
           node .github/tests/ios032r4-pc4-conversation-port.test.cjs
           node .github/tests/ios032r4f2-settings-memory-windows.test.cjs
           node .github/tests/ios032r4f2r1-noise-guard.test.cjs
-          node .github/tests/ios032r4f3-sismos-globe.test.cjs
-          node .github/tests/ios032r4f4-earth-reference.test.cjs
+          node .github/tests/ios032r4f4r1-single-renderer.test.cjs
 
       - name: Verify pinned Natural Earth geometry
         shell: bash
@@ -135,14 +139,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -R -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then
-            echo 'Secret/API key material must never be present in public Mobile files'
-            exit 1
-          fi
-          if grep -R -E -qi 'QWEN|FALLBACK LOCAL|speechSynthesis' site; then
-            echo 'Local robotic voice fallback is forbidden in native Live build'
-            exit 1
-          fi
+          if grep -R -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then echo 'Secret/API key material must never be present in public Mobile files'; exit 1; fi
+          if grep -R -E -qi 'QWEN|FALLBACK LOCAL|speechSynthesis' site; then echo 'Local robotic voice fallback is forbidden in native Live build'; exit 1; fi
 
       - name: Verify secure token backend health
         shell: bash
