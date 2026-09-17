@@ -100,7 +100,7 @@ vm.runInContext(src,context,{filename:'mobile-features.js'});
 
 const api=context.LOKY_PC4_FEATURES;
 assert(api,'feature API missing');
-assert.equal(api.version,'0.3.2R4F1R1-timing-fix');
+assert.equal(api.version,'0.3.2R4F1R2-thinking-input-gate');
 
 assert.equal(api.slots.length,4);
 assert.equal(conversationShell.children.length,4);
@@ -142,8 +142,6 @@ assert(snapshot.some(x=>x.text==='Mi color favorito es azul'));
 assert(snapshot.some(x=>x.text==='Vivo cerca del mar'));
 assert(!snapshot.some(x=>/Abre Google|Qué hora|Continúa|silencio/i.test(x.text)));
 
-// Fresh setup is the only WebSocket frame inspected. Two parses are expected here:
-// the setup frame itself + the small local-memory JSON array. PCM must add zero parses.
 const ws=new FakeWS('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=x');
 const beforeSetupParse=parseCount;
 ws.send(JSON.stringify({setup:{systemInstruction:{parts:[{text:'BASE'}]},sessionResumption:{}}}));
@@ -161,7 +159,6 @@ for(let i=0;i<250;i++){
 assert.equal(parseCount,parseBeforeAudio,'realtime PCM entered feature JSON parse hot path');
 assert.equal(ws.sent.length,251);
 
-// Resumed session: setup itself is parsed, but memory JSON is not loaded/injected again.
 const resumed=new FakeWS(ws.url);
 const beforeResumeParse=parseCount;
 resumed.send(JSON.stringify({setup:{systemInstruction:{parts:[{text:'BASE'}]},sessionResumption:{handle:'resume-123'}}}));
@@ -170,4 +167,4 @@ const resumedSetup=JSON.parse(resumed.sent[0]);
 const resumedText=resumedSetup.setup.systemInstruction.parts.map(x=>x.text||'').join('\n');
 assert.equal(resumedText,'BASE');
 
-console.log('R4F1R1 timing/silence/memory/slots tests PASS');
+console.log('R4F1R2 timing/silence/memory/slots tests PASS');
