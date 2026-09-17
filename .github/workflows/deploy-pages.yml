@@ -39,17 +39,27 @@ jobs:
           cd site
           sha256sum -c ../PROTECTED_0_1_VISUAL_SHA256.txt
 
-      - name: Verify frozen R4 conversation and non-visual runtime are byte-exact
+      - name: Verify frozen R4 conversation and protected runtime are byte-exact
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD:site/live-mobile.js)" = "af201c91e1db634ef62cd6505696a602e293bc83"
           test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "f99882addf9a263ae8c41f12f111b9f03b5ed73d"
           test "$(git rev-parse HEAD:site/ios-audio-stability.js)" = "d8254b160719a647fc07164a96f3955d8b268bfd"
-          test "$(git rev-parse HEAD:site/index.html)" = "9a5163b054bdabbefaa0761eeff58701b5e6d1de"
-          test "$(git rev-parse HEAD:site/mobile.css)" = "65fa7ced0b9dddd331ef07f284936938b807ba0a"
           test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
           test "$(git rev-parse HEAD:site/sw.js)" = "f65be5534df529c8f3e409b6a5e1ca6f29967725"
+
+      - name: Verify R4F1 isolated feature runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/index.html)" = "b88b10867fa418a1ea521235ecc0be9c44f5e99c"
+          test "$(git rev-parse HEAD:site/mobile.css)" = "d416bf9a4d56300d149cf985c361c7bcdd74f5a1"
+          test "$(git rev-parse HEAD:site/mobile-features.js)" = "cb946bdd2a52edcb5886f00d5b33136434d5450a"
+          grep -F '<script src="./mobile-features.js?v=0.3.2r4f1"></script>' site/index.html
+          grep -F "const VERSION='0.3.2R4F1-silence-memory-slots'" site/mobile-features.js
+          grep -F 'body.loky-silenced #lokySphere' site/mobile.css
+          grep -F '.future-op-button' site/mobile.css
 
       - name: Verify JavaScript syntax
         shell: bash
@@ -59,6 +69,7 @@ jobs:
           node --check site/app.js
           node --check site/live-mobile.js
           node --check site/ios-audio-stability.js
+          node --check site/mobile-features.js
           node --check site/sw.js
 
       - name: Verify iOS 0.3.2R4 PC4 conversation port remains frozen
@@ -78,8 +89,19 @@ jobs:
           grep -F "navigator.audioSession.type=type" site/ios-audio-stability.js
           grep -F "await ctx.suspend()" site/ios-audio-stability.js
           grep -F "await ctx.resume()" site/ios-audio-stability.js
-          grep -F 'ios-audio-stability.js?v=0.3.2' site/index.html
           if grep -Fq 'interimInputTranscription' site/live-mobile.js; then exit 1; fi
+
+      - name: Run frozen conversation and R4F1 feature tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/tests/ios032r4-pc4-conversation-port.test.cjs
+          node .github/tests/ios032r4f1-features.test.cjs
+
+      - name: Verify no forbidden fallback or secret material
+        shell: bash
+        run: |
+          set -euo pipefail
           if grep -R -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then
             echo 'Secret/API key material must never be present in public Mobile files'
             exit 1
@@ -88,25 +110,6 @@ jobs:
             echo 'Local robotic voice fallback is forbidden in native Live build'
             exit 1
           fi
-
-      - name: Verify CSS-only clean dock
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -F 'position:absolute;z-index:30;left:0;right:0' site/mobile.css
-          grep -F 'width:62px;height:62px' site/mobile.css
-          grep -F 'animation:dock-idle 2.4s ease-in-out infinite' site/mobile.css
-          grep -F '@keyframes dock-halo-active' site/mobile.css
-          grep -F '.conversation-actions{display:none}' site/mobile.css
-          grep -F '.live-badge{display:none!important}' site/mobile.css
-          grep -F 'clip-path:inset(50%)' site/mobile.css
-          grep -F '.activation-panel{' site/mobile.css
-
-      - name: Run PC4 Attention turn-ownership tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          node .github/tests/ios032r4-pc4-conversation-port.test.cjs
 
       - name: Verify secure token backend health
         shell: bash
