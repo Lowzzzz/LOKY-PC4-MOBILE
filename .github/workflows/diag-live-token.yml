@@ -9,7 +9,7 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe full Gemini Live setup
+      - name: Probe Gemini Live setup variants v9
         shell: bash
         run: |
           set -euo pipefail
