@@ -39,24 +39,46 @@ jobs:
           cd site
           sha256sum -c ../PROTECTED_0_1_VISUAL_SHA256.txt
 
-      - name: Verify iOS 0.2.0 release byte-for-byte
+      - name: Verify JavaScript syntax
         shell: bash
         run: |
           set -euo pipefail
-          cd site
-          sha256sum -c ../RELEASE_SHA256.txt
+          node --check site/sphere-mobile.js
+          node --check site/app.js
+          node --check site/live-mobile.js
+          node --check site/sw.js
 
-      - name: Verify UI shell scope
+      - name: Verify iOS 0.3 native Live scope
         shell: bash
         run: |
           set -euo pipefail
-          grep -F "const BUILD='0.2.0'" site/app.js
-          grep -F "phase:'ui-shell'" site/app.js
-          grep -F '"version": "0.2.0"' site/version.json
-          if grep -E -q 'getUserMedia|new WebSocket|AIza[0-9A-Za-z_-]{20,}' site/app.js site/index.html; then
-            echo 'Unexpected voice/network secret surface in UI shell'
+          grep -F "const BUILD='0.3.0'" site/app.js
+          grep -F "phase:'gemini-live-native'" site/app.js
+          grep -F '"version": "0.3.0"' site/version.json
+          grep -F 'BidiGenerateContentConstrained' site/live-mobile.js
+          grep -F "audio/pcm;rate=16000" site/live-mobile.js
+          grep -F 'createBuffer(1,samples.length,24000)' site/live-mobile.js
+          grep -F 'getUserMedia' site/live-mobile.js
+          grep -F 'START_OF_ACTIVITY_INTERRUPTS' site/live-mobile.js
+          grep -F 'live-mobile.js' site/index.html
+          if grep -R -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then
+            echo 'Secret/API key material must never be present in public Mobile files'
             exit 1
           fi
+          if grep -R -E -qi 'QWEN|FALLBACK LOCAL|speechSynthesis' site; then
+            echo 'Local robotic voice fallback is forbidden in native Live build'
+            exit 1
+          fi
+
+      - name: Verify secure token backend health
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
+          curl -fsS "$URL" -o /tmp/loky-health.json
+          node -e "const x=require('/tmp/loky-health.json'); if(!x.ok||!x.geminiConfigured||x.model!=='models/gemini-3.8-live') process.exit(2);"
+          code=$(curl -sS -o /tmp/loky-denied.json -w '%{http_code}' -X POST -H 'x-loky-device: invalid-device' "$URL")
+          test "$code" = '401'
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
