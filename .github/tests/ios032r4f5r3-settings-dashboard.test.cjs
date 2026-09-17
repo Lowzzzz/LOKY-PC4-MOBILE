@@ -1,0 +1,26 @@
+'use strict';
+const fs=require('fs');
+const assert=require('assert');
+const plus=fs.readFileSync('site/mobile-settings-plus.js','utf8');
+
+assert(plus.includes("const VERSION='0.3.2R4F5R3-settings-dashboard-clean'"));
+assert(plus.includes('loky-settings-dashboard'));
+assert(plus.includes('MODO DE HABLAR'));
+assert(plus.includes('VOZ'));
+assert(plus.includes('PERSONALIDAD'));
+assert(plus.includes('DISPOSITIVOS'));
+assert(plus.includes('ADMINISTRAR DISPOSITIVOS'));
+assert(plus.includes('renderSettingsDashboard'));
+assert(plus.includes('renderDevicesScreen'));
+assert(plus.includes('showQrModal'));
+assert(plus.includes("api('create_invite'"));
+assert(plus.includes("api('list'"));
+assert(plus.includes("api('revoke_device'"));
+assert(plus.includes("api('extend_device'"));
+assert(!plus.includes('function accordion('));
+assert(!plus.includes('loky-accordion-body'));
+assert(!plus.includes('overflow-y:auto!important'));
+assert(!/getUserMedia\s*\(/.test(plus));
+assert(!/new\s+WebSocket\s*\(/.test(plus));
+assert(!/LOKY_PC4_LIVE/.test(plus));
+console.log('R4F5R3 clean Settings dashboard PASS');
