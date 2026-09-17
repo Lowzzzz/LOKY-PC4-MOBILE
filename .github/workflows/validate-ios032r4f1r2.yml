@@ -1,0 +1,68 @@
+name: Validate iOS 0.3.2R4F1R2 Thinking Input Gate
+
+on:
+  push:
+    branches: [candidate/ios-0.3.2R4F1R2-thinking-input-gate]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify only isolated feature runtime changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=5bf8368c603574adbe39afae829f8b8b06bd067f
+          changed="$(git diff --name-only "$BASE"..HEAD | grep -v '^\.github/' || true)"
+          test "$changed" = "site/mobile-features.js"
+
+      - name: Verify frozen R4 and R4F1 presentation are byte-exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/live-mobile.js)" = "af201c91e1db634ef62cd6505696a602e293bc83"
+          test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "f99882addf9a263ae8c41f12f111b9f03b5ed73d"
+          test "$(git rev-parse HEAD:site/ios-audio-stability.js)" = "d8254b160719a647fc07164a96f3955d8b268bfd"
+          test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
+          test "$(git rev-parse HEAD:site/sw.js)" = "f65be5534df529c8f3e409b6a5e1ca6f29967725"
+          test "$(git rev-parse HEAD:site/index.html)" = "b88b10867fa418a1ea521235ecc0be9c44f5e99c"
+          test "$(git rev-parse HEAD:site/mobile.css)" = "d416bf9a4d56300d149cf985c361c7bcdd74f5a1"
+
+      - name: Verify thinking input gate contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check site/mobile-features.js
+          grep -F "const VERSION='0.3.2R4F1R2-thinking-input-gate'" site/mobile-features.js
+          grep -F 'const THINKING_GATE_MAX_MS=6500' site/mobile-features.js
+          grep -F "if(state==='PENSANDO')" site/mobile-features.js
+          grep -F 'setMicEnabled(false)' site/mobile-features.js
+          grep -F 'setMicEnabled(true)' site/mobile-features.js
+          grep -F 'if(silenced)return clearThinkingGate()' site/mobile-features.js
+          if grep -Fq 'getUserMedia(' site/mobile-features.js; then exit 1; fi
+          if grep -Fq 'new WebSocket(' site/mobile-features.js; then exit 1; fi
+
+      - name: Run thinking input gate tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/tests/ios032r4f1r2-thinking-gate.test.cjs
+          node .github/tests/ios032r4f1-features.test.cjs
+          node .github/tests/ios032r4-pc4-conversation-port.test.cjs
+
+      - name: Verify secure Gemini token backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
+          curl -fsS "$URL" -o /tmp/health.json
+          node -e "const x=require('/tmp/health.json'); if(!x.ok||!x.geminiConfigured||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2);"
