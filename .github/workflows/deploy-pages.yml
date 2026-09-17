@@ -39,6 +39,14 @@ jobs:
           cd site
           sha256sum -c ../PROTECTED_0_1_VISUAL_SHA256.txt
 
+      - name: Verify protected 0.3.2 conversation runtime remains byte-exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "f99882addf9a263ae8c41f12f111b9f03b5ed73d"
+          test "$(git rev-parse HEAD:site/live-mobile.js)" = "92bc04140afd03f49306edce7062c041eac6fde6"
+          test "$(git rev-parse HEAD:site/ios-audio-stability.js)" = "d8254b160719a647fc07164a96f3955d8b268bfd"
+
       - name: Verify JavaScript syntax
         shell: bash
         run: |
@@ -49,26 +57,28 @@ jobs:
           node --check site/ios-audio-stability.js
           node --check site/sw.js
 
-      - name: Verify iOS 0.3.2 native Live audio stability
+      - name: Verify iOS 0.3.3 clean dock UI scope
         shell: bash
         run: |
           set -euo pipefail
-          grep -F "const BUILD='0.3.2'" site/app.js
-          grep -F "phase:'gemini-live-native'" site/app.js
-          grep -F '"version": "0.3.2"' site/version.json
-          grep -F 'BidiGenerateContentConstrained' site/live-mobile.js
-          grep -F 'raw instanceof Blob' site/live-mobile.js
-          grep -F 'raw instanceof ArrayBuffer' site/live-mobile.js
-          grep -F "ws.binaryType='arraybuffer'" site/live-mobile.js
-          grep -F 'LIVE_SETUP_TIMEOUT' site/live-mobile.js
-          grep -F "audio/pcm;rate=16000" site/live-mobile.js
-          grep -F 'createBuffer(1,samples.length,24000)' site/live-mobile.js
-          grep -F 'getUserMedia' site/live-mobile.js
-          grep -F 'START_OF_ACTIVITY_INTERRUPTS' site/live-mobile.js
-          grep -F "navigator.audioSession.type=type" site/ios-audio-stability.js
-          grep -F "await ctx.suspend()" site/ios-audio-stability.js
-          grep -F "await ctx.resume()" site/ios-audio-stability.js
+          grep -F "const BUILD='0.3.3'" site/app.js
+          grep -F "phase:'clean-dock-ui'" site/app.js
+          grep -F '"version": "0.3.3"' site/version.json
+          grep -F 'action-dock' site/index.html
+          grep -F 'sismos-action' site/index.html
+          grep -F 'dock-slot-reserved' site/index.html
+          grep -F '@keyframes sismos-halo' site/mobile.css
+          grep -F 'mask:url("data:image/svg+xml' site/mobile.css
+          grep -F 'live-mobile.js?v=0.3.2' site/index.html
           grep -F 'ios-audio-stability.js?v=0.3.2' site/index.html
+          if grep -Fq 'status-sheet' site/index.html; then
+            echo 'Legacy popup status panel must be absent from clean dock UI'
+            exit 1
+          fi
+          if grep -Fq 'conversation-shell' site/index.html; then
+            echo 'Legacy conversation card must be absent from clean dock UI'
+            exit 1
+          fi
           if grep -R -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then
             echo 'Secret/API key material must never be present in public Mobile files'
             exit 1
