@@ -32,12 +32,31 @@ jobs:
           cat deploy/icon180.part00 deploy/icon180.part01 deploy/icon180.part02 | tr -d '\r\n ' | base64 --decode > site/icons/icon-180.png
           cat deploy/icon512.part00 deploy/icon512.part01 deploy/icon512.part02 deploy/icon512.part03 deploy/icon512.part04a deploy/icon512.fix00 deploy/icon512.fix01 deploy/icon512.fix02 deploy/icon512.fix03 | tr -d '\r\n ' | base64 --decode > site/icons/icon-512.png
 
-      - name: Verify OWNER PASS baseline byte-for-byte
+      - name: Verify frozen iOS 0.1 visual core
         shell: bash
         run: |
           set -euo pipefail
           cd site
-          sha256sum -c ../BASELINE_SHA256.txt
+          sha256sum -c ../PROTECTED_0_1_VISUAL_SHA256.txt
+
+      - name: Verify iOS 0.2.0 release byte-for-byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd site
+          sha256sum -c ../RELEASE_SHA256.txt
+
+      - name: Verify UI shell scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F "const BUILD='0.2.0'" site/app.js
+          grep -F "phase:'ui-shell'" site/app.js
+          grep -F '"version": "0.2.0"' site/version.json
+          if grep -E -q 'getUserMedia|new WebSocket|AIza[0-9A-Za-z_-]{20,}' site/app.js site/index.html; then
+            echo 'Unexpected voice/network secret surface in UI shell'
+            exit 1
+          fi
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
