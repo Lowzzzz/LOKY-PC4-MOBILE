@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F5-devices-qr';
+  const VERSION='0.3.2R4F5R3-settings-dashboard-clean';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const DEVICE_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices';
   const QR_LIB='https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js';
@@ -10,60 +10,231 @@
 
   let qrPromise=null;
 
+  function make(tag,className,text){
+    const el=document.createElement(tag);
+    if(className)el.className=className;
+    if(text!=null)el.textContent=text;
+    return el;
+  }
+
   function injectStyles(){
-    if(document.getElementById('lokySettingsPlusStyles'))return;
+    if(document.getElementById('lokySettingsDashboardStyles'))return;
     const style=document.createElement('style');
-    style.id='lokySettingsPlusStyles';
+    style.id='lokySettingsDashboardStyles';
     style.textContent=`
-      .loky-settings-plus{display:grid;gap:12px;padding-bottom:24px}
-      .loky-accordion{border:1px solid rgba(100,198,232,.16);border-radius:20px;background:linear-gradient(180deg,rgba(7,29,42,.88),rgba(3,17,27,.91));overflow:hidden;box-shadow:0 16px 46px rgba(0,0,0,.16)}
-      .loky-accordion-toggle{width:100%;min-height:64px;border:0;background:transparent;color:#d8f5ff;padding:14px 16px;display:grid;grid-template-columns:34px 1fr 26px;align-items:center;gap:10px;text-align:left;pointer-events:auto}
-      .loky-accordion-icon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(107,211,246,.18);background:rgba(14,54,72,.48);color:#9ce9ff;font-size:14px;box-shadow:inset 0 1px rgba(255,255,255,.04)}
-      .loky-accordion-copy{display:grid;gap:3px}.loky-accordion-copy strong{font-size:11px;letter-spacing:.13em}.loky-accordion-copy span{font-size:8px;color:#7195a8;line-height:1.4}
-      .loky-accordion-chevron{font-size:19px;color:#72bfd8;transition:transform .22s ease}.loky-accordion.is-open .loky-accordion-chevron{transform:rotate(90deg)}
-      .loky-accordion-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .24s cubic-bezier(.22,.75,.25,1)}.loky-accordion.is-open .loky-accordion-body{grid-template-rows:1fr}
-      .loky-accordion-inner{min-height:0;overflow:hidden}.loky-accordion-content{padding:0 14px 15px;border-top:1px solid rgba(98,184,214,.09)}
-      .loky-mode-compact{display:grid;gap:7px;padding-top:12px}.loky-mode-compact .loky-mode-option{min-height:58px}
-      .loky-simple-status{margin-top:12px;padding:13px;border:1px solid rgba(100,194,225,.12);border-radius:15px;background:rgba(4,20,30,.56);display:grid;gap:6px}.loky-simple-status strong{font-size:10px;letter-spacing:.1em}.loky-simple-status span{font-size:8px;color:#769cad;line-height:1.5}
-      .loky-device-owner{display:grid;gap:12px;padding-top:12px}.loky-device-toolbar{display:grid;gap:9px}.loky-device-label{height:40px;border-radius:12px;border:1px solid rgba(102,198,230,.16);background:rgba(1,12,19,.62);color:#d9f7ff;padding:0 12px;outline:none;font-size:10px}.loky-device-label:focus{border-color:rgba(105,220,255,.42)}
-      .loky-duration-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.loky-duration-btn{height:36px;border-radius:11px;border:1px solid rgba(100,194,226,.16);background:rgba(8,35,48,.58);color:#7faabe;font-size:8px;font-weight:800;letter-spacing:.06em}.loky-duration-btn.is-selected{border-color:rgba(108,223,255,.58);color:#d3f8ff;background:rgba(16,74,96,.72);box-shadow:0 0 14px rgba(70,198,239,.12)}
-      .loky-create-invite{height:42px;border-radius:13px;border:1px solid rgba(109,221,255,.36);background:linear-gradient(180deg,rgba(25,100,129,.78),rgba(7,47,66,.86));color:#d8f8ff;font-size:9px;font-weight:800;letter-spacing:.1em}
-      .loky-device-message{font-size:8px;line-height:1.5;color:#799eaf;text-align:center;min-height:12px}.loky-device-message.is-error{color:#ff9b91}
-      .loky-qr-card{display:none;padding:14px;border-radius:18px;border:1px solid rgba(110,217,248,.19);background:radial-gradient(circle at 50% 25%,rgba(21,94,122,.22),rgba(2,15,24,.86));justify-items:center;gap:9px}.loky-qr-card.is-visible{display:grid}.loky-qr-box{width:206px;height:206px;background:#fff;border-radius:14px;padding:8px;display:grid;place-items:center;box-shadow:0 0 34px rgba(95,219,255,.15)}.loky-qr-box img,.loky-qr-box canvas{max-width:190px!important;max-height:190px!important}.loky-qr-title{font-size:10px;font-weight:800;letter-spacing:.12em}.loky-qr-meta{font-size:8px;color:#769cad;text-align:center;line-height:1.5}.loky-copy-invite{height:34px;padding:0 14px;border-radius:999px;border:1px solid rgba(105,211,243,.18);background:rgba(8,39,53,.65);color:#a9e7f8;font-size:8px;font-weight:700}
-      .loky-device-list{display:grid;gap:8px}.loky-device-list-title{margin-top:4px;font-size:9px;letter-spacing:.12em;color:#9edbec}.loky-device-row{padding:11px 12px;border:1px solid rgba(93,181,211,.11);border-radius:14px;background:rgba(3,18,27,.52);display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.loky-device-row.is-revoked{opacity:.45}.loky-device-copy{display:grid;gap:3px;min-width:0}.loky-device-copy strong{font-size:9px;color:#d0f2fc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.loky-device-copy span{font-size:7.5px;color:#6f94a6;line-height:1.45}.loky-device-actions{display:flex;gap:5px}.loky-device-action{height:30px;padding:0 9px;border-radius:9px;border:1px solid rgba(99,192,222,.14);background:rgba(8,36,49,.65);color:#9dd9ea;font-size:7px;font-weight:700}.loky-device-action.is-danger{color:#ffafa8;border-color:rgba(255,104,92,.18)}
-      .loky-role-pill{display:inline-flex;width:max-content;padding:4px 8px;border-radius:999px;border:1px solid rgba(97,209,244,.18);background:rgba(10,61,79,.42);color:#9eeaff;font-size:7px;font-weight:800;letter-spacing:.1em}
-      .loky-invite-landing{position:fixed;z-index:1000;inset:0;background:radial-gradient(circle at 50% 30%,rgba(12,62,84,.30),transparent 40%),#020b12;display:grid;place-items:center;padding:24px;color:#dff8ff}.loky-invite-landing-card{width:min(88vw,360px);padding:24px;border:1px solid rgba(100,210,244,.20);border-radius:24px;background:rgba(4,23,34,.94);box-shadow:0 30px 90px rgba(0,0,0,.5);display:grid;justify-items:center;gap:10px;text-align:center}.loky-invite-landing-dot{width:12px;height:12px;border-radius:50%;background:#62dcff;box-shadow:0 0 20px rgba(75,211,255,.72)}.loky-invite-landing strong{font-size:14px;letter-spacing:.14em}.loky-invite-landing span{font-size:9px;color:#799fb0;line-height:1.55}
+      .loky-settings-window .loky-feature-content{
+        overflow:hidden!important;
+        min-height:0!important;
+        padding:12px 14px calc(16px + env(safe-area-inset-bottom,0px))!important;
+      }
+      .loky-settings-dashboard{
+        height:100%;min-height:0;display:grid;grid-template-rows:auto auto auto auto;
+        align-content:start;gap:10px;
+      }
+      .loky-dash-card{
+        border:1px solid rgba(101,197,232,.15);border-radius:18px;
+        background:linear-gradient(180deg,rgba(8,29,42,.88),rgba(4,17,27,.90));
+        box-shadow:0 14px 36px rgba(0,0,0,.18),inset 0 1px 0 rgba(185,235,255,.04);
+        padding:12px 13px;display:grid;gap:9px;min-width:0;
+      }
+      .loky-dash-head{display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:10px}
+      .loky-dash-icon{
+        width:38px;height:38px;border-radius:50%;display:grid;place-items:center;
+        border:1px solid rgba(107,211,246,.20);background:rgba(14,54,72,.52);
+        color:#a9efff;font-size:16px;box-shadow:inset 0 1px rgba(255,255,255,.04)
+      }
+      .loky-dash-copy{display:grid;gap:3px;min-width:0}
+      .loky-dash-copy strong{font-size:11px;letter-spacing:.13em;color:#dcf7ff}
+      .loky-dash-copy span{font-size:8px;color:#7899aa;line-height:1.35}
+      .loky-dash-meta{
+        font-size:7px;letter-spacing:.10em;color:#80b6c9;padding:5px 8px;border-radius:999px;
+        border:1px solid rgba(104,205,240,.14);background:rgba(8,42,57,.58);white-space:nowrap
+      }
+      .loky-mode-chips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+      .loky-mode-chip{
+        height:34px;border-radius:10px;border:1px solid rgba(100,194,226,.14);
+        background:rgba(7,34,47,.60);color:#7faabe;font-size:7.5px;font-weight:800;letter-spacing:.04em
+      }
+      .loky-mode-chip.is-selected{
+        color:#d5f8ff;border-color:rgba(108,223,255,.52);background:rgba(16,74,96,.74);
+        box-shadow:0 0 13px rgba(70,198,239,.10)
+      }
+      .loky-dash-action{cursor:pointer}
+      .loky-dash-action:active{filter:brightness(1.12)}
+      .loky-dash-open{
+        height:34px;border-radius:10px;border:1px solid rgba(107,215,248,.20);
+        background:rgba(9,48,65,.64);color:#b9ecfb;font-size:8px;font-weight:800;letter-spacing:.10em
+      }
+
+      .loky-device-screen{
+        height:100%;min-height:0;display:grid;grid-template-rows:auto auto minmax(0,1fr);
+        gap:10px;
+      }
+      .loky-device-screen-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+      .loky-device-back{
+        height:32px;padding:0 11px;border-radius:999px;border:1px solid rgba(102,203,239,.18);
+        background:rgba(10,40,55,.56);color:#bfefff;font-size:8px;font-weight:800;letter-spacing:.08em
+      }
+      .loky-device-screen-title{font-size:10px;font-weight:800;letter-spacing:.12em;color:#d7f5ff}
+      .loky-role-pill{
+        display:inline-flex;width:max-content;padding:4px 8px;border-radius:999px;
+        border:1px solid rgba(97,209,244,.18);background:rgba(10,61,79,.42);
+        color:#9eeaff;font-size:7px;font-weight:800;letter-spacing:.10em
+      }
+      .loky-device-control{
+        border:1px solid rgba(100,194,225,.13);border-radius:16px;background:rgba(4,20,30,.58);
+        padding:11px;display:grid;gap:8px
+      }
+      .loky-device-owner-copy{display:grid;gap:4px}
+      .loky-device-owner-copy strong{font-size:10px;letter-spacing:.10em}
+      .loky-device-owner-copy span{font-size:8px;color:#769cad;line-height:1.4}
+      .loky-device-label{
+        height:38px;border-radius:11px;border:1px solid rgba(102,198,230,.16);
+        background:rgba(1,12,19,.62);color:#d9f7ff;padding:0 11px;outline:none;font-size:10px
+      }
+      .loky-duration-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+      .loky-duration-btn{
+        height:34px;border-radius:10px;border:1px solid rgba(100,194,226,.16);
+        background:rgba(8,35,48,.58);color:#7faabe;font-size:8px;font-weight:800
+      }
+      .loky-duration-btn.is-selected{
+        border-color:rgba(108,223,255,.58);color:#d3f8ff;background:rgba(16,74,96,.72)
+      }
+      .loky-create-invite{
+        height:38px;border-radius:11px;border:1px solid rgba(109,221,255,.34);
+        background:linear-gradient(180deg,rgba(25,100,129,.78),rgba(7,47,66,.86));
+        color:#d8f8ff;font-size:8.5px;font-weight:800;letter-spacing:.10em
+      }
+      .loky-device-message{font-size:7.5px;color:#799eaf;text-align:center;min-height:11px}
+      .loky-device-message.is-error{color:#ff9b91}
+
+      .loky-device-manage{
+        min-height:0;border:1px solid rgba(100,194,225,.12);border-radius:16px;
+        background:rgba(4,20,30,.48);padding:10px;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:7px
+      }
+      .loky-device-manage-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+      .loky-device-manage-head strong{font-size:9px;letter-spacing:.11em;color:#aee4f3}
+      .loky-device-page-label{font-size:7px;color:#688a9b}
+      .loky-device-list{display:grid;align-content:start;gap:7px;min-height:0}
+      .loky-device-row{
+        padding:9px 10px;border:1px solid rgba(93,181,211,.11);border-radius:12px;
+        background:rgba(3,18,27,.54);display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center
+      }
+      .loky-device-row.is-revoked{opacity:.45}
+      .loky-device-copy{display:grid;gap:3px;min-width:0}
+      .loky-device-copy strong{font-size:8.5px;color:#d0f2fc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .loky-device-copy span{font-size:7px;color:#6f94a6;line-height:1.35}
+      .loky-device-actions{display:flex;gap:4px}
+      .loky-device-action{
+        height:28px;padding:0 8px;border-radius:8px;border:1px solid rgba(99,192,222,.14);
+        background:rgba(8,36,49,.65);color:#9dd9ea;font-size:6.8px;font-weight:700
+      }
+      .loky-device-action.is-danger{color:#ffafa8;border-color:rgba(255,104,92,.18)}
+      .loky-device-pager{display:flex;justify-content:center;align-items:center;gap:8px}
+      .loky-device-page-btn{
+        width:34px;height:28px;border-radius:8px;border:1px solid rgba(99,192,222,.14);
+        background:rgba(8,36,49,.65);color:#a8dceb;font-size:13px
+      }
+      .loky-device-empty{font-size:8px;color:#688a9b;text-align:center;padding:16px 8px}
+
+      .loky-settings-modal{
+        position:absolute;z-index:40;inset:0;background:rgba(1,7,12,.78);
+        backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+        display:grid;place-items:center;padding:18px
+      }
+      .loky-settings-modal-card{
+        width:min(90vw,370px);border:1px solid rgba(105,205,238,.18);border-radius:20px;
+        background:linear-gradient(180deg,rgba(7,31,45,.98),rgba(3,16,25,.99));
+        box-shadow:0 26px 80px rgba(0,0,0,.52);padding:15px;display:grid;gap:11px;justify-items:center
+      }
+      .loky-settings-modal-card strong{font-size:11px;letter-spacing:.12em;color:#dcf8ff}
+      .loky-settings-modal-card span{font-size:8px;color:#7899aa;line-height:1.45;text-align:center}
+      .loky-qr-box{
+        width:206px;height:206px;background:#fff;border-radius:14px;padding:8px;
+        display:grid;place-items:center;box-shadow:0 0 34px rgba(95,219,255,.15)
+      }
+      .loky-qr-box img,.loky-qr-box canvas{max-width:190px!important;max-height:190px!important}
+      .loky-modal-actions{display:flex;gap:7px}
+      .loky-modal-btn{
+        height:34px;padding:0 13px;border-radius:999px;border:1px solid rgba(105,211,243,.18);
+        background:rgba(8,39,53,.65);color:#a9e7f8;font-size:7.5px;font-weight:700
+      }
+
+      .loky-invite-landing{
+        position:fixed;z-index:1000;inset:0;
+        background:radial-gradient(circle at 50% 30%,rgba(12,62,84,.30),transparent 40%),#020b12;
+        display:grid;place-items:center;padding:24px;color:#dff8ff
+      }
+      .loky-invite-landing-card{
+        width:min(88vw,360px);padding:24px;border:1px solid rgba(100,210,244,.20);
+        border-radius:24px;background:rgba(4,23,34,.94);box-shadow:0 30px 90px rgba(0,0,0,.5);
+        display:grid;justify-items:center;gap:10px;text-align:center
+      }
+      .loky-invite-landing-dot{width:12px;height:12px;border-radius:50%;background:#62dcff;box-shadow:0 0 20px rgba(75,211,255,.72)}
+      .loky-invite-landing strong{font-size:14px;letter-spacing:.14em}
+      .loky-invite-landing span{font-size:9px;color:#799fb0;line-height:1.55}
+
+      @media(max-height:720px){
+        .loky-settings-dashboard{gap:7px}
+        .loky-dash-card{padding:9px 11px;gap:7px}
+        .loky-dash-icon{width:34px;height:34px}
+        .loky-dash-head{grid-template-columns:34px 1fr auto}
+        .loky-mode-chip{height:31px}
+      }
     `;
     document.head.appendChild(style);
   }
 
-  function make(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!=null)el.textContent=text;return el;}
   function capability(){return localStorage.getItem(DEVICE_KEY)||'';}
+
   async function api(action,payload={}){
     const headers={'content-type':'application/json'};
-    const cap=capability();if(cap)headers['x-loky-device']=cap;
-    const response=await fetch(DEVICE_ENDPOINT,{method:'POST',headers,cache:'no-store',body:JSON.stringify({action,...payload})});
+    const cap=capability();
+    if(cap)headers['x-loky-device']=cap;
+    const response=await fetch(DEVICE_ENDPOINT,{
+      method:'POST',headers,cache:'no-store',
+      body:JSON.stringify({action,...payload})
+    });
     const data=await response.json().catch(()=>({ok:false,error:`HTTP_${response.status}`}));
-    if(!response.ok||!data?.ok){const error=new Error(data?.error||`HTTP_${response.status}`);error.code=data?.error||'';throw error;}
+    if(!response.ok||!data?.ok){
+      const error=new Error(data?.error||`HTTP_${response.status}`);
+      error.code=data?.error||'';
+      throw error;
+    }
     return data;
   }
+
   function fmtExpiry(value){
-    const ms=Date.parse(value||'');if(!Number.isFinite(ms))return 'SIN FECHA';
-    const diff=ms-Date.now();if(diff<=0)return 'EXPIRADO';
-    const min=Math.ceil(diff/60000);if(min<60)return `${min} MIN`;
-    const hr=Math.ceil(min/60);if(hr<48)return `${hr} H`;
+    const ms=Date.parse(value||'');
+    if(!Number.isFinite(ms))return 'SIN FECHA';
+    const diff=ms-Date.now();
+    if(diff<=0)return 'EXPIRADO';
+    const min=Math.ceil(diff/60000);
+    if(min<60)return `${min} MIN`;
+    const hr=Math.ceil(min/60);
+    if(hr<48)return `${hr} H`;
     return `${Math.ceil(hr/24)} D`;
   }
+
   function fmtWhen(value){
-    const ms=Date.parse(value||'');if(!Number.isFinite(ms))return 'NUNCA';
-    const diff=Math.max(0,Date.now()-ms),min=Math.floor(diff/60000);if(min<1)return 'AHORA';if(min<60)return `HACE ${min} MIN`;const hr=Math.floor(min/60);if(hr<24)return `HACE ${hr} H`;return `HACE ${Math.floor(hr/24)} D`;
+    const ms=Date.parse(value||'');
+    if(!Number.isFinite(ms))return 'NUNCA';
+    const diff=Math.max(0,Date.now()-ms),min=Math.floor(diff/60000);
+    if(min<1)return 'AHORA';
+    if(min<60)return `HACE ${min} MIN`;
+    const hr=Math.floor(min/60);
+    if(hr<24)return `HACE ${hr} H`;
+    return `HACE ${Math.floor(hr/24)} D`;
   }
 
   function loadQrLib(){
     if(window.QRCode)return Promise.resolve(window.QRCode);
     if(qrPromise)return qrPromise;
     qrPromise=new Promise((resolve,reject)=>{
-      const script=document.createElement('script');script.src=QR_LIB;script.async=true;script.crossOrigin='anonymous';
+      const script=document.createElement('script');
+      script.src=QR_LIB;
+      script.async=true;
+      script.crossOrigin='anonymous';
       script.onload=()=>window.QRCode?resolve(window.QRCode):reject(new Error('QR_LIB_UNAVAILABLE'));
       script.onerror=()=>reject(new Error('QR_LIB_LOAD_FAILED'));
       document.head.appendChild(script);
@@ -71,138 +242,393 @@
     return qrPromise;
   }
 
-  function accordion(title,subtitle,icon,open=false){
-    const root=make('section',`loky-accordion${open?' is-open':''}`);
-    const toggle=make('button','loky-accordion-toggle');toggle.type='button';toggle.setAttribute('aria-expanded',String(open));
-    toggle.appendChild(make('span','loky-accordion-icon',icon));
-    const copy=make('span','loky-accordion-copy');copy.appendChild(make('strong','',title));copy.appendChild(make('span','',subtitle));toggle.appendChild(copy);toggle.appendChild(make('span','loky-accordion-chevron','›'));
-    const body=make('div','loky-accordion-body'),inner=make('div','loky-accordion-inner'),content=make('div','loky-accordion-content');inner.appendChild(content);body.appendChild(inner);root.appendChild(toggle);root.appendChild(body);
-    toggle.addEventListener('click',()=>{const next=!root.classList.contains('is-open');root.classList.toggle('is-open',next);toggle.setAttribute('aria-expanded',String(next));if(next)root.dispatchEvent(new CustomEvent('loky:open',{bubbles:false}));});
-    return {root,toggle,content};
+  function clearHost(host){
+    while(host.firstChild)host.removeChild(host.firstChild);
   }
 
-  function renderSpeechModes(host){
-    const list=make('div','loky-mode-list loky-mode-compact');host.appendChild(list);
-    const paint=()=>{const current=features.settings.speechMode;for(const button of list.children||[]){button.classList.toggle('is-selected',button.dataset.mode===current);button.setAttribute('aria-pressed',String(button.dataset.mode===current));}};
+  function showInfoModal(page,title,body){
+    const modal=make('div','loky-settings-modal');
+    const card=make('div','loky-settings-modal-card');
+    card.appendChild(make('strong','',title));
+    card.appendChild(make('span','',body));
+    const close=make('button','loky-modal-btn','CERRAR');
+    close.type='button';
+    close.addEventListener('click',()=>modal.remove());
+    card.appendChild(close);
+    modal.appendChild(card);
+    page.appendChild(modal);
+  }
+
+  function renderSettingsDashboard(page,host){
+    clearHost(host);
+    host.className='loky-feature-content loky-settings-dashboard';
+
+    const speech=make('section','loky-dash-card');
+    const sh=make('div','loky-dash-head');
+    sh.appendChild(make('span','loky-dash-icon','◉'));
+    const sc=make('div','loky-dash-copy');
+    sc.appendChild(make('strong','','MODO DE HABLAR'));
+    sc.appendChild(make('span','','Elige el tono sin abrir otra ventana.'));
+    sh.appendChild(sc);
+    sh.appendChild(make('span','loky-dash-meta','ACTIVO'));
+    speech.appendChild(sh);
+    const chips=make('div','loky-mode-chips');
+    const paint=()=>{
+      const current=features.settings.speechMode;
+      for(const b of chips.children||[])b.classList.toggle('is-selected',b.dataset.mode===current);
+    };
     for(const [mode,meta] of Object.entries(features.speechModes||{})){
-      const button=make('button','loky-mode-option');button.type='button';button.dataset.mode=mode;
-      button.appendChild(make('span','loky-mode-dot'));
-      const copy=make('span','loky-mode-copy');copy.appendChild(make('strong','',meta.label));copy.appendChild(make('small','',meta.description));button.appendChild(copy);
-      button.addEventListener('click',()=>{features.settings.setSpeechMode(mode);paint();});list.appendChild(button);
+      const btn=make('button','loky-mode-chip',meta.label.toUpperCase());
+      btn.type='button';
+      btn.dataset.mode=mode;
+      btn.addEventListener('click',()=>{features.settings.setSpeechMode(mode);paint();});
+      chips.appendChild(btn);
     }
+    speech.appendChild(chips);
+    host.appendChild(speech);
     paint();
+
+    const voice=make('section','loky-dash-card loky-dash-action');
+    const vh=make('div','loky-dash-head');
+    vh.appendChild(make('span','loky-dash-icon','♪'));
+    const vc=make('div','loky-dash-copy');
+    vc.appendChild(make('strong','','VOZ'));
+    vc.appendChild(make('span','','Kore · Gemini Live · voz actual protegida.'));
+    vh.appendChild(vc);
+    vh.appendChild(make('span','loky-dash-meta','KORE'));
+    voice.appendChild(vh);
+    voice.addEventListener('click',()=>showInfoModal(page,'VOZ','La voz actual permanece protegida. En la siguiente fase agregaremos nuevas voces aquí sin tocar Conversation R4.'));
+    host.appendChild(voice);
+
+    const personality=make('section','loky-dash-card loky-dash-action');
+    const ph=make('div','loky-dash-head');
+    ph.appendChild(make('span','loky-dash-icon','✦'));
+    const pc=make('div','loky-dash-copy');
+    pc.appendChild(make('strong','','PERSONALIDAD'));
+    pc.appendChild(make('span','','Perfil natural actual · próximos perfiles aquí.'));
+    ph.appendChild(pc);
+    ph.appendChild(make('span','loky-dash-meta','NATURAL'));
+    personality.appendChild(ph);
+    personality.addEventListener('click',()=>showInfoModal(page,'PERSONALIDAD','Sección preparada para perfiles de comportamiento y expresión. No modifica el Conversation Core.'));
+    host.appendChild(personality);
+
+    const devices=make('section','loky-dash-card');
+    const dh=make('div','loky-dash-head');
+    dh.appendChild(make('span','loky-dash-icon','▣'));
+    const dc=make('div','loky-dash-copy');
+    dc.appendChild(make('strong','','DISPOSITIVOS'));
+    dc.appendChild(make('span','','QR, tiempo de acceso y control de invitados.'));
+    dh.appendChild(dc);
+    dh.appendChild(make('span','loky-dash-meta','OWNER'));
+    devices.appendChild(dh);
+    const open=make('button','loky-dash-open','ADMINISTRAR DISPOSITIVOS');
+    open.type='button';
+    open.addEventListener('click',()=>renderDevicesScreen(page,host));
+    devices.appendChild(open);
+    host.appendChild(devices);
   }
 
-  function renderVoice(host){
-    const box=make('div','loky-simple-status');box.appendChild(make('span','loky-role-pill','ACTUAL'));box.appendChild(make('strong','','KORE · GEMINI LIVE'));box.appendChild(make('span','','La voz conversacional actual queda protegida. Aquí agregaremos nuevas voces sin alterar la conversación aprobada.'));host.appendChild(box);
-  }
-  function renderPersonality(host){
-    const box=make('div','loky-simple-status');box.appendChild(make('span','loky-role-pill','BASE'));box.appendChild(make('strong','','PERSONALIDAD NATURAL'));box.appendChild(make('span','','Sección preparada para perfiles de personalidad. La prioridad actual es Dispositivos; no se modifica el Conversation Core.'));host.appendChild(box);
-  }
+  async function renderDevicesScreen(page,host){
+    clearHost(host);
+    host.className='loky-feature-content';
+    const screen=make('div','loky-device-screen');
+    host.appendChild(screen);
 
-  async function renderDevices(host){
-    host.textContent='';
-    const loading=make('div','loky-simple-status');loading.appendChild(make('strong','','COMPROBANDO DISPOSITIVO…'));loading.appendChild(make('span','','Validando acceso de forma segura.'));host.appendChild(loading);
+    const top=make('div','loky-device-screen-top');
+    const back=make('button','loky-device-back','‹ CONFIGURACIÓN');
+    back.type='button';
+    back.addEventListener('click',()=>renderSettingsDashboard(page,host));
+    top.appendChild(back);
+    top.appendChild(make('span','loky-device-screen-title','DISPOSITIVOS'));
+    top.appendChild(make('span','loky-role-pill','LOKY MOBILE'));
+    screen.appendChild(top);
+
+    const control=make('section','loky-device-control');
+    control.appendChild(make('span','loky-role-pill','VERIFICANDO'));
+    const statusCopy=make('div','loky-device-owner-copy');
+    statusCopy.appendChild(make('strong','','COMPROBANDO ACCESO…'));
+    statusCopy.appendChild(make('span','','Validando este dispositivo.'));
+    control.appendChild(statusCopy);
+    screen.appendChild(control);
+
+    const manage=make('section','loky-device-manage');
+    manage.appendChild(make('div','loky-device-empty','Cargando dispositivos…'));
+    screen.appendChild(manage);
+
     let status;
-    try{status=await api('status');}catch(error){host.textContent='';const box=make('div','loky-simple-status');box.appendChild(make('strong','','DISPOSITIVO NO AUTORIZADO'));box.appendChild(make('span','','Este dispositivo no tiene acceso activo a LOKY.'));host.appendChild(box);return;}
-    host.textContent='';
-    if(status.role!=='owner'){
-      const box=make('div','loky-simple-status');box.appendChild(make('span','loky-role-pill','INVITADO'));box.appendChild(make('strong','',status.displayName||'Dispositivo invitado'));box.appendChild(make('span','',`Acceso restante: ${fmtExpiry(status.expiresAt)}. Este dispositivo recibe la misma app y actualizaciones publicadas por el Owner.`));host.appendChild(box);return;
+    try{
+      status=await api('status');
+    }catch{
+      clearHost(control);
+      control.appendChild(make('span','loky-role-pill','SIN ACCESO'));
+      const c=make('div','loky-device-owner-copy');
+      c.appendChild(make('strong','','DISPOSITIVO NO AUTORIZADO'));
+      c.appendChild(make('span','','Este dispositivo no tiene acceso activo a LOKY.'));
+      control.appendChild(c);
+      manage.style.display='none';
+      return;
     }
 
-    const wrap=make('div','loky-device-owner');
-    const owner=make('div','loky-simple-status');owner.appendChild(make('span','loky-role-pill','OWNER'));owner.appendChild(make('strong','','CONTROL DE DISPOSITIVOS'));owner.appendChild(make('span','','Genera un QR temporal. El QR nunca contiene tu código Owner; crea una credencial independiente que puedes revocar o dejar expirar.'));wrap.appendChild(owner);
+    clearHost(control);
 
-    const toolbar=make('div','loky-device-toolbar');
-    const label=make('input','loky-device-label');label.type='text';label.maxLength=64;label.placeholder='Nombre del acceso (ej. iPad Air 5 prueba)';label.value='iPad Air 5 prueba';
-    toolbar.appendChild(label);
-    const durations=make('div','loky-duration-grid');let accessMinutes=1440;
-    const durationOptions=[[60,'1 H'],[1440,'24 H'],[10080,'7 D'],[43200,'30 D']];
-    for(const [minutes,text] of durationOptions){const btn=make('button','loky-duration-btn',text);btn.type='button';if(minutes===accessMinutes)btn.classList.add('is-selected');btn.addEventListener('click',()=>{accessMinutes=minutes;for(const b of durations.children)b.classList.toggle('is-selected',b===btn);});durations.appendChild(btn);}toolbar.appendChild(durations);
-    const create=make('button','loky-create-invite','CREAR QR DE ACCESO');create.type='button';toolbar.appendChild(create);
-    const message=make('div','loky-device-message');toolbar.appendChild(message);wrap.appendChild(toolbar);
+    if(status.role!=='owner'){
+      control.appendChild(make('span','loky-role-pill','INVITADO'));
+      const c=make('div','loky-device-owner-copy');
+      c.appendChild(make('strong','',status.displayName||'Dispositivo invitado'));
+      c.appendChild(make('span','',`Acceso restante: ${fmtExpiry(status.expiresAt)}. Recibe la misma app y actualizaciones del Owner.`));
+      control.appendChild(c);
+      manage.style.display='none';
+      return;
+    }
 
-    const qrCard=make('div','loky-qr-card');const qrTitle=make('div','loky-qr-title','ESCANEA CON EL IPAD');const qrBox=make('div','loky-qr-box');const qrMeta=make('div','loky-qr-meta');const copy=make('button','loky-copy-invite','COPIAR ENLACE');copy.type='button';qrCard.append(qrTitle,qrBox,qrMeta,copy);wrap.appendChild(qrCard);
-    let lastInviteUrl='';
-    copy.addEventListener('click',async()=>{if(!lastInviteUrl)return;try{await navigator.clipboard.writeText(lastInviteUrl);copy.textContent='COPIADO';setTimeout(()=>copy.textContent='COPIAR ENLACE',1200);}catch{}});
+    control.appendChild(make('span','loky-role-pill','OWNER'));
+    const ownerCopy=make('div','loky-device-owner-copy');
+    ownerCopy.appendChild(make('strong','','CREAR ACCESO TEMPORAL'));
+    ownerCopy.appendChild(make('span','','El QR nunca contiene tu código Owner. Cada invitado recibe una credencial independiente.'));
+    control.appendChild(ownerCopy);
 
-    const listTitle=make('div','loky-device-list-title','DISPOSITIVOS AUTORIZADOS');const list=make('div','loky-device-list');wrap.append(listTitle,list);host.appendChild(wrap);
+    const label=make('input','loky-device-label');
+    label.type='text';
+    label.maxLength=64;
+    label.placeholder='Nombre del acceso';
+    label.value='iPad Air 5 prueba';
+    control.appendChild(label);
 
-    async function refreshList(){
-      list.textContent='';
-      try{
-        const data=await api('list');const devices=Array.isArray(data.devices)?data.devices:[];
-        if(!devices.length){const empty=make('div','loky-simple-status');empty.appendChild(make('span','','Aún no hay dispositivos invitados.'));list.appendChild(empty);return;}
-        for(const item of devices){
+    const durations=make('div','loky-duration-grid');
+    let accessMinutes=1440;
+    for(const [minutes,text] of [[60,'1 H'],[1440,'24 H'],[10080,'7 D'],[43200,'30 D']]){
+      const btn=make('button','loky-duration-btn',text);
+      btn.type='button';
+      if(minutes===accessMinutes)btn.classList.add('is-selected');
+      btn.addEventListener('click',()=>{
+        accessMinutes=minutes;
+        for(const b of durations.children)b.classList.toggle('is-selected',b===btn);
+      });
+      durations.appendChild(btn);
+    }
+    control.appendChild(durations);
+
+    const create=make('button','loky-create-invite','CREAR QR DE ACCESO');
+    create.type='button';
+    control.appendChild(create);
+    const message=make('div','loky-device-message');
+    control.appendChild(message);
+
+    let devices=[];
+    let pageIndex=0;
+    const PAGE_SIZE=2;
+
+    function paintDeviceList(){
+      clearHost(manage);
+      const head=make('div','loky-device-manage-head');
+      head.appendChild(make('strong','','DISPOSITIVOS AUTORIZADOS'));
+      const pages=Math.max(1,Math.ceil(devices.length/PAGE_SIZE));
+      if(pageIndex>=pages)pageIndex=pages-1;
+      head.appendChild(make('span','loky-device-page-label',devices.length?`${pageIndex+1}/${pages}`:'0 DISPOSITIVOS'));
+      manage.appendChild(head);
+
+      const list=make('div','loky-device-list');
+      const slice=devices.slice(pageIndex*PAGE_SIZE,pageIndex*PAGE_SIZE+PAGE_SIZE);
+      if(!slice.length){
+        list.appendChild(make('div','loky-device-empty','Aún no hay dispositivos invitados.'));
+      }else{
+        for(const item of slice){
           const revoked=Boolean(item.revoked_at)||Date.parse(item.expires_at||'')<=Date.now();
-          const row=make('div',`loky-device-row${revoked?' is-revoked':''}`);const dc=make('div','loky-device-copy');dc.appendChild(make('strong','',item.display_name||'Dispositivo invitado'));
-          dc.appendChild(make('span','',revoked?'ACCESO FINALIZADO':`EXPIRA EN ${fmtExpiry(item.expires_at)} · ÚLTIMO USO ${fmtWhen(item.last_seen_at)}`));row.appendChild(dc);
+          const row=make('div',`loky-device-row${revoked?' is-revoked':''}`);
+          const copy=make('div','loky-device-copy');
+          copy.appendChild(make('strong','',item.display_name||'Dispositivo invitado'));
+          copy.appendChild(make('span','',revoked?'ACCESO FINALIZADO':`EXPIRA EN ${fmtExpiry(item.expires_at)} · ÚLTIMO USO ${fmtWhen(item.last_seen_at)}`));
+          row.appendChild(copy);
           const actions=make('div','loky-device-actions');
-          if(!revoked){const plus=make('button','loky-device-action','+24H');plus.type='button';plus.addEventListener('click',async()=>{plus.disabled=true;try{await api('extend_device',{deviceId:item.id,addMinutes:1440});await refreshList();}finally{plus.disabled=false;}});const revoke=make('button','loky-device-action is-danger','REVOCAR');revoke.type='button';revoke.addEventListener('click',async()=>{revoke.disabled=true;try{await api('revoke_device',{deviceId:item.id});await refreshList();}finally{revoke.disabled=false;}});actions.append(plus,revoke);}row.appendChild(actions);list.appendChild(row);
+          if(!revoked){
+            const plus=make('button','loky-device-action','+24H');
+            plus.type='button';
+            plus.addEventListener('click',async()=>{
+              plus.disabled=true;
+              try{await api('extend_device',{deviceId:item.id,addMinutes:1440});await refreshDevices();}
+              finally{plus.disabled=false;}
+            });
+            const revoke=make('button','loky-device-action is-danger','REVOCAR');
+            revoke.type='button';
+            revoke.addEventListener('click',async()=>{
+              revoke.disabled=true;
+              try{await api('revoke_device',{deviceId:item.id});await refreshDevices();}
+              finally{revoke.disabled=false;}
+            });
+            actions.append(plus,revoke);
+          }
+          row.appendChild(actions);
+          list.appendChild(row);
         }
-      }catch(error){const err=make('div','loky-simple-status');err.appendChild(make('span','','No se pudo actualizar la lista de dispositivos.'));list.appendChild(err);}
+      }
+      manage.appendChild(list);
+
+      const pager=make('div','loky-device-pager');
+      const prev=make('button','loky-device-page-btn','‹');
+      const next=make('button','loky-device-page-btn','›');
+      prev.type=next.type='button';
+      prev.disabled=pageIndex<=0;
+      next.disabled=pageIndex>=Math.ceil(devices.length/PAGE_SIZE)-1;
+      prev.addEventListener('click',()=>{if(pageIndex>0){pageIndex--;paintDeviceList();}});
+      next.addEventListener('click',()=>{if(pageIndex<Math.ceil(devices.length/PAGE_SIZE)-1){pageIndex++;paintDeviceList();}});
+      pager.append(prev,next);
+      manage.appendChild(pager);
+    }
+
+    async function refreshDevices(){
+      try{
+        const data=await api('list');
+        devices=Array.isArray(data.devices)?data.devices:[];
+      }catch{
+        devices=[];
+      }
+      paintDeviceList();
+    }
+
+    function showQrModal(inviteUrl,title,meta){
+      const modal=make('div','loky-settings-modal');
+      const card=make('div','loky-settings-modal-card');
+      card.appendChild(make('strong','',title));
+      const qrBox=make('div','loky-qr-box');
+      card.appendChild(qrBox);
+      card.appendChild(make('span','',meta));
+      const actions=make('div','loky-modal-actions');
+      const copy=make('button','loky-modal-btn','COPIAR ENLACE');
+      const close=make('button','loky-modal-btn','CERRAR');
+      copy.type=close.type='button';
+      copy.addEventListener('click',async()=>{
+        try{
+          await navigator.clipboard.writeText(inviteUrl);
+          copy.textContent='COPIADO';
+          setTimeout(()=>copy.textContent='COPIAR ENLACE',1000);
+        }catch{}
+      });
+      close.addEventListener('click',()=>modal.remove());
+      actions.append(copy,close);
+      card.appendChild(actions);
+      modal.appendChild(card);
+      page.appendChild(modal);
+      return qrBox;
     }
 
     create.addEventListener('click',async()=>{
-      create.disabled=true;message.classList.remove('is-error');message.textContent='CREANDO ACCESO…';qrCard.classList.remove('is-visible');qrBox.textContent='';
+      create.disabled=true;
+      message.classList.remove('is-error');
+      message.textContent='CREANDO ACCESO…';
       try{
-        const data=await api('create_invite',{label:label.value||'Invitado',accessMinutes,inviteValidMinutes:15,maxRedemptions:1});
-        lastInviteUrl=data.inviteUrl;
+        const data=await api('create_invite',{
+          label:label.value||'Invitado',
+          accessMinutes,
+          inviteValidMinutes:15,
+          maxRedemptions:1
+        });
         await loadQrLib();
-        qrBox.textContent='';
-        new window.QRCode(qrBox,{text:lastInviteUrl,width:190,height:190,colorDark:'#06121a',colorLight:'#ffffff',correctLevel:window.QRCode.CorrectLevel.M});
-        qrTitle.textContent=(label.value||'ESCANEA CON EL IPAD').toUpperCase();
-        qrMeta.textContent=`QR válido 15 min · acceso ${accessMinutes===60?'1 hora':accessMinutes===1440?'24 horas':accessMinutes===10080?'7 días':'30 días'} · un solo dispositivo`;
-        qrCard.classList.add('is-visible');message.textContent='LISTO PARA ESCANEAR';
-        await refreshList();
-      }catch(error){message.classList.add('is-error');message.textContent=`NO SE PUDO CREAR EL QR · ${String(error?.code||error?.message||'ERROR')}`;}
-      finally{create.disabled=false;}
+        const title=(label.value||'ESCANEA CON EL IPAD').toUpperCase();
+        const meta=`QR válido 15 min · acceso ${accessMinutes===60?'1 hora':accessMinutes===1440?'24 horas':accessMinutes===10080?'7 días':'30 días'} · un solo dispositivo`;
+        const qrBox=showQrModal(data.inviteUrl,title,meta);
+        new window.QRCode(qrBox,{
+          text:data.inviteUrl,width:190,height:190,
+          colorDark:'#06121a',colorLight:'#ffffff',
+          correctLevel:window.QRCode.CorrectLevel.M
+        });
+        message.textContent='QR LISTO';
+        await refreshDevices();
+      }catch(error){
+        message.classList.add('is-error');
+        message.textContent=`NO SE PUDO CREAR EL QR · ${String(error?.code||error?.message||'ERROR')}`;
+      }finally{
+        create.disabled=false;
+      }
     });
-    await refreshList();
+
+    await refreshDevices();
   }
 
   function enhanceSettingsWindow(){
-    const page=features.windows.active;if(!page||!page.classList.contains('loky-settings-window'))return page;
-    const host=page.querySelector('.loky-feature-content');if(!host)return page;
-    host.textContent='';host.classList.add('loky-settings-plus');
-    const talk=accordion('MODO DE HABLAR','Natural, normal, directo o vulgar.','◉',true);renderSpeechModes(talk.content);host.appendChild(talk.root);
-    const voice=accordion('VOZ','Voz actual y futuras voces de LOKY.','♪',false);renderVoice(voice.content);host.appendChild(voice.root);
-    const personality=accordion('PERSONALIDAD','Perfiles de comportamiento y expresión.','✦',false);renderPersonality(personality.content);host.appendChild(personality.root);
-    const devices=accordion('DISPOSITIVOS','Comparte LOKY por QR y controla tiempo/acceso.','▣',true);host.appendChild(devices.root);
-    let rendered=false;const ensure=()=>{if(rendered)return;rendered=true;renderDevices(devices.content);};devices.root.addEventListener('loky:open',ensure);ensure();
+    const page=features.windows.active;
+    if(!page||!page.classList.contains('loky-settings-window'))return page;
+    const host=page.querySelector('.loky-feature-content');
+    if(!host)return page;
+    renderSettingsDashboard(page,host);
     return page;
   }
 
   const nativeOpenSettings=features.windows.openSettings;
-  features.windows.openSettings=function(){const page=nativeOpenSettings();queueMicrotask(enhanceSettingsWindow);return page;};
+  features.windows.openSettings=function(){
+    const page=nativeOpenSettings();
+    queueMicrotask(enhanceSettingsWindow);
+    return page;
+  };
+
   document.addEventListener('click',event=>{
-    const button=event.target?.closest?.('.feature-settings');if(!button)return;
-    event.preventDefault();event.stopImmediatePropagation();
+    const button=event.target?.closest?.('.feature-settings');
+    if(!button)return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
     features.windows.openSettings();
   },true);
 
   async function processInviteFromUrl(){
-    let url;try{url=new URL(location.href);}catch{return;}
-    const invite=String(url.searchParams.get('invite')||'').trim();if(invite.length<20)return;
+    let url;
+    try{url=new URL(location.href);}catch{return;}
+    const invite=String(url.searchParams.get('invite')||'').trim();
+    if(invite.length<20)return;
+
     injectStyles();
-    const landing=make('div','loky-invite-landing');const card=make('div','loky-invite-landing-card');card.appendChild(make('span','loky-invite-landing-dot'));card.appendChild(make('strong','','VINCULANDO LOKY'));const text=make('span','','Validando invitación segura…');card.appendChild(text);landing.appendChild(card);document.body.appendChild(landing);
+    const landing=make('div','loky-invite-landing');
+    const card=make('div','loky-invite-landing-card');
+    card.appendChild(make('span','loky-invite-landing-dot'));
+    card.appendChild(make('strong','','VINCULANDO LOKY'));
+    const text=make('span','','Validando invitación segura…');
+    card.appendChild(text);
+    landing.appendChild(card);
+    document.body.appendChild(landing);
+
     const existing=capability();
     if(existing){
       text.textContent='Este dispositivo ya está vinculado. No se reemplazó su acceso.';
-      url.searchParams.delete('invite');history.replaceState({},'',url.pathname+(url.search||'')+url.hash);setTimeout(()=>landing.remove(),1800);return;
+      url.searchParams.delete('invite');
+      history.replaceState({},'',url.pathname+(url.search||'')+url.hash);
+      setTimeout(()=>landing.remove(),1800);
+      return;
     }
+
     try{
-      const response=await fetch(DEVICE_ENDPOINT,{method:'POST',headers:{'content-type':'application/json'},cache:'no-store',body:JSON.stringify({action:'redeem_invite',inviteToken:invite,deviceName:'LOKY invitado',platform:/iPad/i.test(navigator.userAgent)?'iPadOS':'iOS'})});
+      const response=await fetch(DEVICE_ENDPOINT,{
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        cache:'no-store',
+        body:JSON.stringify({
+          action:'redeem_invite',
+          inviteToken:invite,
+          deviceName:'LOKY invitado',
+          platform:/iPad/i.test(navigator.userAgent)?'iPadOS':'iOS'
+        })
+      });
       const data=await response.json().catch(()=>({}));
-      if(!response.ok||!data?.ok||String(data.capability||'').length<16)throw new Error(data?.error||'INVITE_FAILED');
+      if(!response.ok||!data?.ok||String(data.capability||'').length<16){
+        throw new Error(data?.error||'INVITE_FAILED');
+      }
       localStorage.setItem(DEVICE_KEY,String(data.capability));
       text.textContent='Dispositivo autorizado. Abriendo LOKY…';
       url.searchParams.delete('invite');
       setTimeout(()=>location.replace(url.pathname+(url.search||'')+url.hash),550);
-    }catch(error){text.textContent=String(error?.message||error)==='INVITE_EXPIRED_OR_USED'?'Este QR ya fue usado o expiró.':'No se pudo activar esta invitación.';url.searchParams.delete('invite');history.replaceState({},'',url.pathname+(url.search||'')+url.hash);}
+    }catch(error){
+      text.textContent=String(error?.message||error)==='INVITE_EXPIRED_OR_USED'
+        ?'Este QR ya fue usado o expiró.'
+        :'No se pudo activar esta invitación.';
+      url.searchParams.delete('invite');
+      history.replaceState({},'',url.pathname+(url.search||'')+url.hash);
+    }
   }
 
   injectStyles();
   processInviteFromUrl();
-  window.LOKY_PC4_SETTINGS_PLUS={version:VERSION,deviceEndpoint:DEVICE_ENDPOINT,enhanceSettingsWindow,processInviteFromUrl};
+
+  window.LOKY_PC4_SETTINGS_PLUS={
+    version:VERSION,
+    deviceEndpoint:DEVICE_ENDPOINT,
+    enhanceSettingsWindow,
+    processInviteFromUrl
+  };
 })();
