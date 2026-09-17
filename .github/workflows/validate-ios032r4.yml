@@ -1,0 +1,72 @@
+name: Validate iOS 0.3.2R4 PC4 Conversation Port
+
+on:
+  push:
+    branches: [candidate/ios-0.3.2R4-pc4-conversation-port]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify only Mobile conversation runtime changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=afbe15d99518949c4f6b3e5f251da37ec08b675f
+          changed="$(git diff --name-only "$BASE"..HEAD | grep -v '^\.github/' || true)"
+          test "$changed" = "site/live-mobile.js"
+
+      - name: Verify protected non-conversation Mobile runtime is byte-exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "f99882addf9a263ae8c41f12f111b9f03b5ed73d"
+          test "$(git rev-parse HEAD:site/ios-audio-stability.js)" = "d8254b160719a647fc07164a96f3955d8b268bfd"
+          test "$(git rev-parse HEAD:site/index.html)" = "9a5163b054bdabbefaa0761eeff58701b5e6d1de"
+          test "$(git rev-parse HEAD:site/mobile.css)" = "a815f2314ac5a749435a73e41b3880922a0ca1d8"
+          test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
+          test "$(git rev-parse HEAD:site/sw.js)" = "f65be5534df529c8f3e409b6a5e1ca6f29967725"
+
+      - name: Verify PC4-port conversation syntax and protocol
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check site/live-mobile.js
+          grep -F "const VERSION='0.3.2R4-pc4-conversation-port'" site/live-mobile.js
+          grep -F 'const MIC_BUFFER_SIZE=2048' site/live-mobile.js
+          grep -F 'const END_SILENCE_MS=420' site/live-mobile.js
+          grep -F 'const START_FRAMES_IDLE=3' site/live-mobile.js
+          grep -F 'const START_FRAMES_BARGE=2' site/live-mobile.js
+          grep -F 'automaticActivityDetection:{disabled:true}' site/live-mobile.js
+          grep -F "sendRealtime(ws,{activityStart:{}})" site/live-mobile.js
+          grep -F "sendRealtime(ws,{activityEnd:{}})" site/live-mobile.js
+          grep -F "START_OF_ACTIVITY_INTERRUPTS" site/live-mobile.js
+          grep -F "prebuiltVoiceConfig:{voiceName:'Kore'}" site/live-mobile.js
+          grep -F 'contextWindowCompression:{slidingWindow:{}}' site/live-mobile.js
+          grep -F 'replaySpeakingHandover(ws)' site/live-mobile.js
+          grep -F 'state.playbackLeakFloor*1.75' site/live-mobile.js
+          if grep -Fq 'interimInputTranscription' site/live-mobile.js; then exit 1; fi
+          if grep -R -E -qi 'QWEN|FALLBACK LOCAL|speechSynthesis' site/live-mobile.js; then exit 1; fi
+
+      - name: Run PC4 Attention turn-ownership tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/tests/ios032r4-pc4-conversation-port.test.cjs
+
+      - name: Verify secure Gemini token backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
+          curl -fsS "$URL" -o /tmp/health.json
+          node -e "const x=require('/tmp/health.json'); if(!x.ok||!x.geminiConfigured||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2);"
