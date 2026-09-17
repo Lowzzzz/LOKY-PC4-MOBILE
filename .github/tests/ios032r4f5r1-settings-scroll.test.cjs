@@ -1,0 +1,14 @@
+'use strict';
+const fs=require('fs');
+const assert=require('assert');
+const plus=fs.readFileSync('site/mobile-settings-plus.js','utf8');
+assert(plus.includes("const VERSION='0.3.2R4F5R1-settings-scroll'"));
+assert(plus.includes('min-height:0;overflow-y:auto!important'));
+assert(plus.includes('touch-action:pan-y'));
+assert(plus.includes('overscroll-behavior-y:contain'));
+assert(plus.includes('padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))'));
+assert(plus.includes("host.textContent='';host.classList.add('loky-settings-plus');host.scrollTop=0;"));
+assert(!/getUserMedia\s*\(/.test(plus));
+assert(!/new\s+WebSocket\s*\(/.test(plus));
+assert(!/LOKY_PC4_LIVE/.test(plus));
+console.log('R4F5R1 settings vertical scroll isolation PASS');
