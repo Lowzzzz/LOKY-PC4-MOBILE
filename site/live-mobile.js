@@ -14,6 +14,7 @@
     model:DEFAULT_MODEL,
     resumeHandle:'',
     reconnectTimer:0,
+    setupTimer:0,
     mediaStream:null,
     audioContext:null,
     micSource:null,
@@ -229,10 +230,18 @@
     },900);
   }
 
-  function parseServer(raw){
+  async function normalizeWsData(raw){
+    if(raw instanceof Blob)return await raw.text();
+    if(raw instanceof ArrayBuffer)return new TextDecoder().decode(raw);
+    if(ArrayBuffer.isView(raw))return new TextDecoder().decode(raw.buffer);
+    return String(raw??'');
+  }
+
+  async function parseServer(raw){
     let msg;
-    try{msg=JSON.parse(raw)}catch{return}
+    try{msg=JSON.parse(await normalizeWsData(raw))}catch{return}
     if(msg.setupComplete){
+      clearTimeout(state.setupTimer);state.setupTimer=0;
       state.setupReady=true;
       setState('ESCUCHANDO','Habla normalmente. Puedes interrumpir a LOKY.');
       setBadge('GEMINI LIVE · NATIVO',true);
@@ -274,23 +283,30 @@
     if(state.connecting)return;
     state.connecting=true;
     state.setupReady=false;
+    clearTimeout(state.setupTimer);state.setupTimer=0;
     try{
       setState(resume?'RECONECTANDO':'CONECTANDO','Preparando conversación nativa…');
       const auth=await requestToken(resume&&!!state.resumeHandle?false:true);
       const ws=new WebSocket(`${WS_BASE}?access_token=${encodeURIComponent(auth.token)}`);
+      ws.binaryType='arraybuffer';
       state.ws=ws;
       await new Promise((resolve,reject)=>{
         const timer=setTimeout(()=>reject(new Error('LIVE_CONNECT_TIMEOUT')),12000);
         ws.onopen=()=>{clearTimeout(timer);resolve()};
         ws.onerror=()=>{clearTimeout(timer);reject(new Error('LIVE_WEBSOCKET_ERROR'))};
       });
-      ws.onmessage=e=>parseServer(e.data);
+      ws.onmessage=e=>{parseServer(e.data).catch(failLive)};
       ws.onerror=()=>{};
       ws.onclose=()=>{
+        clearTimeout(state.setupTimer);state.setupTimer=0;
         state.setupReady=false;
         if(state.desired){setBadge('RECONECTANDO',false);scheduleReconnect()}
       };
       ws.send(JSON.stringify(setupPayload(auth.model)));
+      state.setupTimer=setTimeout(()=>{
+        state.setupTimer=0;
+        if(state.desired&&!state.setupReady)failLive(new Error('LIVE_SETUP_TIMEOUT'));
+      },8000);
     }finally{state.connecting=false}
   }
 
@@ -308,6 +324,7 @@
     state.desired=false;
     state.setupReady=false;
     clearTimeout(state.reconnectTimer);state.reconnectTimer=0;
+    clearTimeout(state.setupTimer);state.setupTimer=0;
     try{state.ws?.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}))}catch{}
     try{state.ws?.close(1000,'owner-stop')}catch{}
     state.ws=null;
@@ -323,6 +340,7 @@
     console.error('LOKY Live',error);
     state.desired=false;
     state.setupReady=false;
+    clearTimeout(state.setupTimer);state.setupTimer=0;
     stopCapture();
     clearPlayback();
     try{state.ws?.close()}catch{}
