@@ -1,4 +1,4 @@
-const VERSION='loky-pc4-mobile-ios-0.3.0';
+const VERSION='loky-pc4-mobile-ios-0.3.1';
 const CACHE=`${VERSION}-shell`;
 const SHELL=['./','./index.html','./mobile.css','./sphere-mobile.js','./app.js','./live-mobile.js','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-512.png'];
 
