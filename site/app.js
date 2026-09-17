@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const BUILD='0.3.0';
+  const BUILD='0.3.1';
   const status=document.getElementById('status');
   const fallback=document.getElementById('fallback');
   const updateButton=document.getElementById('updateButton');
