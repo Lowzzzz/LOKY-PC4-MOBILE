@@ -102,6 +102,43 @@ button,input{font:inherit}
 .status-sheet{position:absolute;z-index:50;left:14px;right:14px;bottom:calc(16px + var(--safe-bottom));padding:18px;border:1px solid rgba(103,197,232,.19);border-radius:22px;background:rgba(4,16,25,.96);box-shadow:0 24px 80px rgba(0,0,0,.58);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
 .sheet-title{margin:2px 0 13px;font-size:11px;font-weight:800;letter-spacing:.12em;color:#d8f6ff}.sheet-close{position:absolute;right:12px;top:10px;width:31px;height:31px;border-radius:50%;border:0;background:rgba(255,255,255,.045);color:#8fb0c1;font-size:21px;line-height:1}.sheet-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0;border-top:1px solid rgba(116,185,214,.08);font-size:9px;color:#68899b}.sheet-row strong{color:#a7dcef;font-size:9px;letter-spacing:.08em}.sheet-backdrop{position:absolute;z-index:45;inset:0;background:rgba(0,0,0,.36)}
 
+/* R4F1 — reserved future operations. Four smaller slots flank the frozen mic button. */
+.future-op-button{
+  position:absolute;bottom:12px;width:38px;height:38px;margin:0;padding:0;border-radius:50%;
+  border:1px solid rgba(101,207,243,.22);background:radial-gradient(circle at 50% 38%,rgba(18,57,76,.70),rgba(4,23,34,.88) 72%);
+  box-shadow:0 0 12px rgba(62,191,236,.08),inset 0 1px 0 rgba(190,238,255,.05);
+  opacity:.72;pointer-events:none;appearance:none;-webkit-appearance:none;
+}
+.future-op-button::before{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;border-radius:50%;background:#74cde9;transform:translate(-50%,-50%);box-shadow:0 0 7px rgba(88,208,246,.34)}
+.future-op-1{left:calc(50% - 109px);transform:translateX(-50%)}
+.future-op-2{left:calc(50% - 61px);transform:translateX(-50%)}
+.future-op-3{left:calc(50% + 61px);transform:translateX(-50%)}
+.future-op-4{left:calc(50% + 109px);transform:translateX(-50%)}
+
+/* R4F1 SILENCIO — presentation only; sphere shader/runtime remains frozen. */
+body.loky-silenced #lokySphere{
+  filter:hue-rotate(162deg) saturate(1.65) brightness(.98) contrast(1.08);
+  transition:filter .22s ease;
+}
+body.loky-silenced .orbital-ring{
+  border-color:rgba(255,88,88,.27);
+  filter:drop-shadow(0 0 4px rgba(255,62,62,.18));
+}
+body.loky-silenced .brand-dot{background:#ff5d5d;box-shadow:0 0 8px rgba(255,83,83,.72),0 0 18px rgba(255,49,49,.28)}
+body.loky-silenced #conversationState{font-size:0;color:#ffb1b1;text-shadow:0 0 14px rgba(255,65,65,.24)}
+body.loky-silenced #conversationState::after{content:"SILENCIADO";font-size:10px;letter-spacing:.14em;color:#ffb1b1}
+body.loky-silenced #conversationHint{font-size:0;color:#a97171}
+body.loky-silenced #conversationHint::after{content:"Di LOKY háblame";font-size:8px;letter-spacing:.03em;color:#a97171}
+body.loky-silenced .talk-button{
+  border-color:rgba(255,103,103,.58);
+  background:radial-gradient(circle at 50% 36%,rgba(110,37,43,.96),rgba(57,17,24,.98) 60%,rgba(29,8,13,.99) 100%);
+  box-shadow:0 0 0 1px rgba(255,160,160,.05),0 0 22px rgba(255,58,58,.24),0 10px 28px rgba(0,0,0,.40),inset 0 1px 0 rgba(255,220,220,.10);
+}
+body.loky-silenced .talk-button::before{background:#ffd0d0;filter:drop-shadow(0 0 7px rgba(255,102,102,.46))}
+body.loky-silenced .talk-button::after{border-color:rgba(255,88,88,.35)}
+body.loky-silenced .future-op-button{border-color:rgba(255,102,102,.16)}
+body.loky-silenced .future-op-button::before{background:#ba6969;box-shadow:0 0 6px rgba(255,80,80,.20)}
+
 @keyframes star-drift{from{transform:translate3d(-5px,-3px,0) scale(1)}to{transform:translate3d(7px,5px,0) scale(1.012)}}
 @keyframes star-soft{from{opacity:.14;transform:translate3d(3px,-4px,0)}to{opacity:.29;transform:translate3d(-6px,6px,0)}}
 @keyframes dock-idle{0%,100%{filter:brightness(.96);box-shadow:0 0 0 1px rgba(132,229,255,.05),0 0 16px rgba(73,199,244,.18),0 10px 26px rgba(0,0,0,.38),inset 0 1px 0 rgba(206,246,255,.11)}50%{filter:brightness(1.07);box-shadow:0 0 0 1px rgba(132,229,255,.08),0 0 23px rgba(73,199,244,.30),0 10px 26px rgba(0,0,0,.38),inset 0 1px 0 rgba(206,246,255,.14)}}
@@ -114,9 +151,13 @@ button,input{font:inherit}
   .conversation-shell{height:90px;bottom:calc(38px + var(--safe-bottom))}
   .conversation-head{bottom:64px}
   .talk-button{width:58px;height:58px}
+  .future-op-button{width:36px;height:36px;bottom:11px}
+  .future-op-1{left:calc(50% - 104px)}.future-op-2{left:calc(50% - 58px)}.future-op-3{left:calc(50% + 58px)}.future-op-4{left:calc(50% + 104px)}
 }
 @media (orientation:landscape) and (max-height:600px){
   .app-shell{grid-template-rows:auto 1fr auto}.sphere-wrap{width:min(69vh,430px)}.topbar{height:calc(42px + var(--safe-top))}.footer{min-height:calc(38px + var(--safe-bottom))}
   .conversation-shell{display:block;height:68px}.conversation-head{display:none}.talk-button{width:54px;height:54px}
+  .future-op-button{width:34px;height:34px;bottom:10px}
+  .future-op-1{left:calc(50% - 98px)}.future-op-2{left:calc(50% - 54px)}.future-op-3{left:calc(50% + 54px)}.future-op-4{left:calc(50% + 98px)}
 }
 @media (prefers-reduced-motion:reduce){.stars,.stars.soft,.talk-button,.talk-button::after{animation:none}}
