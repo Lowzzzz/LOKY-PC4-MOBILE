@@ -92,14 +92,14 @@ assert(api.feed.includes('earthquake.usgs.gov'));
 assert.equal(slot2.disabled,false,'left inner slot must become active');
 assert(slot2.classList.contains('feature-seismic'));
 assert.equal(slot2.getAttribute('aria-label'),'Sismos');
-assert.equal(slot1.disabled,false===true?true:slot1.disabled); // slot 1 remains untouched by this layer
+assert(!slot1.classList.contains('feature-seismic'),'outer left slot must remain untouched');
 assert(!slot3.classList.contains('feature-seismic'));
 assert(!slot4.classList.contains('feature-seismic'));
 
 const sample={features:[
   {id:'a',geometry:{coordinates:[10,20,5]},properties:{mag:4.2,place:'A',time:100}},
   {id:'b',geometry:{coordinates:[-80,-10,8]},properties:{mag:5.1,place:'B',time:300}},
-  {id:'bad',geometry:{coordinates:[null,null]},properties:{mag:null,place:'bad',time:999}},
+  {id:'bad',geometry:{coordinates:['x','x']},properties:{mag:'x',place:'bad',time:999}},
 ]};
 const parsed=api.parseFeed(sample);
 assert.equal(parsed.length,2);
