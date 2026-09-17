@@ -20,6 +20,7 @@ function el(id=''){
     dispatch(t,event={}){for(const fn of listeners[t]||[])fn({...event,currentTarget:this,target:this,preventDefault(){}});},
     getBoundingClientRect(){return {width:400,height:500,left:0,top:0};},
     setPointerCapture(){},
+    querySelector(){return null;},
   };
 }
 
@@ -35,8 +36,8 @@ const head=el('head');
 const byId={app,lokySphere:sphereCanvas};
 
 const fakeCtx={
-  clearRect(){},createRadialGradient(){return {addColorStop(){}}},beginPath(){},arc(){},fill(){},stroke(){},save(){},clip(){},restore(){},moveTo(){},lineTo(){},
-  set fillStyle(v){},set strokeStyle(v){},set lineWidth(v){},set lineJoin(v){},set lineCap(v){},
+  clearRect(){},createRadialGradient(){return {addColorStop(){}}},beginPath(){},arc(){},ellipse(){},fill(){},stroke(){},save(){},clip(){},restore(){},moveTo(){},lineTo(){},fillRect(){},translate(){},rotate(){},
+  set fillStyle(v){},set strokeStyle(v){},set lineWidth(v){},set lineJoin(v){},set lineCap(v){},set globalAlpha(v){},set shadowColor(v){},set shadowBlur(v){},
 };
 
 const document={
@@ -86,8 +87,12 @@ vm.runInContext(src,context,{filename:'mobile-seismic.js'});
 
 const api=context.LOKY_PC4_SEISMIC;
 assert(api,'Sismos API missing');
-assert.equal(api.version,'0.3.2R4F3R1-globe-detail-layout');
+assert.equal(api.version,'0.3.2R4F3R2-earth-ultra-quake-info');
 assert(api.feed.includes('earthquake.usgs.gov'));
+assert(api.landDots>250,'pointillist land detail is too sparse');
+assert.equal(typeof api.selectQuake,'function');
+assert.equal(typeof api.pickQuake,'function');
+assert(byId.lokyQuakeInfo,'quake info panel missing');
 
 assert.equal(slot2.disabled,false,'left inner slot must become active');
 assert(slot2.classList.contains('feature-seismic'));
@@ -97,14 +102,15 @@ assert(!slot3.classList.contains('feature-seismic'));
 assert(!slot4.classList.contains('feature-seismic'));
 
 const sample={features:[
-  {id:'a',geometry:{coordinates:[10,20,5]},properties:{mag:4.2,place:'A',time:100}},
-  {id:'b',geometry:{coordinates:[-80,-10,8]},properties:{mag:5.1,place:'B',time:300}},
+  {id:'a',geometry:{coordinates:[10,20,5]},properties:{mag:4.2,place:'A',time:100,url:'https://example.test/a'}},
+  {id:'b',geometry:{coordinates:[-80,-10,8]},properties:{mag:5.1,place:'B',time:300,url:'https://example.test/b'}},
   {id:'bad',geometry:{coordinates:['x','x']},properties:{mag:'x',place:'bad',time:999}},
 ]};
 const parsed=api.parseFeed(sample);
 assert.equal(parsed.length,2);
 assert.equal(parsed[0].id,'b','events must be newest first');
 assert.equal(parsed[1].id,'a');
+assert.equal(parsed[0].depth,8);
 
 api.state.centerLon=0;api.state.centerLat=0;
 assert(api.project(0,0,100,100,100),'front side point must project');
@@ -134,10 +140,11 @@ assert(src.includes('navigator.geolocation.getCurrentPosition'));
 assert(src.includes('pointermove'));
 assert(src.includes('SPHERE_MAX_ZOOM=2.6'));
 assert(src.includes('GLOBE_MAX_ZOOM=3.2'));
-assert(src.includes('width:118%;height:118%'),'globe canvas must extend beyond old square viewport');
+assert(src.includes('width:122%;height:122%'),'globe canvas must remain frameless and oversized');
 assert(src.includes('top:14px;bottom:auto'),'seismic HUD must stay above bottom controls');
-assert(src.includes('const DETAIL_LINES=['),'detailed world overlay missing');
-assert(src.includes('function drawLand('),'detailed coastline renderer missing');
-assert(src.includes('for(let lat=-75;lat<=75;lat+=15)'),'finer globe grid missing');
+assert(src.includes('function buildLandDots('),'pointillist Earth renderer missing');
+assert(src.includes('function drawOrbits('),'orbital Earth detail missing');
+assert(src.includes('function selectQuake('),'quake info selection missing');
+assert(src.includes('PROFUNDIDAD'),'quake depth info missing');
 
-console.log('R4F3R1 Sismos detail/layout + location + zoom tests PASS');
+console.log('R4F3R2 Earth Ultra + quake info + location + zoom tests PASS');
