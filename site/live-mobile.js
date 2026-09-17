@@ -1,23 +1,30 @@
 (() => {
   'use strict';
 
+  const VERSION='0.3.2R3-conversation-zero-rebuild-lowlatency';
   const TOKEN_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token';
   const DEFAULT_MODEL='models/gemini-3.8-live';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const WS_BASE='wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained';
+  const MIC_BUFFER_SIZE=2048;
+  const END_SILENCE_MS=250;
+  const PREFIX_PADDING_MS=60;
+  const CONNECT_TIMEOUT_MS=12000;
+  const SETUP_TIMEOUT_MS=8000;
 
   const state={
     desired:false,
-    ws:null,
-    connectingWs:null,
+    activeWs:null,
+    pendingWs:null,
     token:null,
     tokenAt:0,
     model:DEFAULT_MODEL,
     resumeHandle:'',
     reconnectTimer:0,
-    reconnectAttempt:0,
-    setupTimer:0,
+    goAwayTimer:0,
+    retryAttempt:0,
     connectTimer:0,
+    setupTimer:0,
     mediaStream:null,
     audioContext:null,
     micSource:null,
@@ -45,23 +52,33 @@
     if(ui.state)ui.state.textContent=label;
     if(ui.hint&&hint!=null)ui.hint.textContent=hint;
   }
+
   function setBadge(text,ok=false){
     if(!ui.liveBadge)return;
     ui.liveBadge.textContent=text;
     ui.liveBadge.dataset.ok=ok?'1':'0';
   }
-  function cleanPair(v){return String(v||'').trim().toUpperCase();}
-  function deviceCapability(){return localStorage.getItem(DEVICE_KEY)||'';}
-  function paired(){return deviceCapability().length>=16;}
+
+  function cleanPair(value){
+    return String(value||'').trim().toUpperCase();
+  }
+
+  function deviceCapability(){
+    return localStorage.getItem(DEVICE_KEY)||'';
+  }
+
+  function paired(){
+    return deviceCapability().length>=16;
+  }
 
   function importPairFromUrl(){
     try{
-      const u=new URL(location.href);
-      const p=cleanPair(u.searchParams.get('pair'));
-      if(p.length>=16){
-        localStorage.setItem(DEVICE_KEY,p);
-        u.searchParams.delete('pair');
-        history.replaceState({},'',u.pathname+(u.search||'')+u.hash);
+      const url=new URL(location.href);
+      const pair=cleanPair(url.searchParams.get('pair'));
+      if(pair.length>=16){
+        localStorage.setItem(DEVICE_KEY,pair);
+        url.searchParams.delete('pair');
+        history.replaceState({},'',url.pathname+(url.search||'')+url.hash);
       }
     }catch{}
   }
@@ -80,12 +97,12 @@
   }
 
   function bytesToBase64(bytes){
-    let s='';
+    let out='';
     const step=0x8000;
     for(let i=0;i<bytes.length;i+=step){
-      s+=String.fromCharCode(...bytes.subarray(i,Math.min(i+step,bytes.length)));
+      out+=String.fromCharCode(...bytes.subarray(i,Math.min(i+step,bytes.length)));
     }
-    return btoa(s);
+    return btoa(out);
   }
 
   function base64ToInt16(base64){
@@ -93,10 +110,11 @@
     const count=Math.floor(bin.length/2);
     const out=new Int16Array(count);
     for(let i=0;i<count;i++){
-      const lo=bin.charCodeAt(i*2),hi=bin.charCodeAt(i*2+1);
-      let v=(hi<<8)|lo;
-      if(v&0x8000)v-=0x10000;
-      out[i]=v;
+      const lo=bin.charCodeAt(i*2);
+      const hi=bin.charCodeAt(i*2+1);
+      let value=(hi<<8)|lo;
+      if(value&0x8000)value-=0x10000;
+      out[i]=value;
     }
     return out;
   }
@@ -104,14 +122,14 @@
   function downsampleTo16k(input,inputRate){
     if(inputRate===16000)return input;
     const ratio=inputRate/16000;
-    const n=Math.max(1,Math.floor(input.length/ratio));
-    const out=new Float32Array(n);
-    for(let i=0;i<n;i++){
-      const a=Math.floor(i*ratio);
-      const b=Math.max(a+1,Math.min(input.length,Math.floor((i+1)*ratio)));
+    const length=Math.max(1,Math.floor(input.length/ratio));
+    const out=new Float32Array(length);
+    for(let i=0;i<length;i++){
+      const start=Math.floor(i*ratio);
+      const end=Math.max(start+1,Math.min(input.length,Math.floor((i+1)*ratio)));
       let sum=0;
-      for(let j=a;j<b;j++)sum+=input[j];
-      out[i]=sum/(b-a);
+      for(let j=start;j<end;j++)sum+=input[j];
+      out[i]=sum/(end-start);
     }
     return out;
   }
@@ -120,75 +138,84 @@
     const bytes=new Uint8Array(float32.length*2);
     const view=new DataView(bytes.buffer);
     for(let i=0;i<float32.length;i++){
-      const s=Math.max(-1,Math.min(1,float32[i]));
-      view.setInt16(i*2,s<0?s*0x8000:s*0x7fff,true);
+      const sample=Math.max(-1,Math.min(1,float32[i]));
+      view.setInt16(i*2,sample<0?sample*0x8000:sample*0x7fff,true);
     }
     return bytes;
   }
 
   async function primeAudio(){
-    const AC=window.AudioContext||window.webkitAudioContext;
-    if(!AC)throw new Error('AUDIO_CONTEXT_UNAVAILABLE');
-    if(!state.audioContext)state.audioContext=new AC({latencyHint:'interactive'});
-    if(state.audioContext.state!=='running')await state.audioContext.resume();
+    const AudioContextCtor=window.AudioContext||window.webkitAudioContext;
+    if(!AudioContextCtor)throw new Error('AUDIO_CONTEXT_UNAVAILABLE');
+    if(!state.audioContext){
+      state.audioContext=new AudioContextCtor({latencyHint:'interactive'});
+    }
+    if(state.audioContext.state!=='running'){
+      await state.audioContext.resume();
+    }
   }
 
   async function ensureMic(){
     if(state.mediaStream?.active)return;
     if(!navigator.mediaDevices?.getUserMedia)throw new Error('MIC_UNAVAILABLE');
     state.mediaStream=await navigator.mediaDevices.getUserMedia({
-      audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1},
+      audio:{
+        echoCancellation:true,
+        noiseSuppression:true,
+        autoGainControl:true,
+        channelCount:1,
+      },
       video:false,
     });
-  }
-
-  function stopCapture(){
-    try{state.micProcessor&&(state.micProcessor.onaudioprocess=null)}catch{}
-    for(const n of [state.micSource,state.micProcessor,state.micMute]){
-      try{n?.disconnect?.()}catch{}
-    }
-    state.micSource=state.micProcessor=state.micMute=null;
-    for(const t of state.mediaStream?.getTracks?.()||[]){
-      try{t.stop()}catch{}
-    }
-    state.mediaStream=null;
   }
 
   function startCapture(){
     if(!state.audioContext||!state.mediaStream||state.micProcessor)return;
     const ctx=state.audioContext;
     state.micSource=ctx.createMediaStreamSource(state.mediaStream);
-    const processor=ctx.createScriptProcessor(4096,1,1);
-    const mute=ctx.createGain();
-    mute.gain.value=0;
+    state.micProcessor=ctx.createScriptProcessor(MIC_BUFFER_SIZE,1,1);
+    state.micMute=ctx.createGain();
+    state.micMute.gain.value=0;
 
-    processor.onaudioprocess=e=>{
-      const ws=state.ws;
+    state.micProcessor.onaudioprocess=event=>{
+      const ws=state.activeWs;
       if(!state.desired||!state.setupReady||ws?.readyState!==WebSocket.OPEN)return;
-      const input=e.inputBuffer.getChannelData(0);
+      const input=event.inputBuffer.getChannelData(0);
       const pcm=floatToPcm16Bytes(downsampleTo16k(input,ctx.sampleRate));
       try{
         ws.send(JSON.stringify({
           realtimeInput:{
             audio:{
               data:bytesToBase64(pcm),
-              mimeType:'audio/pcm;rate=16000'
-            }
-          }
+              mimeType:'audio/pcm;rate=16000',
+            },
+          },
         }));
       }catch{}
     };
 
-    state.micProcessor=processor;
-    state.micMute=mute;
-    state.micSource.connect(processor);
-    processor.connect(mute);
-    mute.connect(ctx.destination);
+    state.micSource.connect(state.micProcessor);
+    state.micProcessor.connect(state.micMute);
+    state.micMute.connect(ctx.destination);
+  }
+
+  function stopCapture(){
+    try{if(state.micProcessor)state.micProcessor.onaudioprocess=null}catch{}
+    for(const node of [state.micSource,state.micProcessor,state.micMute]){
+      try{node?.disconnect?.()}catch{}
+    }
+    state.micSource=null;
+    state.micProcessor=null;
+    state.micMute=null;
+    for(const track of state.mediaStream?.getTracks?.()||[]){
+      try{track.stop()}catch{}
+    }
+    state.mediaStream=null;
   }
 
   function clearPlayback(){
-    for(const src of state.playing){
-      try{src.stop()}catch{}
+    for(const source of state.playing){
+      try{source.stop()}catch{}
     }
     state.playing.clear();
     state.playCursor=state.audioContext?.currentTime||0;
@@ -199,17 +226,22 @@
     if(!ctx||ctx.state==='closed')return;
     const samples=base64ToInt16(base64);
     if(!samples.length)return;
+
     const buffer=ctx.createBuffer(1,samples.length,24000);
     const channel=buffer.getChannelData(0);
     for(let i=0;i<samples.length;i++)channel[i]=samples[i]/32768;
-    const src=ctx.createBufferSource();
-    src.buffer=buffer;
-    src.connect(ctx.destination);
-    const start=Math.max(ctx.currentTime+0.015,state.playCursor||0);
+
+    const source=ctx.createBufferSource();
+    source.buffer=buffer;
+    source.connect(ctx.destination);
+
+    const now=ctx.currentTime;
+    if(state.playCursor<now)state.playCursor=now;
+    const start=Math.max(now+0.008,state.playCursor);
     state.playCursor=start+buffer.duration;
-    state.playing.add(src);
-    src.onended=()=>state.playing.delete(src);
-    src.start(start);
+    state.playing.add(source);
+    source.onended=()=>state.playing.delete(source);
+    source.start(start);
   }
 
   async function requestToken(force=false){
@@ -218,20 +250,22 @@
       return {token:state.token,model:state.model};
     }
 
-    const cap=deviceCapability();
-    if(!cap)throw new Error('DEVICE_NOT_ACTIVATED');
+    const capability=deviceCapability();
+    if(!capability)throw new Error('DEVICE_NOT_ACTIVATED');
 
-    const r=await fetch(TOKEN_ENDPOINT,{
+    const response=await fetch(TOKEN_ENDPOINT,{
       method:'POST',
       headers:{
         'content-type':'application/json',
-        'x-loky-device':cap
+        'x-loky-device':capability,
       },
       body:'{}',
-      cache:'no-store'
+      cache:'no-store',
     });
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok||!data?.token)throw new Error(data?.error||`TOKEN_${r.status}`);
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||!data?.token){
+      throw new Error(data?.error||`TOKEN_${response.status}`);
+    }
 
     state.token=data.token;
     state.tokenAt=Date.now();
@@ -240,58 +274,75 @@
   }
 
   function setupPayload(model,handle=''){
-    return {setup:{
-      model,
-      generationConfig:{
-        responseModalities:['AUDIO'],
-        speechConfig:{
-          voiceConfig:{
-            prebuiltVoiceConfig:{voiceName:'Kore'}
-          }
+    return {
+      setup:{
+        model,
+        generationConfig:{
+          responseModalities:['AUDIO'],
+          speechConfig:{
+            voiceConfig:{
+              prebuiltVoiceConfig:{voiceName:'Kore'},
+            },
+          },
         },
-      },
-      systemInstruction:{parts:[{text:'Eres LOKY, un asistente de voz natural, cercano y eficiente. Habla principalmente en español salvo que el usuario cambie de idioma. Responde de forma conversacional, fluida y breve por defecto. No menciones Gemini, modelos, APIs ni detalles técnicos salvo que el usuario los pregunte. Permite interrupciones naturales y continúa la conversación sin frases robóticas de relleno.'}]},
-      inputAudioTranscription:{},
-      outputAudioTranscription:{},
-      realtimeInputConfig:{
-        automaticActivityDetection:{
-          disabled:false,
-          startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',
-          endOfSpeechSensitivity:'END_SENSITIVITY_HIGH',
-          prefixPaddingMs:80,
-          silenceDurationMs:450
+        systemInstruction:{
+          parts:[{
+            text:'Eres LOKY, un asistente de voz natural, cercano y eficiente. Habla principalmente en español salvo que el usuario cambie de idioma. Responde de forma conversacional, fluida y breve por defecto. No menciones Gemini, modelos, APIs ni detalles técnicos salvo que el usuario los pregunte. Permite interrupciones naturales y continúa la conversación sin frases robóticas de relleno.',
+          }],
         },
-        activityHandling:'START_OF_ACTIVITY_INTERRUPTS',
-        turnCoverage:'TURN_INCLUDES_ONLY_ACTIVITY',
+        inputAudioTranscription:{},
+        outputAudioTranscription:{},
+        realtimeInputConfig:{
+          automaticActivityDetection:{
+            disabled:false,
+            startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',
+            endOfSpeechSensitivity:'END_SENSITIVITY_HIGH',
+            prefixPaddingMs:PREFIX_PADDING_MS,
+            silenceDurationMs:END_SILENCE_MS,
+          },
+          activityHandling:'START_OF_ACTIVITY_INTERRUPTS',
+          turnCoverage:'TURN_INCLUDES_ONLY_ACTIVITY',
+        },
+        contextWindowCompression:{slidingWindow:{}},
+        sessionResumption:handle?{handle}:{},
       },
-      contextWindowCompression:{slidingWindow:{}},
-      sessionResumption:handle?{handle}:{},
-    }};
+    };
   }
 
-  function clearConnectTimers(){
+  function clearTimers(){
     clearTimeout(state.connectTimer);
-    state.connectTimer=0;
     clearTimeout(state.setupTimer);
+    state.connectTimer=0;
     state.setupTimer=0;
   }
 
-  function reconnectDelay(){
-    const n=Math.min(state.reconnectAttempt,4);
-    return [250,450,800,1400,2200][n]||2200;
+  function clearReconnectTimers(){
+    clearTimeout(state.reconnectTimer);
+    clearTimeout(state.goAwayTimer);
+    state.reconnectTimer=0;
+    state.goAwayTimer=0;
   }
 
-  function scheduleReconnect(reason='socket-close'){
-    if(!state.desired||state.reconnectTimer||state.connectingWs)return;
-    setState('RECONECTANDO',reason==='goaway'?'Renovando sesión…':'Recuperando conversación…');
-    setBadge('RECONECTANDO',false);
-    const delay=reconnectDelay();
+  function parseDurationMs(value){
+    const text=String(value||'').trim();
+    const match=text.match(/^([0-9]+(?:\.[0-9]+)?)s$/i);
+    if(!match)return 0;
+    return Math.max(0,Math.round(Number(match[1])*1000));
+  }
+
+  function retryDelay(){
+    return [120,250,500,900,1500][Math.min(state.retryAttempt,4)]||1500;
+  }
+
+  function scheduleRecovery(reason='socket-close'){
+    if(!state.desired||state.pendingWs||state.reconnectTimer)return;
+    const delay=retryDelay();
     state.reconnectTimer=setTimeout(()=>{
       state.reconnectTimer=0;
-      state.reconnectAttempt++;
-      connectLive(true).catch(error=>{
-        console.warn('LOKY reconnect',error);
-        if(state.desired)scheduleReconnect('retry');
+      state.retryAttempt++;
+      resumeSession(reason).catch(error=>{
+        console.warn('LOKY resume',error);
+        if(state.desired)scheduleRecovery('retry');
       });
     },delay);
   }
@@ -303,23 +354,23 @@
     return String(raw??'');
   }
 
-  function handleServerContent(sc){
-    if(!sc)return;
+  function handleServerContent(content){
+    if(!content)return;
 
-    if(sc.interrupted){
+    if(content.interrupted){
       clearPlayback();
       setState('ESCUCHANDO','Interrupción detectada');
     }
 
-    const inputText=sc.inputTranscription?.text||sc.interimInputTranscription?.text;
+    const inputText=content.inputTranscription?.text||content.interimInputTranscription?.text;
     if(inputText&&ui.me)ui.me.textContent=inputText;
 
-    const outputText=sc.outputTranscription?.text;
+    const outputText=content.outputTranscription?.text;
     if(outputText&&ui.loky){
       ui.loky.textContent=(ui.loky.textContent==='—'?'':ui.loky.textContent)+outputText;
     }
 
-    for(const part of sc.modelTurn?.parts||[]){
+    for(const part of content.modelTurn?.parts||[]){
       const inline=part.inlineData;
       if(inline?.data&&String(inline.mimeType||'').includes('audio/pcm')){
         setState('LOKY HABLANDO','Puedes interrumpirlo cuando quieras');
@@ -327,7 +378,7 @@
       }
     }
 
-    if(sc.turnComplete){
+    if(content.turnComplete){
       setState('ESCUCHANDO','Habla normalmente.');
       if(ui.loky&&ui.loky.textContent.length>240){
         ui.loky.textContent=ui.loky.textContent.slice(-240);
@@ -335,107 +386,110 @@
     }
   }
 
-  async function parseSocketMessage(ws,role,raw){
-    let msg;
+  function promotePending(ws){
+    if(state.pendingWs!==ws)return;
+    const previous=state.activeWs;
+    clearTimers();
+    clearReconnectTimers();
+    state.pendingWs=null;
+    state.activeWs=ws;
+    state.setupReady=true;
+    state.retryAttempt=0;
+
+    attachActiveHandlers(ws);
+    setState('ESCUCHANDO','Habla normalmente. Puedes interrumpir a LOKY.');
+    setBadge('GEMINI LIVE · NATIVO',true);
+    startCapture();
+    if(ui.talk){
+      ui.talk.textContent='DETENER';
+      ui.talk.dataset.active='1';
+    }
+
+    if(previous&&previous!==ws){
+      try{previous.close(1000,'session-handover')}catch{}
+    }
+  }
+
+  async function handleSocketMessage(ws,role,raw){
+    let message;
     try{
-      msg=JSON.parse(await normalizeWsData(raw));
+      message=JSON.parse(await normalizeWsData(raw));
     }catch{
       return;
     }
 
-    if(msg.setupComplete){
-      if(role!=='candidate'||state.connectingWs!==ws)return;
-
-      clearConnectTimers();
-      clearTimeout(state.reconnectTimer);
-      state.reconnectTimer=0;
-      state.reconnectAttempt=0;
-
-      const old=state.ws;
-      attachActiveHandlers(ws);
-      state.ws=ws;
-      state.connectingWs=null;
-      state.setupReady=true;
-
-      setState('ESCUCHANDO','Habla normalmente. Puedes interrumpir a LOKY.');
-      setBadge('GEMINI LIVE · NATIVO',true);
-      startCapture();
-
-      if(ui.talk){
-        ui.talk.textContent='DETENER';
-        ui.talk.dataset.active='1';
-      }
-
-      if(old&&old!==ws){
-        try{old.close(1000,'session-handover')}catch{}
-      }
+    if(message.setupComplete){
+      if(role==='pending')promotePending(ws);
       return;
     }
 
-    const resume=msg.sessionResumptionUpdate;
-    if(resume?.newHandle){
+    const resume=message.sessionResumptionUpdate;
+    if(resume?.resumable!==false&&resume?.newHandle){
       state.resumeHandle=resume.newHandle;
     }
 
-    if(msg.goAway){
-      if(role==='active'&&state.ws===ws){
-        scheduleReconnect('goaway');
+    if(message.goAway){
+      if(role==='active'&&state.activeWs===ws){
+        clearTimeout(state.goAwayTimer);
+        const timeLeft=parseDurationMs(message.goAway.timeLeft);
+        const waitMs=timeLeft>0?Math.max(0,timeLeft-1200):0;
+        state.goAwayTimer=setTimeout(()=>{
+          state.goAwayTimer=0;
+          resumeSession('goaway').catch(error=>{
+            console.warn('LOKY goaway resume',error);
+            scheduleRecovery('goaway-failed');
+          });
+        },waitMs);
       }
       return;
     }
 
-    if(role!=='active'||state.ws!==ws)return;
-    handleServerContent(msg.serverContent);
-  }
-
-  function attachCandidateHandlers(ws){
-    ws.onmessage=e=>{
-      parseSocketMessage(ws,'candidate',e.data).catch(error=>{
-        console.warn('LOKY candidate message',error);
-      });
-    };
-
-    ws.onerror=()=>{};
-
-    ws.onclose=()=>{
-      if(state.connectingWs!==ws)return;
-      clearConnectTimers();
-      state.connectingWs=null;
-      if(!state.desired)return;
-      scheduleReconnect('candidate-close');
-    };
+    if(role==='active'&&state.activeWs===ws){
+      handleServerContent(message.serverContent);
+    }
   }
 
   function attachActiveHandlers(ws){
-    ws.onmessage=e=>{
-      parseSocketMessage(ws,'active',e.data).catch(error=>{
-        console.warn('LOKY active message',error);
-      });
+    ws.onmessage=event=>{
+      handleSocketMessage(ws,'active',event.data).catch(error=>console.warn('LOKY active message',error));
     };
-
     ws.onerror=()=>{};
-
     ws.onclose=()=>{
-      if(state.ws!==ws)return;
-      state.ws=null;
-      state.setupReady=false;
+      if(state.activeWs!==ws)return;
+      state.activeWs=null;
       if(!state.desired)return;
-
-      if(state.connectingWs){
+      if(state.pendingWs){
+        state.setupReady=false;
         setState('RECONECTANDO','Finalizando cambio de sesión…');
         setBadge('RECONECTANDO',false);
         return;
       }
-
-      scheduleReconnect('socket-close');
+      state.setupReady=false;
+      setState('RECONECTANDO','Recuperando conversación…');
+      setBadge('RECONECTANDO',false);
+      scheduleRecovery('socket-close');
     };
   }
 
-  async function openCandidate(auth,handle){
+  function attachPendingHandlers(ws){
+    ws.onmessage=event=>{
+      handleSocketMessage(ws,'pending',event.data).catch(error=>console.warn('LOKY pending message',error));
+    };
+    ws.onerror=()=>{};
+    ws.onclose=()=>{
+      if(state.pendingWs!==ws)return;
+      clearTimers();
+      state.pendingWs=null;
+      if(!state.desired)return;
+      scheduleRecovery('pending-close');
+    };
+  }
+
+  async function openPending(auth,handle=''){
+    if(state.pendingWs)return state.pendingWs;
     const ws=new WebSocket(`${WS_BASE}?access_token=${encodeURIComponent(auth.token)}`);
     ws.binaryType='arraybuffer';
-    state.connectingWs=ws;
-    attachCandidateHandlers(ws);
+    state.pendingWs=ws;
 
     await new Promise((resolve,reject)=>{
       let settled=false;
@@ -443,7 +497,7 @@
         if(settled)return;
         settled=true;
         reject(new Error('LIVE_CONNECT_TIMEOUT'));
-      },12000);
+      },CONNECT_TIMEOUT_MS);
 
       ws.onopen=()=>{
         if(settled)return;
@@ -452,7 +506,6 @@
         state.connectTimer=0;
         resolve();
       };
-
       ws.onerror=()=>{
         if(settled)return;
         settled=true;
@@ -462,97 +515,81 @@
       };
     });
 
-    attachCandidateHandlers(ws);
+    attachPendingHandlers(ws);
     ws.send(JSON.stringify(setupPayload(auth.model,handle)));
 
     state.setupTimer=setTimeout(()=>{
       state.setupTimer=0;
-      if(!state.desired||state.connectingWs!==ws)return;
+      if(state.pendingWs!==ws)return;
+      state.pendingWs=null;
       try{ws.close()}catch{}
-      state.connectingWs=null;
-      scheduleReconnect('setup-timeout');
-    },8000);
+      scheduleRecovery('setup-timeout');
+    },SETUP_TIMEOUT_MS);
 
     return ws;
   }
 
-  async function connectLive(resume=false){
-    if(!state.desired)return;
-    if(state.connectingWs)return;
+  async function startSession(){
+    setState('CONECTANDO','Preparando conversación nativa…');
+    setBadge('GEMINI LIVE · CONECTANDO',false);
+    const auth=await requestToken(true);
+    await openPending(auth,'');
+  }
 
-    const handle=resume?state.resumeHandle:'';
-    if(resume){
-      setState('RECONECTANDO','Preparando conversación nativa…');
-      setBadge('RECONECTANDO',false);
-    }else{
-      setState('CONECTANDO','Preparando conversación nativa…');
-    }
+  async function resumeSession(reason='resume'){
+    if(!state.desired||state.pendingWs)return;
+    setState('RECONECTANDO',reason==='goaway'?'Renovando sesión…':'Recuperando conversación…');
+    setBadge('RECONECTANDO',false);
 
-    // A new session gets a fresh token. Session resumption reuses the same
-    // ephemeral token while it is valid; Gemini documents that resumption
-    // does not count as an additional token use.
-    const auth=await requestToken(!resume);
-
+    const handle=state.resumeHandle;
     try{
-      await openCandidate(auth,handle);
-    }catch(error){
-      const failed=state.connectingWs;
-      state.connectingWs=null;
-      clearConnectTimers();
-      try{failed?.close()}catch{}
-
-      // If the existing auth token actually expired, retry once with a fresh
-      // token while preserving the latest session-resumption handle.
-      if(resume&&state.desired){
-        const fresh=await requestToken(true);
-        await openCandidate(fresh,handle);
-        return;
-      }
-      throw error;
+      const auth=await requestToken(false);
+      await openPending(auth,handle);
+    }catch(firstError){
+      const pending=state.pendingWs;
+      state.pendingWs=null;
+      clearTimers();
+      try{pending?.close()}catch{}
+      if(!state.desired)throw firstError;
+      const fresh=await requestToken(true);
+      await openPending(fresh,handle);
     }
   }
 
   async function startLive(){
     if(!paired())return refreshActivation();
-
     state.desired=true;
     state.resumeHandle='';
-    state.reconnectAttempt=0;
-    clearTimeout(state.reconnectTimer);
-    state.reconnectTimer=0;
-
+    state.retryAttempt=0;
+    state.setupReady=false;
+    clearReconnectTimers();
+    clearTimers();
     if(ui.me)ui.me.textContent='—';
     if(ui.loky)ui.loky.textContent='—';
-
     await primeAudio();
     await ensureMic();
-    await connectLive(false);
+    await startSession();
   }
 
   function stopLive(){
     state.desired=false;
     state.setupReady=false;
     state.resumeHandle='';
-    state.reconnectAttempt=0;
+    state.retryAttempt=0;
+    clearReconnectTimers();
+    clearTimers();
 
-    clearTimeout(state.reconnectTimer);
-    state.reconnectTimer=0;
-    clearConnectTimers();
+    const active=state.activeWs;
+    const pending=state.pendingWs;
+    state.activeWs=null;
+    state.pendingWs=null;
 
-    const active=state.ws;
-    const candidate=state.connectingWs;
-    state.ws=null;
-    state.connectingWs=null;
-
-    try{
-      active?.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}));
-    }catch{}
+    try{active?.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}))}catch{}
     try{active?.close(1000,'owner-stop')}catch{}
-    try{candidate?.close(1000,'owner-stop')}catch{}
+    try{pending?.close(1000,'owner-stop')}catch{}
 
     stopCapture();
     clearPlayback();
-
     if(ui.talk){
       ui.talk.textContent='HABLAR CON LOKY';
       ui.talk.dataset.active='0';
@@ -561,16 +598,15 @@
     setBadge('GEMINI LIVE · LISTO',true);
   }
 
-  function failLive(error){
+  function failStart(error){
     console.error('LOKY Live',error);
-
-    if(state.desired){
-      setState('RECONECTANDO','Recuperando conversación…');
-      setBadge('RECONECTANDO',false);
-      scheduleReconnect('recoverable-error');
-      return;
-    }
-
+    state.desired=false;
+    state.setupReady=false;
+    const pending=state.pendingWs;
+    state.pendingWs=null;
+    clearReconnectTimers();
+    clearTimers();
+    try{pending?.close()}catch{}
     stopCapture();
     clearPlayback();
     if(ui.talk){
@@ -592,8 +628,8 @@
     refreshActivation();
   });
 
-  ui.pair?.addEventListener('keydown',e=>{
-    if(e.key==='Enter')ui.activate?.click();
+  ui.pair?.addEventListener('keydown',event=>{
+    if(event.key==='Enter')ui.activate?.click();
   });
 
   ui.talk?.addEventListener('click',async()=>{
@@ -604,8 +640,7 @@
     try{
       await startLive();
     }catch(error){
-      state.desired=true;
-      failLive(error);
+      failStart(error);
     }
   });
 
@@ -617,9 +652,9 @@
   refreshActivation();
 
   window.LOKY_PC4_LIVE={
-    version:'0.3.2R2-conversation-rebuild',
+    version:VERSION,
     start:startLive,
     stop:stopLive,
-    state
+    state,
   };
 })();
