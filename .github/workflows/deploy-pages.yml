@@ -52,24 +52,28 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile.css)" = "b4eff4577685dce6b07867cc040d4b8369be2a51"
           test "$(git rev-parse HEAD:site/mobile-noise-guard.js)" = "c632c64738c0bb34d7e372d28a5532d238b23398"
 
-      - name: Verify R4F4R1 single Earth runtime exact
+      - name: Verify R4F4R2 optimized single Earth runtime exact
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD:site/index.html)" = "1ba7f53b7ea201572c0a517640cc7d6b7d11901a"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
-          test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "c7cdc79b15bd6dcce9629f6ccd09018ef6d5a2ca"
+          test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "34b1d603625476b569f275c5720a08603711ed73"
           if test -e site/mobile-continent-detail.js; then exit 1; fi
           grep -F '<script src="./mobile-earth-reference.js?v=0.3.2r4f4"></script>' site/index.html
           grep -F "const VERSION='0.3.2R4F4R1-seismic-controller'" site/mobile-seismic.js
-          grep -F "const VERSION='0.3.2R4F4R1-single-earth-thermal'" site/mobile-earth-reference.js
+          grep -F "const VERSION='0.3.2R4F4R2-fps-startup-optimization'" site/mobile-earth-reference.js
           if grep -Fq 'lokySeismicGlobe' site/mobile-seismic.js; then echo 'Legacy globe must be deleted'; exit 1; fi
           if grep -Fq 'function drawGlobe(' site/mobile-seismic.js; then echo 'Legacy draw loop must be deleted'; exit 1; fi
           grep -F '.loky-seismic-mode .sphere-wrap{display:none!important}' site/mobile-seismic.js
           grep -F 'const cacheCanvas=document.createElement' site/mobile-earth-reference.js
           grep -F 'function rebuildStatic(' site/mobile-earth-reference.js
-          grep -F 'const ACTIVE_FPS=24' site/mobile-earth-reference.js
-          grep -F 'const IDLE_FPS=18' site/mobile-earth-reference.js
+          grep -F 'const ACTIVE_FPS=60' site/mobile-earth-reference.js
+          grep -F 'const IDLE_FPS=24' site/mobile-earth-reference.js
+          grep -F 'const FAST_DOT_STRIDE=4' site/mobile-earth-reference.js
+          grep -F 'async function buildDotsAsync(' site/mobile-earth-reference.js
+          grep -F 'function yieldMain()' site/mobile-earth-reference.js
+          grep -F 'else loadGeometry()' site/mobile-earth-reference.js
           grep -F "const NE_COMMIT='ca96624a56bd078437bca8184e78163e5039ad19'" site/mobile-earth-reference.js
           grep -F 'const MAX_DOTS=9800' site/mobile-earth-reference.js
           grep -F 'function pickQuake(' site/mobile-earth-reference.js
@@ -109,14 +113,14 @@ jobs:
           grep -F "await ctx.resume()" site/ios-audio-stability.js
           if grep -Fq 'interimInputTranscription' site/live-mobile.js; then exit 1; fi
 
-      - name: Run frozen conversation and R4F4R1 tests
+      - name: Run frozen conversation and R4F4R2 tests
         shell: bash
         run: |
           set -euo pipefail
           node .github/tests/ios032r4-pc4-conversation-port.test.cjs
           node .github/tests/ios032r4f2-settings-memory-windows.test.cjs
           node .github/tests/ios032r4f2r1-noise-guard.test.cjs
-          node .github/tests/ios032r4f4r1-single-renderer.test.cjs
+          node .github/tests/ios032r4f4r2-fps-startup.test.cjs
 
       - name: Verify pinned Natural Earth geometry
         shell: bash
