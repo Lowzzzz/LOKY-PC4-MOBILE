@@ -1,0 +1,104 @@
+name: Validate iOS 0.3.2R4F4 Earth Reference Rebuild
+
+on:
+  push:
+    branches: [candidate/ios-0.3.2R4F4-earth-reference-rebuild]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify clean runtime replacement scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=2c80e6c5239d4876bed534bdfec3315614c522f6
+          changed="$(git diff --name-status "$BASE"..HEAD | grep -v $'^.\t.github/' || true)"
+          printf '%s\n' "$changed"
+          echo "$changed" | grep -F $'M\tsite/index.html'
+          echo "$changed" | grep -F $'D\tsite/mobile-continent-detail.js'
+          echo "$changed" | grep -F $'A\tsite/mobile-earth-reference.js'
+          test "$(echo "$changed" | wc -l | tr -d ' ')" = '3'
+
+      - name: Verify frozen functional runtime byte-exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/live-mobile.js)" = "af201c91e1db634ef62cd6505696a602e293bc83"
+          test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "f99882addf9a263ae8c41f12f111b9f03b5ed73d"
+          test "$(git rev-parse HEAD:site/ios-audio-stability.js)" = "d8254b160719a647fc07164a96f3955d8b268bfd"
+          test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
+          test "$(git rev-parse HEAD:site/sw.js)" = "f65be5534df529c8f3e409b6a5e1ca6f29967725"
+          test "$(git rev-parse HEAD:site/mobile-features.js)" = "a9c02db6ffcf8efcb76d8e1bc35ca5439240a81f"
+          test "$(git rev-parse HEAD:site/mobile.css)" = "b4eff4577685dce6b07867cc040d4b8369be2a51"
+          test "$(git rev-parse HEAD:site/mobile-noise-guard.js)" = "c632c64738c0bb34d7e372d28a5532d238b23398"
+          test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "4616876813ba0c990d0dc9eb131f3d553c204d29"
+
+      - name: Verify reference renderer contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check site/mobile-earth-reference.js
+          grep -F "const VERSION='0.3.2R4F4-earth-reference-rebuild'" site/mobile-earth-reference.js
+          grep -F "const NE_COMMIT='ca96624a56bd078437bca8184e78163e5039ad19'" site/mobile-earth-reference.js
+          grep -F 'ne_50m_land.geojson' site/mobile-earth-reference.js
+          grep -F 'ne_110m_admin_0_countries.geojson' site/mobile-earth-reference.js
+          grep -F 'const MAX_DOTS=9800' site/mobile-earth-reference.js
+          grep -F 'pointer-events:none' site/mobile-earth-reference.js
+          grep -F '#lokySeismicGlobe{opacity:0!important;pointer-events:auto!important}' site/mobile-earth-reference.js
+          grep -F '<script src="./mobile-earth-reference.js?v=0.3.2r4f4"></script>' site/index.html
+          if grep -Fq 'mobile-continent-detail.js' site/index.html; then exit 1; fi
+          if test -e site/mobile-continent-detail.js; then exit 1; fi
+          if grep -Eq 'getUserMedia\s*\(|new\s+WebSocket\s*\(|LOKY_PC4_LIVE' site/mobile-earth-reference.js; then
+            echo 'Earth renderer must not own mic/WebSocket/Conversation R4 state'
+            exit 1
+          fi
+
+      - name: Run Earth reference tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/tests/ios032r4f4-earth-reference.test.cjs
+
+      - name: Re-run frozen conversation and Sismos tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/tests/ios032r4-pc4-conversation-port.test.cjs
+          node .github/tests/ios032r4f2-settings-memory-windows.test.cjs
+          node .github/tests/ios032r4f2r1-noise-guard.test.cjs
+          node .github/tests/ios032r4f3-sismos-globe.test.cjs
+
+      - name: Verify Natural Earth pinned geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson'
+          curl -fsS "$BASE/ne_50m_land.geojson" -o /tmp/land.json
+          curl -fsS "$BASE/ne_110m_admin_0_countries.geojson" -o /tmp/countries.json
+          node -e "for(const p of ['/tmp/land.json','/tmp/countries.json']){const x=require(p);if(x.type!=='FeatureCollection'||!Array.isArray(x.features)||x.features.length<20)process.exit(2)}"
+
+      - name: Verify USGS realtime feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson'
+          curl -fsS "$URL" -o /tmp/quakes.json
+          node -e "const x=require('/tmp/quakes.json'); if(x.type!=='FeatureCollection'||!Array.isArray(x.features)||!x.metadata) process.exit(2);"
+
+      - name: Verify secure Gemini token backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
+          curl -fsS "$URL" -o /tmp/loky-health.json
+          node -e "const x=require('/tmp/loky-health.json'); if(!x.ok||!x.geminiConfigured||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2);"
