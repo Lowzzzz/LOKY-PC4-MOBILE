@@ -1,0 +1,70 @@
+name: Validate iOS 0.3.3 Candidate
+
+on:
+  push:
+    branches: [candidate/ios-0.3.3-clean-dock-ui]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild exact frozen app icons
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p site/icons
+          cat deploy/icon180.part00 deploy/icon180.part01 deploy/icon180.part02 | tr -d '\r\n ' | base64 --decode > site/icons/icon-180.png
+          cat deploy/icon512.part00 deploy/icon512.part01 deploy/icon512.part02 deploy/icon512.part03 deploy/icon512.part04a deploy/icon512.fix00 deploy/icon512.fix01 deploy/icon512.fix02 deploy/icon512.fix03 | tr -d '\r\n ' | base64 --decode > site/icons/icon-512.png
+
+      - name: Verify protected visual core
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd site
+          sha256sum -c ../PROTECTED_0_1_VISUAL_SHA256.txt
+
+      - name: Verify 0.3.2 conversation and audio are untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "f99882addf9a263ae8c41f12f111b9f03b5ed73d"
+          test "$(git rev-parse HEAD:site/live-mobile.js)" = "92bc04140afd03f49306edce7062c041eac6fde6"
+          test "$(git rev-parse HEAD:site/ios-audio-stability.js)" = "d8254b160719a647fc07164a96f3955d8b268bfd"
+
+      - name: Syntax and clean dock UI checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check site/app.js
+          node --check site/live-mobile.js
+          node --check site/ios-audio-stability.js
+          node --check site/sw.js
+          grep -F "const BUILD='0.3.3'" site/app.js
+          grep -F "phase:'clean-dock-ui'" site/app.js
+          grep -F '"version": "0.3.3"' site/version.json
+          grep -F 'action-dock' site/index.html
+          grep -F 'sismos-action' site/index.html
+          grep -F 'dock-slot-reserved' site/index.html
+          grep -F '@keyframes sismos-halo' site/mobile.css
+          grep -F 'talk-button::before' site/mobile.css
+          grep -F 'live-mobile.js?v=0.3.2' site/index.html
+          grep -F 'ios-audio-stability.js?v=0.3.2' site/index.html
+          ! grep -Fq 'status-sheet' site/index.html
+          ! grep -Fq 'conversation-shell' site/index.html
+          if grep -R -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then exit 1; fi
+          if grep -R -E -qi 'QWEN|FALLBACK LOCAL|speechSynthesis' site; then exit 1; fi
+
+      - name: Verify Gemini Live backend remains healthy
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
+          curl -fsS "$URL" -o /tmp/health.json
+          node -e "const x=require('/tmp/health.json'); if(!x.ok||!x.geminiConfigured||x.model!=='models/gemini-3.8-live') process.exit(2);"
