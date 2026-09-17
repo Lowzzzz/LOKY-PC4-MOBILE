@@ -1,0 +1,17 @@
+'use strict';
+const fs=require('fs');
+const assert=require('assert');
+const plus=fs.readFileSync('site/mobile-settings-plus.js','utf8');
+assert(plus.includes("const VERSION='0.3.2R4F5R2-settings-page-scroll-clean'"));
+assert(plus.includes('.loky-settings-window{display:block!important;overflow-y:auto!important'));
+assert(plus.includes('-webkit-overflow-scrolling:touch!important'));
+assert(plus.includes('touch-action:pan-y'));
+assert(plus.includes('.loky-settings-window .loky-feature-header{position:sticky;top:0'));
+assert(plus.includes('overflow:visible!important'));
+assert(plus.includes('padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))'));
+assert(plus.includes("host.textContent='';host.classList.add('loky-settings-plus');page.scrollTop=0;"));
+assert(!plus.includes('.loky-settings-window .loky-feature-content{min-height:0;overflow-y:auto!important'));
+assert(!/getUserMedia\s*\(/.test(plus));
+assert(!/new\s+WebSocket\s*\(/.test(plus));
+assert(!/LOKY_PC4_LIVE/.test(plus));
+console.log('R4F5R2 clean full-page Settings scroll PASS');
