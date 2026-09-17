@@ -1,8 +1,8 @@
 {
   "product": "LOKY PC4 MOBILE",
   "platform": "ios",
-  "version": "0.1.0",
-  "channel": "ios-sphere-core",
+  "version": "0.2.0",
+  "channel": "ios-ui-shell",
   "minSupported": "0.1.0",
-  "released": "2026-09-16"
+  "released": "2026-09-17"
 }
