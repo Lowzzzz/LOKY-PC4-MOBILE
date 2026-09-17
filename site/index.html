@@ -34,39 +34,55 @@
         <div class="orbital-ring ring-a" aria-hidden="true"></div>
         <div class="orbital-ring ring-b" aria-hidden="true"></div>
       </div>
-      <div id="fallback" class="fallback hidden" role="status">
-        GPU visual no disponible.
-      </div>
+      <div id="fallback" class="fallback hidden" role="status">GPU visual no disponible.</div>
     </section>
 
     <section class="conversation-shell" aria-label="Conversación LOKY">
-      <div class="conversation-copy">
-        <span class="conversation-kicker">LOKY</span>
-        <strong id="conversationState">LISTO</strong>
-        <span id="conversationHint">Interfaz preparada para Gemini Live</span>
+      <div class="conversation-head">
+        <div class="conversation-copy">
+          <span class="conversation-kicker">LOKY</span>
+          <strong id="conversationState">LISTO</strong>
+          <span id="conversationHint">Toca HABLAR CON LOKY</span>
+        </div>
+        <div class="conversation-actions">
+          <span id="liveBadge" class="live-badge">ACTIVACIÓN REQUERIDA</span>
+          <button id="infoButton" class="info-button" type="button" aria-expanded="false" aria-controls="statusSheet">ESTADO</button>
+        </div>
       </div>
-      <button id="infoButton" class="info-button" type="button" aria-expanded="false" aria-controls="statusSheet">
-        ESTADO
-      </button>
+
+      <div id="activationPanel" class="activation-panel">
+        <input id="pairCode" class="pair-input" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CÓDIGO OWNER" aria-label="Código Owner">
+        <button id="activateButton" class="activate-button" type="button">ACTIVAR</button>
+      </div>
+
+      <button id="talkButton" class="talk-button hidden" type="button" data-active="0">HABLAR CON LOKY</button>
+
+      <div class="transcript-grid" aria-live="polite">
+        <div class="transcript-line"><span>TÚ</span><p id="userTranscript">—</p></div>
+        <div class="transcript-line"><span>LOKY</span><p id="lokyTranscript">—</p></div>
+      </div>
     </section>
 
     <footer class="footer">
-      <span id="buildLabel">iOS 0.2.0 · UI SHELL</span>
+      <span id="buildLabel">iOS 0.3.0 · GEMINI LIVE NATIVE</span>
       <button id="updateButton" class="update-button hidden" type="button">ACTUALIZAR</button>
     </footer>
 
     <aside id="statusSheet" class="status-sheet hidden" aria-label="Estado de LOKY PC4 Mobile">
       <button id="closeSheet" class="sheet-close" type="button" aria-label="Cerrar">×</button>
       <div class="sheet-title">LOKY PC4 MOBILE</div>
-      <div class="sheet-row"><span>Visual</span><strong>SPHERE 15K</strong></div>
+      <div class="sheet-row"><span>Visual</span><strong>SPHERE 15K · PROTEGIDA</strong></div>
       <div class="sheet-row"><span>Cloud</span><strong>GITHUB PAGES</strong></div>
-      <div class="sheet-row"><span>Versión</span><strong>iOS 0.2.0</strong></div>
-      <div class="sheet-row"><span>Conversación</span><strong>FASE 0.3</strong></div>
+      <div class="sheet-row"><span>Versión</span><strong>iOS 0.3.0</strong></div>
+      <div class="sheet-row"><span>Conversación</span><strong>GEMINI LIVE NATIVO</strong></div>
+      <div class="sheet-row"><span>Audio</span><strong>PCM16 16K → 24K</strong></div>
+      <div class="sheet-row"><span>Seguridad</span><strong>TOKEN EFÍMERO</strong></div>
     </aside>
     <div id="sheetBackdrop" class="sheet-backdrop hidden" aria-hidden="true"></div>
   </main>
 
   <script src="./sphere-mobile.js"></script>
   <script src="./app.js"></script>
+  <script src="./live-mobile.js"></script>
 </body>
 </html>
