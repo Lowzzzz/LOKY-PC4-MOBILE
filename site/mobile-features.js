@@ -1,13 +1,15 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F1R2-thinking-input-gate';
+  const VERSION='0.3.2R4F2-settings-memory-windows';
   const MEMORY_KEY='loky_pc4_mobile_memory_v1';
+  const SETTINGS_KEY='loky_pc4_mobile_settings_v1';
   const MEMORY_LIMIT=12;
-  const MEMORY_TEXT_LIMIT=140;
+  const MEMORY_TEXT_LIMIT=180;
   const MEMORY_CONTEXT_LIMIT=1200;
   const SILENCE_SENTINEL=Number.MAX_SAFE_INTEGER;
   const THINKING_GATE_MAX_MS=6500;
+  const WINDOW_CLOSE_MS=280;
 
   const live=window.LOKY_PC4_LIVE;
   const liveState=live?.state||null;
@@ -21,6 +23,14 @@
   let lastUserTurn='';
   let thinkingGateActive=false;
   let thinkingGateTimer=0;
+  let activeWindow=null;
+
+  const SPEECH_MODES={
+    natural:{label:'Natural',description:'Mantiene la conversación actual de LOKY, fluida y cercana.',instruction:''},
+    normal:{label:'Normal',description:'Lenguaje claro y equilibrado, sin exagerar el tono.',instruction:'Modo de hablar NORMAL: responde con lenguaje claro, equilibrado y cotidiano.'},
+    direct:{label:'Directo',description:'Va al punto, con menos rodeos y respuestas más cortas.',instruction:'Modo de hablar DIRECTO: ve al punto, reduce rodeos y prioriza respuestas breves y concretas.'},
+    vulgar:{label:'Vulgar',description:'Más callejero, con jerga y palabrotas cuando encajen naturalmente.',instruction:'Modo de hablar VULGAR: puedes usar lenguaje muy coloquial, jerga y palabrotas cuando encajen de forma natural. No conviertas cada respuesta en insultos; evita amenazas, humillación dirigida y lenguaje discriminatorio.'},
+  };
 
   function normalize(text){
     return String(text||'')
@@ -70,14 +80,31 @@
       const clean=String(text||'').trim().replace(/\s+/g,' ');
       if(clean.length<3||!isStableMemoryCandidate(clean))return false;
       const clipped=clean.slice(0,MEMORY_TEXT_LIMIT);
-      const items=loadMemory().filter(x=>isStableMemoryCandidate(x.text));
+      const items=loadMemory();
       if(items.some(x=>normalize(x.text)===normalize(clipped)))return false;
-      items.push({text:clipped,at:Date.now()});
+      items.push({text:clipped,at:Date.now(),source:'auto'});
       saveMemory(items);
       return true;
     },
+    addManual(text){
+      const clean=String(text||'').trim().replace(/\s+/g,' ');
+      if(clean.length<2||isSilenceCommand(clean)||isResumeCommand(clean))return false;
+      const clipped=clean.slice(0,MEMORY_TEXT_LIMIT);
+      const items=loadMemory();
+      if(items.some(x=>normalize(x.text)===normalize(clipped)))return false;
+      items.push({text:clipped,at:Date.now(),source:'manual'});
+      saveMemory(items);
+      return true;
+    },
+    forget(at){
+      const before=loadMemory();
+      const after=before.filter(x=>String(x.at)!==String(at));
+      if(after.length===before.length)return false;
+      saveMemory(after);
+      return true;
+    },
     context(){
-      const items=loadMemory().filter(x=>isStableMemoryCandidate(x.text));
+      const items=loadMemory().filter(x=>x.source==='manual'||isStableMemoryCandidate(x.text));
       if(!items.length)return '';
       const lines=[];
       let used=0;
@@ -91,6 +118,36 @@
         ? `Memoria local persistente del usuario (úsala sólo cuando sea relevante y no la menciones como sistema):\n${lines.join('\n')}`
         : '';
     }
+  };
+
+  function loadSettings(){
+    try{
+      const parsed=JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}');
+      const speechMode=SPEECH_MODES[parsed?.speechMode]?parsed.speechMode:'natural';
+      return {speechMode};
+    }catch{
+      return {speechMode:'natural'};
+    }
+  }
+
+  function saveSettings(next){
+    const speechMode=SPEECH_MODES[next?.speechMode]?next.speechMode:'natural';
+    try{localStorage.setItem(SETTINGS_KEY,JSON.stringify({speechMode}))}catch{}
+    return {speechMode};
+  }
+
+  const settings={
+    snapshot(){return {...loadSettings()};},
+    get speechMode(){return loadSettings().speechMode;},
+    setSpeechMode(mode){
+      if(!SPEECH_MODES[mode])return false;
+      saveSettings({speechMode:mode});
+      return true;
+    },
+    instruction(){
+      const mode=loadSettings().speechMode;
+      return SPEECH_MODES[mode]?.instruction||'';
+    },
   };
 
   function stopQueuedPlayback(){
@@ -146,7 +203,6 @@
     thinkingGateTimer=setTimeout(()=>{
       thinkingGateTimer=0;
       if(!thinkingGateActive)return;
-      // Fail-open recovery: never leave the owner without a usable mic forever.
       thinkingGateActive=false;
       setMicEnabled(true);
     },THINKING_GATE_MAX_MS);
@@ -180,8 +236,6 @@
     syncThinkingGate();
   }
 
-  // Isolated output gate only. The frozen R4 Conversation Core remains byte-exact.
-  // While the user is speaking, old model audio is never allowed to start playing.
   if(liveState){
     const desc=Object.getOwnPropertyDescriptor(liveState,'suppressPlaybackUntil');
     if(!desc||desc.configurable!==false){
@@ -232,8 +286,7 @@
     }).observe(conversationState,{childList:true,subtree:true,characterData:true});
   }
 
-  // Memory may alter only the one setup frame. Realtime PCM frames bypass this
-  // feature layer completely so Safari's audio hot path stays identical to R4.
+  // Only the setup frame is inspected. PCM/realtime frames bypass this layer.
   const nativeSend=WebSocket.prototype.send;
   WebSocket.prototype.send=function(data){
     if(
@@ -248,19 +301,219 @@
       const parsed=JSON.parse(data);
       const resumeHandle=parsed?.setup?.sessionResumption?.handle||'';
       if(parsed?.setup&&!resumeHandle){
-        const context=memory.context();
-        if(context){
+        const additions=[];
+        const memoryContext=memory.context();
+        const speechInstruction=settings.instruction();
+        if(memoryContext)additions.push(memoryContext);
+        if(speechInstruction)additions.push(speechInstruction);
+        if(additions.length){
           parsed.setup.systemInstruction=parsed.setup.systemInstruction||{parts:[]};
           parsed.setup.systemInstruction.parts=Array.isArray(parsed.setup.systemInstruction.parts)
             ? parsed.setup.systemInstruction.parts
             : [];
-          parsed.setup.systemInstruction.parts.push({text:context});
+          for(const text of additions)parsed.setup.systemInstruction.parts.push({text});
           data=JSON.stringify(parsed);
         }
       }
     }catch{}
     return nativeSend.call(this,data);
   };
+
+  function make(tag,className,text){
+    const el=document.createElement(tag);
+    if(className)el.className=className;
+    if(text!=null)el.textContent=text;
+    return el;
+  }
+
+  function closeFeatureWindow(immediate=false){
+    const target=activeWindow;
+    if(!target)return;
+    activeWindow=null;
+    body?.classList.remove('loky-window-open');
+    if(immediate){
+      try{target.remove()}catch{}
+      return;
+    }
+    target.classList.remove('is-open');
+    target.classList.add('is-closing');
+    setTimeout(()=>{try{target.remove()}catch{}},WINDOW_CLOSE_MS);
+  }
+
+  function createFeatureWindow(kind,title,subtitle){
+    closeFeatureWindow(true);
+    const page=make('section',`loky-feature-window loky-${kind}-window`);
+    page.setAttribute('role','dialog');
+    page.setAttribute('aria-modal','true');
+    page.setAttribute('aria-label',title);
+
+    const header=make('header','loky-feature-header');
+    const back=make('button','loky-window-back','‹');
+    back.type='button';
+    back.setAttribute('aria-label','Volver');
+    back.addEventListener('click',()=>closeFeatureWindow(false));
+
+    const brand=make('div','loky-window-brand');
+    brand.appendChild(make('span','loky-window-brand-dot'));
+    const brandCopy=make('div','loky-window-brand-copy');
+    brandCopy.appendChild(make('strong','',title));
+    brandCopy.appendChild(make('span','',subtitle));
+    brand.appendChild(brandCopy);
+
+    header.appendChild(back);
+    header.appendChild(brand);
+    header.appendChild(make('span','loky-window-spacer'));
+
+    const content=make('div','loky-feature-content');
+    page.appendChild(header);
+    page.appendChild(content);
+    body.appendChild(page);
+    body.classList.add('loky-window-open');
+    activeWindow=page;
+
+    const raf=window.requestAnimationFrame||((fn)=>setTimeout(fn,0));
+    raf(()=>page.classList.add('is-open'));
+    return {page,content,close:()=>closeFeatureWindow(false)};
+  }
+
+  function sectionCard(title,subtitle){
+    const card=make('section','loky-settings-card');
+    const head=make('div','loky-card-head');
+    const copy=make('div','loky-card-copy');
+    copy.appendChild(make('strong','',title));
+    if(subtitle)copy.appendChild(make('span','',subtitle));
+    head.appendChild(copy);
+    card.appendChild(head);
+    return card;
+  }
+
+  function openSettingsWindow(){
+    const {content}=createFeatureWindow('settings','CONFIGURACIÓN','Personaliza cómo se comporta LOKY');
+    const card=sectionCard('MODO DE HABLAR','El cambio se aplica al iniciar una nueva conversación.');
+    const modeList=make('div','loky-mode-list');
+
+    function paintModes(){
+      const current=settings.speechMode;
+      for(const button of modeList.children||[]){
+        button.classList.toggle('is-selected',button.dataset.mode===current);
+        button.setAttribute('aria-pressed',String(button.dataset.mode===current));
+      }
+    }
+
+    for(const [mode,meta] of Object.entries(SPEECH_MODES)){
+      const button=make('button','loky-mode-option');
+      button.type='button';
+      button.dataset.mode=mode;
+      const icon=make('span','loky-mode-dot');
+      const copy=make('span','loky-mode-copy');
+      copy.appendChild(make('strong','',meta.label));
+      copy.appendChild(make('small','',meta.description));
+      button.appendChild(icon);
+      button.appendChild(copy);
+      button.addEventListener('click',()=>{
+        settings.setSpeechMode(mode);
+        paintModes();
+      });
+      modeList.appendChild(button);
+    }
+    card.appendChild(modeList);
+    content.appendChild(card);
+
+    const future=sectionCard('MÁS AJUSTES','Espacio preparado para próximas funciones sin rehacer la interfaz.');
+    const futureGrid=make('div','loky-future-grid');
+    for(const label of ['VOZ','PERSONALIDAD','PRIVACIDAD','DISPOSITIVO']){
+      const item=make('div','loky-future-card');
+      item.appendChild(make('strong','',label));
+      item.appendChild(make('span','','PRÓXIMAMENTE'));
+      futureGrid.appendChild(item);
+    }
+    future.appendChild(futureGrid);
+    content.appendChild(future);
+    paintModes();
+    return activeWindow;
+  }
+
+  function openMemoryWindow(){
+    const {content}=createFeatureWindow('memory','MEMORIAS','Recuerdos y organización personal');
+    const card=sectionCard('MEMORIAS GUARDADAS','Puedes añadir o borrar recuerdos manualmente.');
+    const addRow=make('div','loky-memory-add');
+    const input=make('input','loky-memory-input');
+    input.type='text';
+    input.maxLength=MEMORY_TEXT_LIMIT;
+    input.placeholder='Escribe algo que LOKY deba recordar…';
+    input.setAttribute('aria-label','Nueva memoria');
+    const add=make('button','loky-memory-save','GUARDAR');
+    add.type='button';
+    addRow.appendChild(input);
+    addRow.appendChild(add);
+    card.appendChild(addRow);
+
+    const list=make('div','loky-memory-list');
+    card.appendChild(list);
+
+    function renderMemories(){
+      while(list.firstChild)list.removeChild(list.firstChild);
+      const items=memory.snapshot().slice().reverse();
+      if(!items.length){
+        const empty=make('div','loky-memory-empty','Aún no hay memorias guardadas.');
+        list.appendChild(empty);
+        return;
+      }
+      for(const item of items){
+        const row=make('div','loky-memory-row');
+        const copy=make('div','loky-memory-text');
+        copy.appendChild(make('span','',item.text));
+        copy.appendChild(make('small','',item.source==='manual'?'MANUAL':'LOKY'));
+        const remove=make('button','loky-memory-delete','×');
+        remove.type='button';
+        remove.setAttribute('aria-label','Eliminar memoria');
+        remove.addEventListener('click',()=>{
+          memory.forget(item.at);
+          renderMemories();
+        });
+        row.appendChild(copy);
+        row.appendChild(remove);
+        list.appendChild(row);
+      }
+    }
+
+    function addManualMemory(){
+      if(memory.addManual(input.value)){
+        input.value='';
+        renderMemories();
+      }
+    }
+    add.addEventListener('click',addManualMemory);
+    input.addEventListener('keydown',event=>{
+      if(event.key==='Enter')addManualMemory();
+    });
+    renderMemories();
+    content.appendChild(card);
+
+    const organizer=sectionCard('ORGANIZACIÓN','Secciones preparadas para las próximas funciones.');
+    const grid=make('div','loky-organizer-grid');
+    const areas=[
+      ['RECORDATORIOS','Avisos y tareas pendientes','R'],
+      ['CALENDARIO','Eventos y agenda','C'],
+      ['ALARMAS','Alarmas y temporizadores','A'],
+      ['MÁS','Nuevas herramientas','+'],
+    ];
+    for(const [title,subtitle,icon] of areas){
+      const item=make('button','loky-organizer-card');
+      item.type='button';
+      item.disabled=true;
+      item.appendChild(make('span','loky-organizer-icon',icon));
+      const copy=make('span','loky-organizer-copy');
+      copy.appendChild(make('strong','',title));
+      copy.appendChild(make('small','',subtitle));
+      item.appendChild(copy);
+      item.appendChild(make('em','','PRÓXIMAMENTE'));
+      grid.appendChild(item);
+    }
+    organizer.appendChild(grid);
+    content.appendChild(organizer);
+    return activeWindow;
+  }
 
   const slots=[];
   if(conversationShell){
@@ -269,9 +522,23 @@
       button.type='button';
       button.className=`future-op-button future-op-${i}`;
       button.dataset.slot=String(i);
-      button.setAttribute('aria-label',`Operación futura ${i}`);
-      button.setAttribute('title',`Operación futura ${i}`);
-      button.disabled=true;
+      if(i===3){
+        button.classList.add('is-action','feature-settings');
+        button.disabled=false;
+        button.setAttribute('aria-label','Configuración');
+        button.setAttribute('title','Configuración');
+        button.addEventListener('click',openSettingsWindow);
+      }else if(i===4){
+        button.classList.add('is-action','feature-memory');
+        button.disabled=false;
+        button.setAttribute('aria-label','Memorias');
+        button.setAttribute('title','Memorias');
+        button.addEventListener('click',openMemoryWindow);
+      }else{
+        button.disabled=true;
+        button.setAttribute('aria-label',`Operación futura ${i}`);
+        button.setAttribute('title',`Operación futura ${i}`);
+      }
       conversationShell.appendChild(button);
       slots.push(button);
     }
@@ -287,7 +554,15 @@
     handlePhrase,
     isStableMemoryCandidate,
     memory,
+    settings,
+    speechModes:SPEECH_MODES,
     slots,
+    windows:{
+      openSettings:openSettingsWindow,
+      openMemory:openMemoryWindow,
+      close:closeFeatureWindow,
+      get active(){return activeWindow;},
+    },
     thinkingGate:{
       get active(){return thinkingGateActive;},
       sync:syncThinkingGate,
