@@ -1,0 +1,28 @@
+'use strict';
+const fs=require('fs');
+const assert=require('assert');
+const settings=fs.readFileSync('site/mobile-settings-plus.js','utf8');
+const index=fs.readFileSync('site/index.html','utf8');
+
+assert(settings.includes("const VERSION='0.3.2R4F5-devices-qr'"));
+assert(settings.includes("loky-pc4-mobile-devices"));
+assert(settings.includes("action:'redeem_invite'"));
+assert(settings.includes("action:'create_invite'"));
+assert(settings.includes("action:'revoke_device'"));
+assert(settings.includes("action:'extend_device'"));
+assert(settings.includes("action:'list'"));
+assert(settings.includes("const DEVICE_KEY='loky_pc4_device_capability_v1'"));
+assert(settings.includes('QR válido 15 min'));
+assert(settings.includes('DISPOSITIVOS'));
+assert(settings.includes('MODO DE HABLAR'));
+assert(settings.includes('PERSONALIDAD'));
+assert(settings.includes('VOZ'));
+assert(settings.includes("document.addEventListener('click'"));
+assert(settings.includes("event.stopImmediatePropagation()"));
+assert(settings.includes("inviteToken:invite"));
+assert(settings.includes("localStorage.setItem(DEVICE_KEY"));
+assert(!/getUserMedia\s*\(/.test(settings));
+assert(!/new\s+WebSocket\s*\(/.test(settings));
+assert(!/LOKY_PC4_LIVE/.test(settings));
+assert(index.includes('<script src="./mobile-settings-plus.js?v=0.3.2r4f5"></script>'));
+console.log('R4F5 Devices QR isolated settings layer PASS');
