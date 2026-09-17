@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F3-sismos-globe-zoom';
+  const VERSION='0.3.2R4F3R1-globe-detail-layout';
   const USGS_FEED='https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson';
   const CACHE_KEY='loky_pc4_mobile_quakes_v1';
   const MAX_EVENTS=80;
@@ -61,15 +61,26 @@
       }
       .future-op-2.feature-seismic::after{content:"";position:absolute;right:4px;top:4px;width:5px;height:5px;border-radius:50%;background:#ff6b57;box-shadow:0 0 7px rgba(255,82,64,.7);opacity:.78}
       .future-op-2.feature-seismic[aria-pressed="true"]{border-color:rgba(255,120,82,.52)!important;box-shadow:0 0 17px rgba(255,83,62,.17),inset 0 1px 0 rgba(255,225,214,.08)!important}
-      .loky-seismic-canvas{position:absolute;z-index:8;width:min(88vw,550px);height:min(88vw,550px);max-width:550px;max-height:550px;opacity:0;transform:scale(.94);pointer-events:none;touch-action:none;transition:opacity .32s ease,transform .32s cubic-bezier(.22,.75,.25,1);filter:drop-shadow(0 0 22px rgba(44,180,225,.10))}
-      .loky-seismic-hud{position:absolute;z-index:12;left:50%;bottom:18px;transform:translateX(-50%) translateY(7px);display:grid;justify-items:center;gap:3px;min-width:190px;padding:7px 12px;border:1px solid rgba(102,198,231,.15);border-radius:14px;background:rgba(3,15,23,.58);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);opacity:0;pointer-events:none;transition:opacity .28s ease,transform .28s ease}
-      .loky-seismic-hud strong{font-size:9px;letter-spacing:.16em;color:#bfeeff}.loky-seismic-hud span{font-size:8px;color:#6f98aa;letter-spacing:.025em;text-align:center}
+      .loky-seismic-canvas{
+        position:absolute;z-index:8;left:50%;top:50%;width:118%;height:118%;max-width:none;max-height:none;
+        opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none;touch-action:none;background:transparent;border:0;border-radius:0;box-shadow:none;
+        transition:opacity .32s ease,transform .32s cubic-bezier(.22,.75,.25,1);filter:drop-shadow(0 0 28px rgba(44,180,225,.11));
+      }
+      .loky-seismic-hud{
+        position:absolute;z-index:12;left:50%;top:14px;bottom:auto;transform:translateX(-50%) translateY(-7px);
+        display:grid;justify-items:center;gap:3px;min-width:210px;max-width:78vw;padding:7px 13px;
+        border:1px solid rgba(102,198,231,.16);border-radius:14px;background:rgba(3,15,23,.68);
+        backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);opacity:0;pointer-events:none;
+        transition:opacity .28s ease,transform .28s ease;
+      }
+      .loky-seismic-hud strong{font-size:9px;letter-spacing:.16em;color:#c8f3ff;text-shadow:0 0 12px rgba(103,218,255,.17)}
+      .loky-seismic-hud span{font-size:8px;color:#789daf;letter-spacing:.025em;text-align:center;white-space:nowrap}
       .loky-seismic-mode .sphere-wrap{opacity:0;transform:scale(.93)!important;pointer-events:none;transition:opacity .28s ease,transform .32s ease}
-      .loky-seismic-mode .loky-seismic-canvas{opacity:1;transform:scale(1);pointer-events:auto}
+      .loky-seismic-mode .loky-seismic-canvas{opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:auto}
       .loky-seismic-mode .loky-seismic-hud{opacity:1;transform:translateX(-50%) translateY(0)}
       .sphere-wrap{transform-origin:50% 50%;will-change:transform;transition:opacity .28s ease,transform .13s ease-out}
-      @media(max-height:760px){.loky-seismic-canvas{width:min(76vw,470px);height:min(76vw,470px)}.loky-seismic-hud{bottom:12px}}
-      @media(orientation:landscape) and (max-height:600px){.loky-seismic-canvas{width:min(69vh,430px);height:min(69vh,430px)}.loky-seismic-hud{bottom:4px}}
+      @media(max-height:760px){.loky-seismic-canvas{width:120%;height:120%}.loky-seismic-hud{top:9px}}
+      @media(orientation:landscape) and (max-height:600px){.loky-seismic-canvas{width:112%;height:128%}.loky-seismic-hud{top:6px}}
       @media(prefers-reduced-motion:reduce){.loky-seismic-canvas,.loky-seismic-hud,.sphere-wrap{transition:none!important}}
     `;
     document.head.appendChild(style);
@@ -107,16 +118,38 @@
   const hudDetail=()=>document.getElementById('lokySeismicHudDetail');
   const ctx=globeCanvas?.getContext?.('2d',{alpha:true})||null;
 
+  // Detailed but lightweight world outline: no external map library and no extra runtime dependency.
   const LAND=[
-    [[-168,71],[-150,68],[-135,58],[-125,50],[-122,38],[-111,29],[-100,23],[-90,19],[-83,9],[-77,8],[-70,20],[-66,45],[-55,52],[-61,63],[-88,72],[-120,74],[-150,73],[-168,71]],
-    [[-74,60],[-48,60],[-23,72],[-31,82],[-55,82],[-74,70],[-74,60]],
-    [[-81,12],[-71,7],[-62,-3],[-54,-14],[-58,-27],[-66,-42],[-72,-55],[-78,-40],[-76,-18],[-81,12]],
-    [[-11,36],[2,44],[18,48],[31,46],[40,55],[62,61],[88,67],[118,63],[145,54],[165,50],[151,38],[128,28],[109,18],[101,6],[80,7],[68,24],[49,30],[35,36],[25,39],[10,38],[-11,36]],
-    [[-17,36],[2,36],[18,32],[34,27],[50,12],[43,-13],[34,-28],[20,-35],[5,-34],[-7,-24],[-13,-5],[-17,17],[-17,36]],
-    [[112,-11],[132,-10],[153,-16],[154,-36],[140,-44],[119,-35],[112,-11]],
-    [[166,-34],[178,-38],[176,-46],[168,-45],[166,-34]],
-    [[-8,50],[2,51],[1,59],[-6,58],[-8,50]],
-    [[130,31],[145,36],[143,45],[132,42],[130,31]],
+    [[-168,72],[-162,70],[-158,67],[-153,64],[-149,61],[-143,60],[-138,57],[-133,55],[-129,52],[-126,49],[-124,45],[-123,40],[-121,36],[-117,32],[-113,30],[-109,27],[-105,24],[-100,22],[-96,20],[-92,19],[-88,21],[-86,22],[-84,19],[-82,17],[-80,23],[-80,27],[-81,31],[-79,34],[-76,36],[-75,40],[-71,42],[-69,45],[-66,47],[-63,50],[-60,53],[-58,56],[-62,59],[-67,61],[-73,62],[-79,65],[-86,67],[-94,70],[-104,72],[-114,74],[-126,74],[-138,72],[-149,71],[-158,73],[-168,72]],
+    [[-75,60],[-69,62],[-61,65],[-54,67],[-48,71],[-43,76],[-46,80],[-55,82],[-65,80],[-71,75],[-74,68],[-75,60]],
+    [[-81,12],[-78,9],[-75,7],[-72,5],[-69,1],[-65,-2],[-61,-6],[-58,-11],[-55,-16],[-57,-21],[-59,-26],[-62,-31],[-66,-36],[-69,-42],[-71,-48],[-73,-54],[-76,-50],[-78,-43],[-77,-35],[-75,-27],[-74,-19],[-76,-12],[-78,-5],[-79,2],[-81,12]],
+    [[-11,36],[-7,40],[-2,43],[3,44],[7,43],[10,44],[14,45],[18,46],[22,45],[26,46],[30,47],[34,50],[39,53],[44,55],[50,57],[58,59],[66,61],[74,63],[82,65],[92,67],[104,68],[116,66],[128,63],[139,59],[151,55],[160,51],[166,47],[162,43],[156,40],[149,38],[142,36],[136,34],[130,31],[125,27],[121,23],[116,19],[111,16],[107,11],[105,7],[101,4],[97,7],[93,13],[88,20],[83,22],[79,26],[74,28],[70,27],[66,25],[61,25],[57,27],[53,29],[48,30],[44,33],[40,35],[35,37],[30,39],[25,40],[21,39],[17,40],[13,39],[9,38],[5,37],[1,37],[-4,36],[-11,36]],
+    [[-18,36],[-13,35],[-8,36],[-3,36],[2,35],[7,34],[12,33],[17,31],[22,29],[27,28],[31,25],[35,22],[39,18],[43,13],[46,8],[49,4],[50,-2],[48,-8],[45,-13],[42,-18],[38,-22],[35,-27],[31,-31],[26,-34],[20,-35],[14,-35],[8,-34],[3,-32],[-2,-29],[-6,-25],[-9,-20],[-11,-14],[-13,-8],[-15,-2],[-16,6],[-17,14],[-17,22],[-18,30],[-18,36]],
+    [[113,-11],[118,-14],[122,-18],[126,-22],[130,-25],[134,-27],[138,-31],[142,-34],[147,-37],[151,-35],[153,-30],[153,-24],[151,-19],[147,-16],[141,-14],[136,-12],[130,-11],[124,-11],[118,-11],[113,-11]],
+    [[166,-34],[169,-36],[173,-39],[177,-41],[176,-45],[172,-47],[169,-45],[167,-41],[166,-34]],
+    [[-9,50],[-6,50],[-4,52],[-5,55],[-4,58],[-7,58],[-9,55],[-9,50]],
+    [[-25,63],[-18,64],[-14,66],[-17,67],[-22,66],[-25,63]],
+    [[129,31],[132,33],[136,35],[139,37],[141,40],[143,43],[142,46],[139,45],[136,42],[133,39],[131,36],[129,31]],
+    [[43,-12],[48,-14],[50,-18],[49,-23],[46,-26],[44,-23],[43,-18],[43,-12]],
+    [[79,9],[82,9],[82,6],[80,5],[79,9]],
+    [[95,5],[100,5],[104,1],[108,-3],[111,-6],[113,-8],[109,-8],[105,-6],[101,-4],[98,-1],[95,5]],
+    [[118,1],[122,2],[125,0],[127,-3],[130,-5],[133,-4],[136,-3],[139,-5],[141,-7],[138,-8],[134,-7],[130,-7],[126,-6],[122,-4],[118,1]],
+    [[120,18],[122,17],[123,14],[122,11],[120,10],[119,13],[120,18]],
+    [[-85,23],[-81,23],[-78,22],[-75,20],[-78,19],[-82,20],[-85,23]],
+    [[-67,18],[-64,19],[-62,17],[-65,16],[-67,18]],
+  ];
+
+  const DETAIL_LINES=[
+    [[-126,49],[-118,49],[-110,49],[-102,49],[-94,49],[-86,48],[-78,47]],
+    [[-117,32],[-110,35],[-104,39],[-99,43],[-95,48],[-90,52]],
+    [[-80,8],[-74,3],[-70,-3],[-66,-10],[-63,-17],[-61,-24],[-64,-31],[-68,-38],[-71,-46]],
+    [[-7,43],[2,48],[10,50],[18,52],[25,55],[32,58]],
+    [[30,47],[36,44],[42,42],[49,43],[56,47],[63,52]],
+    [[67,25],[73,30],[80,34],[88,37],[96,40],[104,43],[112,46]],
+    [[104,4],[108,9],[112,14],[117,19],[123,24],[130,29]],
+    [[-5,36],[2,31],[8,26],[13,20],[18,14],[22,8],[25,1],[27,-7],[28,-15],[27,-23],[24,-31]],
+    [[33,31],[37,27],[40,22],[43,16],[45,10],[45,4],[43,-3],[40,-10]],
+    [[118,-18],[126,-20],[134,-24],[141,-30],[147,-35]],
   ];
 
   function resizeGlobe(){
@@ -160,17 +193,36 @@
   }
 
   function drawGrid(radius,cx,cy){
-    ctx.lineWidth=Math.max(1,globeCanvas.width/650);
-    ctx.strokeStyle='rgba(93,192,226,.115)';
-    for(let lat=-60;lat<=60;lat+=30){
+    const major=Math.max(1,globeCanvas.width/760);
+    const minor=Math.max(.65,globeCanvas.width/1180);
+    for(let lat=-75;lat<=75;lat+=15){
       const pts=[];
       for(let lon=-180;lon<=180;lon+=3)pts.push([lon,lat]);
-      drawPath(pts,radius,cx,cy,ctx.strokeStyle,null);
+      const isMajor=lat%30===0;
+      ctx.lineWidth=isMajor?major:minor;
+      drawPath(pts,radius,cx,cy,isMajor?'rgba(93,192,226,.12)':'rgba(93,192,226,.055)',null);
     }
-    for(let lon=-180;lon<180;lon+=30){
+    for(let lon=-180;lon<180;lon+=15){
       const pts=[];
       for(let lat=-88;lat<=88;lat+=3)pts.push([lon,lat]);
-      drawPath(pts,radius,cx,cy,ctx.strokeStyle,null);
+      const isMajor=lon%30===0;
+      ctx.lineWidth=isMajor?major:minor;
+      drawPath(pts,radius,cx,cy,isMajor?'rgba(93,192,226,.12)':'rgba(93,192,226,.05)',null);
+    }
+  }
+
+  function drawLand(radius,cx,cy,w){
+    ctx.lineJoin='round';
+    ctx.lineCap='round';
+    for(const land of LAND){
+      ctx.lineWidth=Math.max(2.6,w/320);
+      drawPath(land,radius,cx,cy,'rgba(57,178,215,.095)',null);
+      ctx.lineWidth=Math.max(1.0,w/820);
+      drawPath(land,radius,cx,cy,'rgba(125,220,246,.48)','rgba(29,105,132,.20)');
+    }
+    ctx.lineWidth=Math.max(.75,w/1050);
+    for(const line of DETAIL_LINES){
+      drawPath(line,radius,cx,cy,'rgba(102,199,229,.16)',null);
     }
   }
 
@@ -212,26 +264,31 @@
     resizeGlobe();
     const w=globeCanvas.width,h=globeCanvas.height;
     ctx.clearRect(0,0,w,h);
-    const cx=w/2,cy=h/2;
-    const radius=Math.min(w,h)*.405*state.globeZoom;
+    const cx=w/2,cy=h*.52;
+    const radius=Math.min(w,h)*.385*state.globeZoom;
 
     const glow=ctx.createRadialGradient(cx-radius*.30,cy-radius*.34,radius*.08,cx,cy,radius*1.1);
-    glow.addColorStop(0,'rgba(28,104,137,.46)');
-    glow.addColorStop(.58,'rgba(5,31,45,.94)');
-    glow.addColorStop(1,'rgba(1,8,13,.98)');
+    glow.addColorStop(0,'rgba(35,121,155,.48)');
+    glow.addColorStop(.50,'rgba(7,42,58,.96)');
+    glow.addColorStop(.82,'rgba(3,21,32,.99)');
+    glow.addColorStop(1,'rgba(1,8,13,.99)');
     ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fillStyle=glow;ctx.fill();
+
     ctx.save();
     ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();
     drawGrid(radius,cx,cy);
-    ctx.lineWidth=Math.max(1.1,w/610);
-    for(const land of LAND){
-      drawPath(land,radius,cx,cy,'rgba(108,209,237,.38)','rgba(36,111,136,.17)');
-    }
+    drawLand(radius,cx,cy,w);
     drawQuakes(radius,cx,cy,now);
     drawLocation(radius,cx,cy,now);
     ctx.restore();
-    ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.strokeStyle='rgba(117,220,249,.28)';ctx.lineWidth=Math.max(1.2,w/500);ctx.stroke();
-    ctx.beginPath();ctx.arc(cx,cy,radius*.985,0,Math.PI*2);ctx.strokeStyle='rgba(90,193,229,.08)';ctx.lineWidth=Math.max(3,w/180);ctx.stroke();
+
+    const rim=ctx.createRadialGradient(cx,cy,radius*.78,cx,cy,radius*1.04);
+    rim.addColorStop(0,'rgba(61,189,226,0)');
+    rim.addColorStop(.82,'rgba(61,189,226,.025)');
+    rim.addColorStop(1,'rgba(108,219,249,.20)');
+    ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fillStyle=rim;ctx.fill();
+    ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.strokeStyle='rgba(130,227,252,.34)';ctx.lineWidth=Math.max(1.15,w/720);ctx.stroke();
+    ctx.beginPath();ctx.arc(cx,cy,radius*.987,0,Math.PI*2);ctx.strokeStyle='rgba(90,193,229,.07)';ctx.lineWidth=Math.max(2.2,w/260);ctx.stroke();
 
     state.raf=requestAnimationFrame(drawGlobe);
   }
@@ -431,7 +488,7 @@
         const dx=event.clientX-(previous?.x??event.clientX);
         const dy=event.clientY-(previous?.y??event.clientY);
         const rect=globeCanvas.getBoundingClientRect();
-        const base=Math.max(120,Math.min(rect.width,rect.height)*.405*state.globeZoom);
+        const base=Math.max(120,Math.min(rect.width,rect.height)*.385*state.globeZoom);
         state.centerLon-=dx/base*70;
         state.centerLat=clamp(state.centerLat+dy/base*62,-72,72);
         while(state.centerLon>180)state.centerLon-=360;
