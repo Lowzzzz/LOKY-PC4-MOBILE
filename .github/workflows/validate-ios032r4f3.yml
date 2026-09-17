@@ -1,8 +1,8 @@
-name: Validate iOS 0.3.2R4F3R1 Globe Detail Layout
+name: Validate iOS 0.3.2R4F3R2 Earth Ultra Quake Info
 
 on:
   push:
-    branches: [candidate/ios-0.3.2R4F3R1-globe-detail-layout]
+    branches: [candidate/ios-0.3.2R4F3R2-earth-ultra-quake-info]
   workflow_dispatch:
 
 permissions:
@@ -21,11 +21,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE=c677250b36be53991608d95d7230f0dde663cae6
+          BASE=b14a4e5e4aac9112aa7c1dfb145bcea0a082c8cc
           changed="$(git diff --name-only "$BASE"..HEAD | grep -v '^\.github/' || true)"
           test "$changed" = 'site/mobile-seismic.js'
 
-      - name: Verify frozen Mobile baseline and R4F3 loader byte-exact
+      - name: Verify frozen Mobile core and R4F3 loader byte-exact
         shell: bash
         run: |
           set -euo pipefail
@@ -39,17 +39,19 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-noise-guard.js)" = "c632c64738c0bb34d7e372d28a5532d238b23398"
           test "$(git rev-parse HEAD:site/index.html)" = "a4931a5db333bd53032a8bbb71646d2e1f909c20"
 
-      - name: Verify Sismos detail layout contract
+      - name: Verify Earth Ultra and quake info contract
         shell: bash
         run: |
           set -euo pipefail
           node --check site/mobile-seismic.js
-          grep -F "const VERSION='0.3.2R4F3R1-globe-detail-layout'" site/mobile-seismic.js
-          grep -F 'width:118%;height:118%' site/mobile-seismic.js
+          grep -F "const VERSION='0.3.2R4F3R2-earth-ultra-quake-info'" site/mobile-seismic.js
+          grep -F 'function buildLandDots(' site/mobile-seismic.js
+          grep -F 'function drawOrbits(' site/mobile-seismic.js
+          grep -F 'function selectQuake(' site/mobile-seismic.js
+          grep -F 'function pickQuake(' site/mobile-seismic.js
+          grep -F 'PROFUNDIDAD' site/mobile-seismic.js
+          grep -F 'width:122%;height:122%' site/mobile-seismic.js
           grep -F 'top:14px;bottom:auto' site/mobile-seismic.js
-          grep -F 'const DETAIL_LINES=[' site/mobile-seismic.js
-          grep -F 'function drawLand(' site/mobile-seismic.js
-          grep -F 'for(let lat=-75;lat<=75;lat+=15)' site/mobile-seismic.js
           grep -F "earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson" site/mobile-seismic.js
           grep -F "navigator.geolocation.getCurrentPosition" site/mobile-seismic.js
           grep -F "features?.slots?.[1]" site/mobile-seismic.js
@@ -61,7 +63,7 @@ jobs:
             exit 1
           fi
 
-      - name: Run Sismos detail layout tests
+      - name: Run Earth Ultra Sismos tests
         shell: bash
         run: |
           set -euo pipefail
