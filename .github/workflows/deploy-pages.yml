@@ -52,33 +52,30 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile.css)" = "b4eff4577685dce6b07867cc040d4b8369be2a51"
           test "$(git rev-parse HEAD:site/mobile-noise-guard.js)" = "c632c64738c0bb34d7e372d28a5532d238b23398"
 
-      - name: Verify R4F4R2 optimized single Earth runtime exact
+      - name: Verify R4F4R2 Earth and R4F5 Devices runtime exact
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "1ba7f53b7ea201572c0a517640cc7d6b7d11901a"
+          test "$(git rev-parse HEAD:site/index.html)" = "9d76e96b31e06a1846f42bce0f25dabcf3a8af3a"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "34b1d603625476b569f275c5720a08603711ed73"
+          test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "a105470ebafb414414f153e7cba2106aa068a604"
           if test -e site/mobile-continent-detail.js; then exit 1; fi
+          grep -F '<script src="./mobile-settings-plus.js?v=0.3.2r4f5"></script>' site/index.html
           grep -F '<script src="./mobile-earth-reference.js?v=0.3.2r4f4"></script>' site/index.html
+          grep -F "const VERSION='0.3.2R4F5-devices-qr'" site/mobile-settings-plus.js
           grep -F "const VERSION='0.3.2R4F4R1-seismic-controller'" site/mobile-seismic.js
           grep -F "const VERSION='0.3.2R4F4R2-fps-startup-optimization'" site/mobile-earth-reference.js
           if grep -Fq 'lokySeismicGlobe' site/mobile-seismic.js; then echo 'Legacy globe must be deleted'; exit 1; fi
           if grep -Fq 'function drawGlobe(' site/mobile-seismic.js; then echo 'Legacy draw loop must be deleted'; exit 1; fi
           grep -F '.loky-seismic-mode .sphere-wrap{display:none!important}' site/mobile-seismic.js
-          grep -F 'const cacheCanvas=document.createElement' site/mobile-earth-reference.js
-          grep -F 'function rebuildStatic(' site/mobile-earth-reference.js
           grep -F 'const ACTIVE_FPS=60' site/mobile-earth-reference.js
           grep -F 'const IDLE_FPS=24' site/mobile-earth-reference.js
-          grep -F 'const FAST_DOT_STRIDE=4' site/mobile-earth-reference.js
           grep -F 'async function buildDotsAsync(' site/mobile-earth-reference.js
-          grep -F 'function yieldMain()' site/mobile-earth-reference.js
-          grep -F 'else loadGeometry()' site/mobile-earth-reference.js
-          grep -F "const NE_COMMIT='ca96624a56bd078437bca8184e78163e5039ad19'" site/mobile-earth-reference.js
-          grep -F 'const MAX_DOTS=9800' site/mobile-earth-reference.js
-          grep -F 'function pickQuake(' site/mobile-earth-reference.js
-          grep -F 'PROFUNDIDAD' site/mobile-seismic.js
-          if grep -R -E -q 'getUserMedia\s*\(|new\s+WebSocket\s*\(|LOKY_PC4_LIVE' site/mobile-seismic.js site/mobile-earth-reference.js; then exit 1; fi
+          grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-settings-plus.js
+          grep -F 'loky-pc4-mobile-devices' site/mobile-settings-plus.js
+          grep -F '04f46c6a0708418cb7b96fc563eacae0fbf77674' site/mobile-settings-plus.js
+          if grep -R -E -q 'getUserMedia\s*\(|new\s+WebSocket\s*\(|LOKY_PC4_LIVE' site/mobile-seismic.js site/mobile-earth-reference.js site/mobile-settings-plus.js; then exit 1; fi
 
       - name: Verify JavaScript syntax
         shell: bash
@@ -89,6 +86,7 @@ jobs:
           node --check site/live-mobile.js
           node --check site/ios-audio-stability.js
           node --check site/mobile-features.js
+          node --check site/mobile-settings-plus.js
           node --check site/mobile-noise-guard.js
           node --check site/mobile-seismic.js
           node --check site/mobile-earth-reference.js
@@ -113,7 +111,7 @@ jobs:
           grep -F "await ctx.resume()" site/ios-audio-stability.js
           if grep -Fq 'interimInputTranscription' site/live-mobile.js; then exit 1; fi
 
-      - name: Run frozen conversation and R4F4R2 tests
+      - name: Run frozen conversation Earth and Devices tests
         shell: bash
         run: |
           set -euo pipefail
@@ -121,8 +119,9 @@ jobs:
           node .github/tests/ios032r4f2-settings-memory-windows.test.cjs
           node .github/tests/ios032r4f2r1-noise-guard.test.cjs
           node .github/tests/ios032r4f4r2-fps-startup.test.cjs
+          node .github/tests/ios032r4f5-devices-qr.test.cjs
 
-      - name: Verify pinned Natural Earth geometry
+      - name: Verify Natural Earth USGS and device backends
         shell: bash
         run: |
           set -euo pipefail
@@ -130,14 +129,20 @@ jobs:
           curl -fsS "$BASE/ne_50m_land.geojson" -o /tmp/land.json
           curl -fsS "$BASE/ne_110m_admin_0_countries.geojson" -o /tmp/countries.json
           node -e "for(const p of ['/tmp/land.json','/tmp/countries.json']){const x=require(p);if(x.type!=='FeatureCollection'||!Array.isArray(x.features)||x.features.length<20)process.exit(2)}"
-
-      - name: Verify USGS realtime earthquake feed
-        shell: bash
-        run: |
-          set -euo pipefail
-          URL='https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson'
-          curl -fsS "$URL" -o /tmp/quakes.json
+          curl -fsS 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson' -o /tmp/quakes.json
           node -e "const x=require('/tmp/quakes.json'); if(x.type!=='FeatureCollection'||!Array.isArray(x.features)||!x.metadata) process.exit(2);"
+          DEV='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices'
+          TOKEN='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
+          curl -fsS "$DEV" -o /tmp/device-health.json
+          node -e "const x=require('/tmp/device-health.json'); if(!x.ok||x.version!==1) process.exit(2)"
+          curl -fsS "$TOKEN" -o /tmp/token-health.json
+          node -e "const x=require('/tmp/token-health.json'); if(!x.ok||x.auth!=='owner-or-invited-device-capability'||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2)"
+          code=$(curl -sS -o /tmp/device-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"status"}' "$DEV")
+          test "$code" = '401'
+          code=$(curl -sS -o /tmp/token-denied.json -w '%{http_code}' -X POST -H 'x-loky-device: invalid-device-123456789' "$TOKEN")
+          test "$code" = '401'
+          curl -fsS 'https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js' -o /tmp/qrcode.min.js
+          grep -F 'QRCode' /tmp/qrcode.min.js >/dev/null
 
       - name: Verify no forbidden fallback or secret material
         shell: bash
@@ -145,16 +150,6 @@ jobs:
           set -euo pipefail
           if grep -R -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then echo 'Secret/API key material must never be present in public Mobile files'; exit 1; fi
           if grep -R -E -qi 'QWEN|FALLBACK LOCAL|speechSynthesis' site; then echo 'Local robotic voice fallback is forbidden in native Live build'; exit 1; fi
-
-      - name: Verify secure token backend health
-        shell: bash
-        run: |
-          set -euo pipefail
-          URL='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
-          curl -fsS "$URL" -o /tmp/loky-health.json
-          node -e "const x=require('/tmp/loky-health.json'); if(!x.ok||!x.geminiConfigured||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2);"
-          code=$(curl -sS -o /tmp/loky-denied.json -w '%{http_code}' -X POST -H 'x-loky-device: invalid-device' "$URL")
-          test "$code" = '401'
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
