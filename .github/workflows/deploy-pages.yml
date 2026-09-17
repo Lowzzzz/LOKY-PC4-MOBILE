@@ -49,33 +49,36 @@ jobs:
           test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
           test "$(git rev-parse HEAD:site/sw.js)" = "f65be5534df529c8f3e409b6a5e1ca6f29967725"
 
-      - name: Verify frozen R4F2R1 features and isolated R4F3R2 Sismos runtime
+      - name: Verify frozen R4F2R1 R4F3R2 and isolated continent overlay
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "a9c02db6ffcf8efcb76d8e1bc35ca5439240a81f"
           test "$(git rev-parse HEAD:site/mobile.css)" = "b4eff4577685dce6b07867cc040d4b8369be2a51"
           test "$(git rev-parse HEAD:site/mobile-noise-guard.js)" = "c632c64738c0bb34d7e372d28a5532d238b23398"
-          test "$(git rev-parse HEAD:site/index.html)" = "a4931a5db333bd53032a8bbb71646d2e1f909c20"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "4616876813ba0c990d0dc9eb131f3d553c204d29"
+          test "$(git rev-parse HEAD:site/mobile-continent-detail.js)" = "00e182760e023c8a8d57a27e642a3f2c77032494"
+          test "$(git rev-parse HEAD:site/index.html)" = "123249e328c120f97be02a94238b8b76efa652ec"
           grep -F '<script src="./mobile-features.js?v=0.3.2r4f1"></script>' site/index.html
           grep -F '<script src="./mobile-noise-guard.js?v=0.3.2r4f2r1"></script>' site/index.html
           grep -F '<script src="./mobile-seismic.js?v=0.3.2r4f3"></script>' site/index.html
+          grep -F '<script src="./mobile-continent-detail.js?v=0.3.2r4f3r3"></script>' site/index.html
           grep -F "const VERSION='0.3.2R4F2-settings-memory-windows'" site/mobile-features.js
           grep -F "const VERSION='0.3.2R4F2R1-voice-noise-guard'" site/mobile-noise-guard.js
           grep -F "const VERSION='0.3.2R4F3R2-earth-ultra-quake-info'" site/mobile-seismic.js
-          grep -F 'function buildLandDots(' site/mobile-seismic.js
-          grep -F 'function drawOrbits(' site/mobile-seismic.js
+          grep -F "const VERSION='0.3.2R4F3R3-continent-detail'" site/mobile-continent-detail.js
           grep -F 'function selectQuake(' site/mobile-seismic.js
           grep -F 'function pickQuake(' site/mobile-seismic.js
           grep -F 'PROFUNDIDAD' site/mobile-seismic.js
-          grep -F 'width:122%;height:122%' site/mobile-seismic.js
-          grep -F 'top:14px;bottom:auto' site/mobile-seismic.js
-          grep -F "navigator.geolocation.getCurrentPosition" site/mobile-seismic.js
-          grep -F "features?.slots?.[1]" site/mobile-seismic.js
-          grep -F "SPHERE_MAX_ZOOM=2.6" site/mobile-seismic.js
-          grep -F "GLOBE_MAX_ZOOM=3.2" site/mobile-seismic.js
-          if grep -Eq 'getUserMedia\s*\(|new\s+WebSocket\s*\(|LOKY_PC4_LIVE' site/mobile-seismic.js; then exit 1; fi
+          grep -F "pointerEvents:'none'" site/mobile-continent-detail.js
+          grep -F 'seismic.project(' site/mobile-continent-detail.js
+          grep -F "['NORTEAMÉRICA'" site/mobile-continent-detail.js
+          grep -F "['SUDAMÉRICA'" site/mobile-continent-detail.js
+          grep -F "['EUROPA'" site/mobile-continent-detail.js
+          grep -F "['ÁFRICA'" site/mobile-continent-detail.js
+          grep -F "['ASIA'" site/mobile-continent-detail.js
+          grep -F "['OCEANÍA'" site/mobile-continent-detail.js
+          if grep -Eq 'getUserMedia\s*\(|new\s+WebSocket\s*\(|LOKY_PC4_LIVE|fetch\s*\(' site/mobile-continent-detail.js; then exit 1; fi
 
       - name: Verify JavaScript syntax
         shell: bash
@@ -88,6 +91,7 @@ jobs:
           node --check site/mobile-features.js
           node --check site/mobile-noise-guard.js
           node --check site/mobile-seismic.js
+          node --check site/mobile-continent-detail.js
           node --check site/sw.js
 
       - name: Verify iOS 0.3.2R4 PC4 conversation port remains frozen
@@ -109,7 +113,7 @@ jobs:
           grep -F "await ctx.resume()" site/ios-audio-stability.js
           if grep -Fq 'interimInputTranscription' site/live-mobile.js; then exit 1; fi
 
-      - name: Run frozen conversation R4F2R1 and R4F3R2 tests
+      - name: Run frozen conversation Sismos and continent tests
         shell: bash
         run: |
           set -euo pipefail
@@ -117,6 +121,7 @@ jobs:
           node .github/tests/ios032r4f2-settings-memory-windows.test.cjs
           node .github/tests/ios032r4f2r1-noise-guard.test.cjs
           node .github/tests/ios032r4f3-sismos-globe.test.cjs
+          node .github/tests/ios032r4f3r3-continent-detail.test.cjs
 
       - name: Verify USGS realtime earthquake feed
         shell: bash
