@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -29,8 +29,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p site/icons
-          cat deploy/icon180.part* | tr -d '\r\n ' | base64 --decode > site/icons/icon-180.png
-          cat deploy/icon512.part* | tr -d '\r\n ' | base64 --decode > site/icons/icon-512.png
+          cat deploy/icon180.part00 deploy/icon180.part01 deploy/icon180.part02 | tr -d '\r\n ' | base64 --decode > site/icons/icon-180.png
+          cat deploy/icon512.part00 deploy/icon512.part01 deploy/icon512.part02 deploy/icon512.part03 deploy/icon512.part04a deploy/icon512.part04b | tr -d '\r\n ' | base64 --decode > site/icons/icon-512.png
 
       - name: Verify OWNER PASS baseline byte-for-byte
         shell: bash
@@ -41,8 +41,6 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -51,4 +49,4 @@ jobs:
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
