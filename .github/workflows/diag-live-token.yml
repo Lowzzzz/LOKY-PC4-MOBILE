@@ -9,7 +9,7 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe token backend
+      - name: Probe token backend v5
         shell: bash
         run: |
           set -euo pipefail
