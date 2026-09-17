@@ -11,7 +11,7 @@
   <title>LOKY PC4 Mobile</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-180.png">
-  <link rel="stylesheet" href="./mobile.css">
+  <link rel="stylesheet" href="./mobile.css?v=0.3.3">
 </head>
 <body>
   <main id="app" class="app-shell" aria-label="LOKY PC4 Mobile iOS">
@@ -37,17 +37,11 @@
       <div id="fallback" class="fallback hidden" role="status">GPU visual no disponible.</div>
     </section>
 
-    <section class="conversation-shell" aria-label="Conversación LOKY">
-      <div class="conversation-head">
-        <div class="conversation-copy">
-          <span class="conversation-kicker">LOKY</span>
-          <strong id="conversationState">LISTO</strong>
-          <span id="conversationHint">Toca HABLAR CON LOKY</span>
-        </div>
-        <div class="conversation-actions">
-          <span id="liveBadge" class="live-badge">ACTIVACIÓN REQUERIDA</span>
-          <button id="infoButton" class="info-button" type="button" aria-expanded="false" aria-controls="statusSheet">ESTADO</button>
-        </div>
+    <section class="mobile-controls" aria-label="Controles LOKY">
+      <div class="voice-state" aria-live="polite">
+        <strong id="conversationState">LISTO</strong>
+        <span id="conversationHint">Toca el micrófono para hablar</span>
+        <span id="liveBadge" class="live-badge">ACTIVACIÓN REQUERIDA</span>
       </div>
 
       <div id="activationPanel" class="activation-panel">
@@ -55,34 +49,28 @@
         <button id="activateButton" class="activate-button" type="button">ACTIVAR</button>
       </div>
 
-      <button id="talkButton" class="talk-button hidden" type="button" data-active="0">HABLAR CON LOKY</button>
+      <nav class="action-dock" aria-label="Acciones rápidas">
+        <span class="dock-slot dock-slot-reserved" aria-hidden="true"></span>
+        <span class="dock-slot dock-slot-reserved" aria-hidden="true"></span>
+        <button id="talkButton" class="talk-button sismos-action hidden" type="button" data-active="0" aria-label="Hablar con LOKY">HABLAR CON LOKY</button>
+        <span class="dock-slot dock-slot-reserved" aria-hidden="true"></span>
+        <span class="dock-slot dock-slot-reserved" aria-hidden="true"></span>
+      </nav>
 
-      <div class="transcript-grid" aria-live="polite">
-        <div class="transcript-line"><span>TÚ</span><p id="userTranscript">—</p></div>
-        <div class="transcript-line"><span>LOKY</span><p id="lokyTranscript">—</p></div>
+      <div class="transcript-data" aria-live="polite" aria-hidden="true">
+        <p id="userTranscript">—</p>
+        <p id="lokyTranscript">—</p>
       </div>
     </section>
 
     <footer class="footer">
-      <span id="buildLabel">iOS 0.3.2 · GEMINI LIVE NATIVE</span>
+      <span id="buildLabel">iOS 0.3.3 · CLEAN DOCK UI</span>
       <button id="updateButton" class="update-button hidden" type="button">ACTUALIZAR</button>
     </footer>
-
-    <aside id="statusSheet" class="status-sheet hidden" aria-label="Estado de LOKY PC4 Mobile">
-      <button id="closeSheet" class="sheet-close" type="button" aria-label="Cerrar">×</button>
-      <div class="sheet-title">LOKY PC4 MOBILE</div>
-      <div class="sheet-row"><span>Visual</span><strong>SPHERE 15K · PROTEGIDA</strong></div>
-      <div class="sheet-row"><span>Cloud</span><strong>GITHUB PAGES</strong></div>
-      <div class="sheet-row"><span>Versión</span><strong>iOS 0.3.2</strong></div>
-      <div class="sheet-row"><span>Conversación</span><strong>GEMINI LIVE NATIVO</strong></div>
-      <div class="sheet-row"><span>Audio</span><strong>PCM16 16K → 24K · iOS STABLE</strong></div>
-      <div class="sheet-row"><span>Seguridad</span><strong>TOKEN EFÍMERO</strong></div>
-    </aside>
-    <div id="sheetBackdrop" class="sheet-backdrop hidden" aria-hidden="true"></div>
   </main>
 
   <script src="./sphere-mobile.js"></script>
-  <script src="./app.js?v=0.3.2"></script>
+  <script src="./app.js?v=0.3.3"></script>
   <script src="./live-mobile.js?v=0.3.2"></script>
   <script src="./ios-audio-stability.js?v=0.3.2"></script>
 </body>
