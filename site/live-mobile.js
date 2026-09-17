@@ -1,19 +1,31 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R3R1-bargein-voice-stability';
+  // PC4 Conversation Port for Mobile.
+  // Desktop is read-only reference. This file is the only Mobile runtime owner
+  // of mic -> attention/VAD -> Gemini Live -> PCM playback.
+  const VERSION='0.3.2R4-pc4-conversation-port';
   const TOKEN_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token';
   const DEFAULT_MODEL='models/gemini-3.8-live';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const WS_BASE='wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained';
+
+  // Google recommends small realtime chunks. 2048 @ 48 kHz ~= 42.7 ms.
   const MIC_BUFFER_SIZE=2048;
-  const END_SILENCE_MS=250;
-  const PREFIX_PADDING_MS=60;
   const CONNECT_TIMEOUT_MS=12000;
   const SETUP_TIMEOUT_MS=8000;
-  const LOCAL_BARGE_MIN_RMS=0.04;
-  const LOCAL_BARGE_FRAMES=2;
-  const LOCAL_BARGE_SUPPRESS_MS=900;
+
+  // Mobile equivalent of the protected PC4 Attention layer.
+  // Gemini automatic VAD is disabled; this owner decides real turn boundaries.
+  const PRE_ROLL_CHUNKS=4;
+  const START_FRAMES_IDLE=3;
+  const START_FRAMES_BARGE=2;
+  const END_SILENCE_MS=420;
+  const MIN_START_RMS=0.012;
+  const MIN_BARGE_RMS=0.026;
+  const MIN_END_RMS=0.007;
+  const BARGE_PLAYBACK_SUPPRESS_MS=260;
+  const HANDOVER_TAIL_CHUNKS=5;
 
   const state={
     desired:false,
@@ -28,17 +40,28 @@
     retryAttempt:0,
     connectTimer:0,
     setupTimer:0,
+
     mediaStream:null,
     audioContext:null,
     micSource:null,
     micProcessor:null,
     micMute:null,
+
     playCursor:0,
     playing:new Set(),
     setupReady:false,
-    noiseFloor:0.006,
-    bargeFrames:0,
     suppressPlaybackUntil:0,
+
+    // Attention/VAD state.
+    noiseFloor:0.005,
+    playbackLeakFloor:0.012,
+    startFrames:0,
+    silenceMs:0,
+    userSpeaking:false,
+    speechStartedAt:0,
+    preRoll:[],
+    handoverTail:[],
+    transcriptBuffer:'',
   };
 
   const $=id=>document.getElementById(id);
@@ -157,30 +180,74 @@
     return Math.sqrt(sum/input.length);
   }
 
-  function detectLocalBargeIn(input){
-    const level=rmsLevel(input);
-    const playbackActive=state.playing.size>0;
+  function pushBounded(list,value,max){
+    list.push(value);
+    while(list.length>max)list.shift();
+  }
 
-    if(!playbackActive){
-      state.bargeFrames=0;
-      state.noiseFloor=(state.noiseFloor*0.97)+(level*0.03);
+  function sendRealtime(ws,payload){
+    if(ws?.readyState!==WebSocket.OPEN)return false;
+    try{
+      ws.send(JSON.stringify({realtimeInput:payload}));
+      return true;
+    }catch{
       return false;
     }
+  }
 
-    const threshold=Math.max(LOCAL_BARGE_MIN_RMS,state.noiseFloor*4.5);
-    if(level>=threshold){
-      state.bargeFrames++;
-    }else{
-      state.bargeFrames=Math.max(0,state.bargeFrames-1);
+  function sendAudio(ws,base64){
+    if(!base64)return false;
+    return sendRealtime(ws,{
+      audio:{data:base64,mimeType:'audio/pcm;rate=16000'},
+    });
+  }
+
+  function beginUserActivity(ws,fromPlayback=false){
+    if(state.userSpeaking||ws?.readyState!==WebSocket.OPEN)return;
+
+    state.userSpeaking=true;
+    state.speechStartedAt=performance.now();
+    state.silenceMs=0;
+    state.startFrames=0;
+    state.transcriptBuffer='';
+
+    // PC4 behavior: a real user turn owns the channel immediately.
+    if(fromPlayback||state.playing.size>0){
+      state.suppressPlaybackUntil=Date.now()+BARGE_PLAYBACK_SUPPRESS_MS;
+      clearPlayback();
+      setState('ESCUCHANDO','Interrupción detectada');
     }
 
-    if(state.bargeFrames<LOCAL_BARGE_FRAMES)return false;
+    sendRealtime(ws,{activityStart:{}});
 
-    state.bargeFrames=0;
-    state.suppressPlaybackUntil=Date.now()+LOCAL_BARGE_SUPPRESS_MS;
-    clearPlayback();
-    setState('ESCUCHANDO','Interrupción detectada');
-    return true;
+    // Preserve the first syllable by replaying the pre-roll accumulated by Attention.
+    for(const chunk of state.preRoll)sendAudio(ws,chunk);
+    state.handoverTail=state.preRoll.slice(-HANDOVER_TAIL_CHUNKS);
+    state.preRoll=[];
+  }
+
+  function endUserActivity(ws){
+    if(!state.userSpeaking)return;
+    sendRealtime(ws,{activityEnd:{}});
+    state.userSpeaking=false;
+    state.speechStartedAt=0;
+    state.silenceMs=0;
+    state.startFrames=0;
+    state.preRoll=[];
+    state.handoverTail=[];
+    setState('PENSANDO','');
+  }
+
+  function resetAttention(){
+    state.noiseFloor=0.005;
+    state.playbackLeakFloor=0.012;
+    state.startFrames=0;
+    state.silenceMs=0;
+    state.userSpeaking=false;
+    state.speechStartedAt=0;
+    state.preRoll=[];
+    state.handoverTail=[];
+    state.transcriptBuffer='';
   }
 
   async function primeAudio(){
@@ -189,9 +256,7 @@
     if(!state.audioContext){
       state.audioContext=new AudioContextCtor({latencyHint:'interactive'});
     }
-    if(state.audioContext.state!=='running'){
-      await state.audioContext.resume();
-    }
+    if(state.audioContext.state!=='running')await state.audioContext.resume();
   }
 
   async function ensureMic(){
@@ -219,19 +284,56 @@
     state.micProcessor.onaudioprocess=event=>{
       const ws=state.activeWs;
       if(!state.desired||!state.setupReady||ws?.readyState!==WebSocket.OPEN)return;
+
       const input=event.inputBuffer.getChannelData(0);
-      detectLocalBargeIn(input);
+      const level=rmsLevel(input);
+      const chunkMs=(input.length/ctx.sampleRate)*1000;
       const pcm=floatToPcm16Bytes(downsampleTo16k(input,ctx.sampleRate));
-      try{
-        ws.send(JSON.stringify({
-          realtimeInput:{
-            audio:{
-              data:bytesToBase64(pcm),
-              mimeType:'audio/pcm;rate=16000',
-            },
-          },
-        }));
-      }catch{}
+      const base64=bytesToBase64(pcm);
+      const playbackActive=state.playing.size>0;
+
+      if(state.userSpeaking){
+        sendAudio(ws,base64);
+        pushBounded(state.handoverTail,base64,HANDOVER_TAIL_CHUNKS);
+
+        const endThreshold=Math.max(MIN_END_RMS,state.noiseFloor*1.65);
+        if(level<=endThreshold){
+          state.silenceMs+=chunkMs;
+        }else{
+          state.silenceMs=0;
+        }
+
+        if(state.silenceMs>=END_SILENCE_MS){
+          endUserActivity(ws);
+        }
+        return;
+      }
+
+      pushBounded(state.preRoll,base64,PRE_ROLL_CHUNKS);
+
+      // Learn separate idle and speaker-leak floors. This avoids treating
+      // LOKY's own speaker audio as a user utterance such as an isolated “¿qué?”.
+      if(playbackActive){
+        state.playbackLeakFloor=(state.playbackLeakFloor*0.94)+(level*0.06);
+      }else{
+        state.noiseFloor=(state.noiseFloor*0.97)+(level*0.03);
+      }
+
+      const threshold=playbackActive
+        ? Math.max(MIN_BARGE_RMS,state.playbackLeakFloor*1.75,state.noiseFloor*4.0)
+        : Math.max(MIN_START_RMS,state.noiseFloor*2.8);
+      const framesNeeded=playbackActive?START_FRAMES_BARGE:START_FRAMES_IDLE;
+
+      if(level>=threshold){
+        state.startFrames++;
+      }else{
+        state.startFrames=Math.max(0,state.startFrames-1);
+      }
+
+      if(state.startFrames>=framesNeeded){
+        beginUserActivity(ws,playbackActive);
+        // Current chunk is already present in pre-roll, so do not send it twice.
+      }
     };
 
     state.micSource.connect(state.micProcessor);
@@ -259,16 +361,15 @@
     }
     state.playing.clear();
     state.playCursor=state.audioContext?.currentTime||0;
-    state.bargeFrames=0;
   }
 
   function playPcm24k(base64){
     const ctx=state.audioContext;
     if(!ctx||ctx.state==='closed')return;
     if(Date.now()<state.suppressPlaybackUntil)return;
+
     const samples=base64ToInt16(base64);
     if(!samples.length)return;
-
     const buffer=ctx.createBuffer(1,samples.length,24000);
     const channel=buffer.getChannelData(0);
     for(let i=0;i<samples.length;i++)channel[i]=samples[i]/32768;
@@ -279,7 +380,8 @@
 
     const now=ctx.currentTime;
     if(state.playCursor<now)state.playCursor=now;
-    const start=Math.max(now+0.008,state.playCursor);
+    // Tiny scheduling lead avoids gaps while keeping response latency low.
+    const start=Math.max(now+0.010,state.playCursor);
     state.playCursor=start+buffer.duration;
     state.playing.add(source);
     source.onended=()=>state.playing.delete(source);
@@ -294,20 +396,14 @@
 
     const capability=deviceCapability();
     if(!capability)throw new Error('DEVICE_NOT_ACTIVATED');
-
     const response=await fetch(TOKEN_ENDPOINT,{
       method:'POST',
-      headers:{
-        'content-type':'application/json',
-        'x-loky-device':capability,
-      },
+      headers:{'content-type':'application/json','x-loky-device':capability},
       body:'{}',
       cache:'no-store',
     });
     const data=await response.json().catch(()=>({}));
-    if(!response.ok||!data?.token){
-      throw new Error(data?.error||`TOKEN_${response.status}`);
-    }
+    if(!response.ok||!data?.token)throw new Error(data?.error||`TOKEN_${response.status}`);
 
     state.token=data.token;
     state.tokenAt=Date.now();
@@ -322,26 +418,18 @@
         generationConfig:{
           responseModalities:['AUDIO'],
           speechConfig:{
-            voiceConfig:{
-              prebuiltVoiceConfig:{voiceName:'Kore'},
-            },
+            voiceConfig:{prebuiltVoiceConfig:{voiceName:'Kore'}},
           },
         },
         systemInstruction:{
           parts:[{
-            text:'Eres LOKY, un asistente de voz natural, cercano y eficiente. Habla principalmente en español salvo que el usuario cambie de idioma. Responde de forma conversacional, fluida y breve por defecto. Mantén siempre la misma identidad vocal y estilo de voz durante toda la sesión. No menciones Gemini, modelos, APIs ni detalles técnicos salvo que el usuario los pregunte. Permite interrupciones naturales y continúa la conversación sin frases robóticas de relleno.',
+            text:'Eres LOKY, un asistente de voz natural, cercano y eficiente. Habla principalmente en español salvo que el usuario cambie de idioma. Responde de forma conversacional, fluida y breve por defecto. Mantén siempre la misma identidad vocal y estilo de voz durante toda la sesión. Si una entrada es ruido o no contiene una intención comprensible, no inventes una respuesta. No menciones Gemini, modelos, APIs ni detalles técnicos salvo que el usuario los pregunte. Permite interrupciones naturales.',
           }],
         },
         inputAudioTranscription:{},
         outputAudioTranscription:{},
         realtimeInputConfig:{
-          automaticActivityDetection:{
-            disabled:false,
-            startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',
-            endOfSpeechSensitivity:'END_SENSITIVITY_HIGH',
-            prefixPaddingMs:PREFIX_PADDING_MS,
-            silenceDurationMs:END_SILENCE_MS,
-          },
+          automaticActivityDetection:{disabled:true},
           activityHandling:'START_OF_ACTIVITY_INTERRUPTS',
           turnCoverage:'TURN_INCLUDES_ONLY_ACTIVITY',
         },
@@ -385,7 +473,9 @@
   async function normalizeWsData(raw){
     if(raw instanceof Blob)return await raw.text();
     if(raw instanceof ArrayBuffer)return new TextDecoder().decode(raw);
-    if(ArrayBuffer.isView(raw))return new TextDecoder().decode(raw.buffer);
+    if(ArrayBuffer.isView(raw)){
+      return new TextDecoder().decode(raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength));
+    }
     return String(raw??'');
   }
 
@@ -393,13 +483,16 @@
     if(!content)return;
 
     if(content.interrupted){
-      state.suppressPlaybackUntil=Date.now()+250;
+      state.suppressPlaybackUntil=Date.now()+120;
       clearPlayback();
       setState('ESCUCHANDO','Interrupción detectada');
     }
 
-    const inputText=content.inputTranscription?.text||content.interimInputTranscription?.text;
-    if(inputText&&ui.me)ui.me.textContent=inputText;
+    const inputText=content.inputTranscription?.text;
+    if(inputText){
+      state.transcriptBuffer+=inputText;
+      if(ui.me)ui.me.textContent=state.transcriptBuffer.slice(-240);
+    }
 
     const outputText=content.outputTranscription?.text;
     if(outputText&&ui.loky){
@@ -409,18 +502,29 @@
     for(const part of content.modelTurn?.parts||[]){
       const inline=part.inlineData;
       if(inline?.data&&String(inline.mimeType||'').includes('audio/pcm')){
+        // A valid model turn now owns playback. If local barge-in is no longer active,
+        // lift the short suppression guard and stream continuously.
+        if(!state.userSpeaking)state.suppressPlaybackUntil=0;
         setState('LOKY HABLANDO','Puedes interrumpirlo cuando quieras');
         playPcm24k(inline.data);
       }
     }
 
     if(content.turnComplete){
-      state.suppressPlaybackUntil=0;
-      setState('ESCUCHANDO','Habla normalmente.');
+      if(!state.userSpeaking){
+        state.suppressPlaybackUntil=0;
+        setState('ESCUCHANDO','Habla normalmente.');
+      }
       if(ui.loky&&ui.loky.textContent.length>240){
         ui.loky.textContent=ui.loky.textContent.slice(-240);
       }
     }
+  }
+
+  function replaySpeakingHandover(ws){
+    if(!state.userSpeaking||ws?.readyState!==WebSocket.OPEN)return;
+    sendRealtime(ws,{activityStart:{}});
+    for(const chunk of state.handoverTail)sendAudio(ws,chunk);
   }
 
   function promotePending(ws){
@@ -433,19 +537,19 @@
     state.setupReady=true;
     state.retryAttempt=0;
 
-    if(previous&&previous!==ws){
-      clearPlayback();
-    }
-
     attachActiveHandlers(ws);
-    setState('ESCUCHANDO','Habla normalmente. Puedes interrumpir a LOKY.');
+    replaySpeakingHandover(ws);
+    setState(state.userSpeaking?'ESCUCHANDO':'ESCUCHANDO','Habla normalmente. Puedes interrumpir a LOKY.');
     setBadge('GEMINI LIVE · NATIVO',true);
     startCapture();
+
     if(ui.talk){
       ui.talk.textContent='DETENER';
       ui.talk.dataset.active='1';
     }
 
+    // Do not clear already-scheduled PCM on a normal session handover: preserving
+    // the queue avoids the audible cut/voice discontinuity seen in Mobile.
     if(previous&&previous!==ws){
       try{previous.close(1000,'session-handover')}catch{}
     }
@@ -453,11 +557,7 @@
 
   async function handleSocketMessage(ws,role,raw){
     let message;
-    try{
-      message=JSON.parse(await normalizeWsData(raw));
-    }catch{
-      return;
-    }
+    try{message=JSON.parse(await normalizeWsData(raw))}catch{return}
 
     if(message.setupComplete){
       if(role==='pending')promotePending(ws);
@@ -474,6 +574,7 @@
     if(message.goAway){
       if(role==='active'&&state.activeWs===ws){
         clearTimeout(state.goAwayTimer);
+        // Prepare the replacement immediately while the active socket still serves audio.
         state.goAwayTimer=setTimeout(()=>{
           state.goAwayTimer=0;
           resumeSession('goaway').catch(error=>{
@@ -499,16 +600,10 @@
       if(state.activeWs!==ws)return;
       state.activeWs=null;
       if(!state.desired)return;
-      if(state.pendingWs){
-        state.setupReady=false;
-        setState('RECONECTANDO','Finalizando cambio de sesión…');
-        setBadge('RECONECTANDO',false);
-        return;
-      }
       state.setupReady=false;
       setState('RECONECTANDO','Recuperando conversación…');
       setBadge('RECONECTANDO',false);
-      scheduleRecovery('socket-close');
+      if(!state.pendingWs)scheduleRecovery('socket-close');
     };
   }
 
@@ -603,11 +698,10 @@
     state.resumeHandle='';
     state.retryAttempt=0;
     state.setupReady=false;
-    state.noiseFloor=0.006;
-    state.bargeFrames=0;
     state.suppressPlaybackUntil=0;
     clearReconnectTimers();
     clearTimers();
+    resetAttention();
     if(ui.me)ui.me.textContent='—';
     if(ui.loky)ui.loky.textContent='—';
     await primeAudio();
@@ -620,22 +714,21 @@
     state.setupReady=false;
     state.resumeHandle='';
     state.retryAttempt=0;
-    state.bargeFrames=0;
-    state.suppressPlaybackUntil=0;
     clearReconnectTimers();
     clearTimers();
 
     const active=state.activeWs;
     const pending=state.pendingWs;
+    if(state.userSpeaking)endUserActivity(active);
     state.activeWs=null;
     state.pendingWs=null;
 
-    try{active?.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}))}catch{}
     try{active?.close(1000,'owner-stop')}catch{}
     try{pending?.close(1000,'owner-stop')}catch{}
 
     stopCapture();
     clearPlayback();
+    resetAttention();
     if(ui.talk){
       ui.talk.textContent='HABLAR CON LOKY';
       ui.talk.dataset.active='0';
@@ -655,6 +748,7 @@
     try{pending?.close()}catch{}
     stopCapture();
     clearPlayback();
+    resetAttention();
     if(ui.talk){
       ui.talk.textContent='REINTENTAR';
       ui.talk.dataset.active='0';
