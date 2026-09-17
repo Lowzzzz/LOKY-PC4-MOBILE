@@ -1,0 +1,70 @@
+name: Validate iOS 0.3.2R4F1R1 Timing Fix
+
+on:
+  push:
+    branches: [candidate/ios-0.3.2R4F1R1-timing-fix]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify only isolated feature runtime changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=b354084085e39903c73843b360ec545cb145f853
+          changed="$(git diff --name-only "$BASE"..HEAD | grep -v '^\.github/' || true)"
+          test "$changed" = "site/mobile-features.js"
+
+      - name: Verify frozen R4 and R4F1 presentation are byte-exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/live-mobile.js)" = "af201c91e1db634ef62cd6505696a602e293bc83"
+          test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "f99882addf9a263ae8c41f12f111b9f03b5ed73d"
+          test "$(git rev-parse HEAD:site/ios-audio-stability.js)" = "d8254b160719a647fc07164a96f3955d8b268bfd"
+          test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
+          test "$(git rev-parse HEAD:site/sw.js)" = "f65be5534df529c8f3e409b6a5e1ca6f29967725"
+          test "$(git rev-parse HEAD:site/index.html)" = "b88b10867fa418a1ea521235ecc0be9c44f5e99c"
+          test "$(git rev-parse HEAD:site/mobile.css)" = "d416bf9a4d56300d149cf985c361c7bcdd74f5a1"
+
+      - name: Verify timing fix contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check site/mobile-features.js
+          grep -F "const VERSION='0.3.2R4F1R1-timing-fix'" site/mobile-features.js
+          grep -F "!data.startsWith('{\"setup\":')" site/mobile-features.js
+          grep -F "return (silenced||liveState.userSpeaking===true)" site/mobile-features.js
+          grep -F "const MEMORY_LIMIT=12" site/mobile-features.js
+          grep -F "const MEMORY_CONTEXT_LIMIT=1200" site/mobile-features.js
+          grep -F "if(parsed?.setup&&!resumeHandle)" site/mobile-features.js
+
+      - name: Run R4F1R1 timing and feature tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/tests/ios032r4f1-features.test.cjs
+
+      - name: Re-run frozen R4 conversation tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/tests/ios032r4-pc4-conversation-port.test.cjs
+
+      - name: Verify secure Gemini token backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
+          curl -fsS "$URL" -o /tmp/health.json
+          node -e "const x=require('/tmp/health.json'); if(!x.ok||!x.geminiConfigured||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2);"
