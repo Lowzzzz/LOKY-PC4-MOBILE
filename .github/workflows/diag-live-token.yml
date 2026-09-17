@@ -1,0 +1,16 @@
+name: Diagnose Live Token
+
+on:
+  push:
+    branches: [diagnostic/live-token-probe]
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe token backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS 'https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token?diagnose=1'
