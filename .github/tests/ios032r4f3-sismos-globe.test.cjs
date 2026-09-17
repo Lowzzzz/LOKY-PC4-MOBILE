@@ -18,7 +18,7 @@ function el(id=''){
     getAttribute(k){return this.attrs[k];},
     addEventListener(t,fn){(listeners[t]||(listeners[t]=[])).push(fn);},
     dispatch(t,event={}){for(const fn of listeners[t]||[])fn({...event,currentTarget:this,target:this,preventDefault(){}});},
-    getBoundingClientRect(){return {width:400,height:400,left:0,top:0};},
+    getBoundingClientRect(){return {width:400,height:500,left:0,top:0};},
     setPointerCapture(){},
   };
 }
@@ -36,7 +36,7 @@ const byId={app,lokySphere:sphereCanvas};
 
 const fakeCtx={
   clearRect(){},createRadialGradient(){return {addColorStop(){}}},beginPath(){},arc(){},fill(){},stroke(){},save(){},clip(){},restore(){},moveTo(){},lineTo(){},
-  set fillStyle(v){},set strokeStyle(v){},set lineWidth(v){},
+  set fillStyle(v){},set strokeStyle(v){},set lineWidth(v){},set lineJoin(v){},set lineCap(v){},
 };
 
 const document={
@@ -86,7 +86,7 @@ vm.runInContext(src,context,{filename:'mobile-seismic.js'});
 
 const api=context.LOKY_PC4_SEISMIC;
 assert(api,'Sismos API missing');
-assert.equal(api.version,'0.3.2R4F3-sismos-globe-zoom');
+assert.equal(api.version,'0.3.2R4F3R1-globe-detail-layout');
 assert(api.feed.includes('earthquake.usgs.gov'));
 
 assert.equal(slot2.disabled,false,'left inner slot must become active');
@@ -134,5 +134,10 @@ assert(src.includes('navigator.geolocation.getCurrentPosition'));
 assert(src.includes('pointermove'));
 assert(src.includes('SPHERE_MAX_ZOOM=2.6'));
 assert(src.includes('GLOBE_MAX_ZOOM=3.2'));
+assert(src.includes('width:118%;height:118%'),'globe canvas must extend beyond old square viewport');
+assert(src.includes('top:14px;bottom:auto'),'seismic HUD must stay above bottom controls');
+assert(src.includes('const DETAIL_LINES=['),'detailed world overlay missing');
+assert(src.includes('function drawLand('),'detailed coastline renderer missing');
+assert(src.includes('for(let lat=-75;lat<=75;lat+=15)'),'finer globe grid missing');
 
-console.log('R4F3 Sismos globe + location + zoom tests PASS');
+console.log('R4F3R1 Sismos detail/layout + location + zoom tests PASS');
