@@ -49,7 +49,7 @@ jobs:
           test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
           test "$(git rev-parse HEAD:site/sw.js)" = "f65be5534df529c8f3e409b6a5e1ca6f29967725"
 
-      - name: Verify frozen R4F2R1 features and isolated R4F3R1 Sismos runtime
+      - name: Verify frozen R4F2R1 features and isolated R4F3R2 Sismos runtime
         shell: bash
         run: |
           set -euo pipefail
@@ -57,17 +57,20 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile.css)" = "b4eff4577685dce6b07867cc040d4b8369be2a51"
           test "$(git rev-parse HEAD:site/mobile-noise-guard.js)" = "c632c64738c0bb34d7e372d28a5532d238b23398"
           test "$(git rev-parse HEAD:site/index.html)" = "a4931a5db333bd53032a8bbb71646d2e1f909c20"
-          test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "a5e2afbd5537bee7515315c3af99f1f224c627cd"
+          test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "4616876813ba0c990d0dc9eb131f3d553c204d29"
           grep -F '<script src="./mobile-features.js?v=0.3.2r4f1"></script>' site/index.html
           grep -F '<script src="./mobile-noise-guard.js?v=0.3.2r4f2r1"></script>' site/index.html
           grep -F '<script src="./mobile-seismic.js?v=0.3.2r4f3"></script>' site/index.html
           grep -F "const VERSION='0.3.2R4F2-settings-memory-windows'" site/mobile-features.js
           grep -F "const VERSION='0.3.2R4F2R1-voice-noise-guard'" site/mobile-noise-guard.js
-          grep -F "const VERSION='0.3.2R4F3R1-globe-detail-layout'" site/mobile-seismic.js
-          grep -F 'width:118%;height:118%' site/mobile-seismic.js
+          grep -F "const VERSION='0.3.2R4F3R2-earth-ultra-quake-info'" site/mobile-seismic.js
+          grep -F 'function buildLandDots(' site/mobile-seismic.js
+          grep -F 'function drawOrbits(' site/mobile-seismic.js
+          grep -F 'function selectQuake(' site/mobile-seismic.js
+          grep -F 'function pickQuake(' site/mobile-seismic.js
+          grep -F 'PROFUNDIDAD' site/mobile-seismic.js
+          grep -F 'width:122%;height:122%' site/mobile-seismic.js
           grep -F 'top:14px;bottom:auto' site/mobile-seismic.js
-          grep -F 'const DETAIL_LINES=[' site/mobile-seismic.js
-          grep -F 'function drawLand(' site/mobile-seismic.js
           grep -F "navigator.geolocation.getCurrentPosition" site/mobile-seismic.js
           grep -F "features?.slots?.[1]" site/mobile-seismic.js
           grep -F "SPHERE_MAX_ZOOM=2.6" site/mobile-seismic.js
@@ -106,7 +109,7 @@ jobs:
           grep -F "await ctx.resume()" site/ios-audio-stability.js
           if grep -Fq 'interimInputTranscription' site/live-mobile.js; then exit 1; fi
 
-      - name: Run frozen conversation R4F2R1 and R4F3R1 tests
+      - name: Run frozen conversation R4F2R1 and R4F3R2 tests
         shell: bash
         run: |
           set -euo pipefail
