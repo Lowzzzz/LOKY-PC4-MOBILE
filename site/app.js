@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const BUILD='0.2.0';
+  const BUILD='0.3.0';
   const status=document.getElementById('status');
   const fallback=document.getElementById('fallback');
   const updateButton=document.getElementById('updateButton');
@@ -10,7 +10,7 @@
   const closeSheet=document.getElementById('closeSheet');
   const sheetBackdrop=document.getElementById('sheetBackdrop');
 
-  buildLabel.textContent=`iOS ${BUILD} · UI SHELL`;
+  buildLabel.textContent=`iOS ${BUILD} · GEMINI LIVE NATIVE`;
 
   let sphere=null;
   try{
@@ -41,7 +41,7 @@
   window.LOKY_PC4_MOBILE={
     build:BUILD,
     platform:'ios-pwa',
-    phase:'ui-shell',
+    phase:'gemini-live-native',
     sphereStats:()=>sphere?.stats?.()||null
   };
 
@@ -75,13 +75,11 @@
     try{
       const regs=await navigator.serviceWorker?.getRegistrations?.();
       for(const reg of regs||[])await reg.update().catch(()=>{});
-    }finally{
-      location.reload();
-    }
+    }finally{location.reload()}
   });
 
   registerSW();
   checkUpdate();
-  setTimeout(checkUpdate,2500);
+  setTimeout(checkUpdate,1800);
   setInterval(checkUpdate,30*60*1000);
 })();
