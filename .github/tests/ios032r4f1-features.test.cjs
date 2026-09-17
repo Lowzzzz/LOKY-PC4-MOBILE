@@ -12,6 +12,7 @@ function element(id=''){
     dataset:{},
     children:[],
     attrs:{},
+    disabled:false,
     classList:{
       set:new Set(),
       add(...x){x.forEach(v=>this.set.add(v));},
@@ -61,6 +62,7 @@ const liveState={
   playing:new Set([{stopped:false,stop(){this.stopped=true;}}]),
   playCursor:9,
   audioContext:{currentTime:3},
+  userSpeaking:false,
 };
 
 const document={
@@ -69,6 +71,12 @@ const document={
   getElementById:id=>els[id]||null,
   querySelector:q=>q==='.conversation-shell'?conversationShell:null,
   createElement:tag=>element(tag),
+};
+
+let parseCount=0;
+const instrumentedJSON={
+  parse(text){parseCount++;return JSON.parse(text);},
+  stringify:JSON.stringify,
 };
 
 const context={
@@ -82,7 +90,7 @@ const context={
   setTimeout,
   clearTimeout,
   Date,
-  JSON,
+  JSON:instrumentedJSON,
   Number,
 };
 context.window=context;
@@ -92,49 +100,79 @@ vm.runInContext(src,context,{filename:'mobile-features.js'});
 
 const api=context.LOKY_PC4_FEATURES;
 assert(api,'feature API missing');
-assert.equal(api.version,'0.3.2R4F1-silence-memory-slots');
+assert.equal(api.version,'0.3.2R4F1R1-timing-fix');
 
-// Four future-operation buttons must exist and stay inert/reserved.
+// Four future-operation buttons must remain present and inert/reserved.
 assert.equal(api.slots.length,4);
 assert.equal(conversationShell.children.length,4);
+assert(api.slots.every(x=>x.disabled===true));
 
-// Silence must mute only output state, stop queued audio, and expose red-sphere class.
+// Silence remains functional and visual state remains externally observable.
 api.silence();
 assert.equal(api.silenced,true);
 assert(body.classList.contains('loky-silenced'));
 assert(liveState.suppressPlaybackUntil>1e15);
 assert.equal(liveState.playing.size,0);
-
 api.resume();
 assert.equal(api.silenced,false);
 assert(!body.classList.contains('loky-silenced'));
 assert.equal(liveState.suppressPlaybackUntil,0);
 
-// Voice commands are exact/terminal, avoiding accidental silence in ordinary sentences.
+// Critical overlap guard: no model playback may start while the user is speaking.
+liveState.userSpeaking=true;
+assert(liveState.suppressPlaybackUntil>1e15,'playback not blocked during user speech');
+liveState.suppressPlaybackUntil=123;
+assert(liveState.suppressPlaybackUntil>1e15,'core setter bypassed user-speech block');
+liveState.userSpeaking=false;
+assert.equal(liveState.suppressPlaybackUntil,123,'raw playback timing not restored after user speech');
+liveState.suppressPlaybackUntil=0;
+
+// Exact voice commands remain isolated from ordinary sentences.
 assert.equal(api.handlePhrase('LOKY silencio'),true);
 assert.equal(api.silenced,true);
 assert.equal(api.handlePhrase('LOKY háblame'),true);
 assert.equal(api.silenced,false);
 assert.equal(api.handlePhrase('quiero hablar sobre la palabra silencio mañana'),false);
 
-// Persistent local memory keeps useful user turns and excludes control commands.
+// Memory keeps stable facts/preferences, not every operational/question turn.
 api.memory.clear();
-api.memory.remember('Mi color favorito es azul');
-api.memory.remember('LOKY silencio');
-api.memory.remember('Vivo cerca del mar');
+assert.equal(api.memory.remember('Mi color favorito es azul'),true);
+assert.equal(api.memory.remember('Vivo cerca del mar'),true);
+assert.equal(api.memory.remember('¿Qué hora es?'),false);
+assert.equal(api.memory.remember('Abre Google'),false);
+assert.equal(api.memory.remember('Continúa con esto'),false);
+assert.equal(api.memory.remember('LOKY silencio'),false);
 const snapshot=api.memory.snapshot();
 assert(snapshot.some(x=>x.text==='Mi color favorito es azul'));
 assert(snapshot.some(x=>x.text==='Vivo cerca del mar'));
-assert(!snapshot.some(x=>/silencio/i.test(x.text)));
+assert(!snapshot.some(x=>/Abre Google|Qué hora|Continúa|silencio/i.test(x.text)));
 
-// Memory is injected into Gemini setup only; no extra user turn is sent.
+// Fresh setup receives memory exactly once.
 const ws=new FakeWS('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=x');
-ws.send(JSON.stringify({setup:{systemInstruction:{parts:[{text:'BASE'}]}}}));
-assert.equal(ws.sent.length,1);
+const beforeSetupParse=parseCount;
+ws.send(JSON.stringify({setup:{systemInstruction:{parts:[{text:'BASE'}]},sessionResumption:{}}}));
+assert.equal(parseCount,beforeSetupParse+1,'fresh setup was not the single parsed control frame');
 const setup=JSON.parse(ws.sent[0]);
 const text=setup.setup.systemInstruction.parts.map(x=>x.text||'').join('\n');
 assert(text.includes('BASE'));
 assert(text.includes('Mi color favorito es azul'));
 assert(text.includes('Vivo cerca del mar'));
 
-console.log('R4F1 silence/memory/slots tests PASS');
+// Audio hot path MUST bypass JSON.parse completely.
+const parseBeforeAudio=parseCount;
+for(let i=0;i<250;i++){
+  ws.send('{"realtimeInput":{"audio":{"data":"AAAA","mimeType":"audio/pcm;rate=16000"}}}');
+}
+assert.equal(parseCount,parseBeforeAudio,'realtime PCM entered feature JSON parse hot path');
+assert.equal(ws.sent.length,251);
+
+// Resumed Gemini session already owns context; memory must not be appended again.
+const resumed=new FakeWS(ws.url);
+const beforeResumeParse=parseCount;
+resumed.send(JSON.stringify({setup:{systemInstruction:{parts:[{text:'BASE'}]},sessionResumption:{handle:'resume-123'}}}));
+assert.equal(parseCount,beforeResumeParse+1);
+const resumedSetup=JSON.parse(resumed.sent[0]);
+const resumedText=resumedSetup.setup.systemInstruction.parts.map(x=>x.text||'').join('\n');
+assert.equal(resumedText,'BASE');
+
+console.log('R4F1R1 timing/silence/memory/slots tests PASS');
