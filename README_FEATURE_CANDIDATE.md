@@ -1,0 +1,1 @@
+This branch contains the isolated R4F1 Mobile feature candidate (silence, local memory, and four reserved operation slots) built on the frozen R4 conversation and Clean Dock visual baseline.
