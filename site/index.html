@@ -20,7 +20,7 @@
         <span class="brand-dot" aria-hidden="true"></span>
         <span>LOKY PC4</span>
       </div>
-      <div id="status" class="status">READY</div>
+      <div id="status" class="status" aria-live="polite">READY</div>
     </header>
 
     <section class="stage" aria-label="Esfera LOKY">
@@ -39,10 +39,31 @@
       </div>
     </section>
 
+    <section class="conversation-shell" aria-label="Conversación LOKY">
+      <div class="conversation-copy">
+        <span class="conversation-kicker">LOKY</span>
+        <strong id="conversationState">LISTO</strong>
+        <span id="conversationHint">Interfaz preparada para Gemini Live</span>
+      </div>
+      <button id="infoButton" class="info-button" type="button" aria-expanded="false" aria-controls="statusSheet">
+        ESTADO
+      </button>
+    </section>
+
     <footer class="footer">
-      <span id="buildLabel">iOS 0.1.0 · SPHERE CORE</span>
+      <span id="buildLabel">iOS 0.2.0 · UI SHELL</span>
       <button id="updateButton" class="update-button hidden" type="button">ACTUALIZAR</button>
     </footer>
+
+    <aside id="statusSheet" class="status-sheet hidden" aria-label="Estado de LOKY PC4 Mobile">
+      <button id="closeSheet" class="sheet-close" type="button" aria-label="Cerrar">×</button>
+      <div class="sheet-title">LOKY PC4 MOBILE</div>
+      <div class="sheet-row"><span>Visual</span><strong>SPHERE 15K</strong></div>
+      <div class="sheet-row"><span>Cloud</span><strong>GITHUB PAGES</strong></div>
+      <div class="sheet-row"><span>Versión</span><strong>iOS 0.2.0</strong></div>
+      <div class="sheet-row"><span>Conversación</span><strong>FASE 0.3</strong></div>
+    </aside>
+    <div id="sheetBackdrop" class="sheet-backdrop hidden" aria-hidden="true"></div>
   </main>
 
   <script src="./sphere-mobile.js"></script>
