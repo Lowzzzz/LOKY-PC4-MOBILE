@@ -43,7 +43,7 @@
     if(isSilenceCommand(n)||isResumeCommand(n))return false;
     if(/^(que|cual|cuales|como|cuando|donde|por que|porque|quien|quienes|puedes|podrias|dime|explica|explicame|busca|haz|abre|cierra|continua|sigue)\b/.test(n))return false;
 
-    return /^(?:mi\s+nombre\s+es|mi\s+.+\s+(?:es|son)\s+|mis\s+.+\s+(?:es|son)\s+|me\s+gusta(?:n)?\s+|prefiero\s+|soy\s+|tengo\s+|vivo\s+en\s+|trabajo\s+en\s+|recuerda\s+que\s+|quiero\s+que\s+recuerdes\s+que\s+)/.test(n);
+    return /^(?:mi\s+nombre\s+es|mi\s+.+\s+(?:es|son)\s+|mis\s+.+\s+(?:es|son)\s+|me\s+gusta(?:n)?\s+|prefiero\s+|soy\s+|tengo\s+|vivo\s+|trabajo\s+|recuerda\s+que\s+|quiero\s+que\s+recuerdes\s+que\s+)/.test(n);
   }
 
   function loadMemory(){
