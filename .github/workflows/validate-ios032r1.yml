@@ -1,0 +1,54 @@
+name: Validate iOS 0.3.2R1 Reconnect Candidate
+
+on:
+  push:
+    branches: [candidate/ios-0.3.2R1-reconnect-token-safe]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify only allowed runtime file changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=a3a614a101ad5def6de05dd1a351f7ae137dd7f4
+          changed="$(git diff --name-only "$BASE"..HEAD | grep -v '^\.github/workflows/validate-ios032r1.yml$' || true)"
+          test "$changed" = "site/live-mobile.js"
+
+      - name: Verify protected runtime remains intact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "f99882addf9a263ae8c41f12f111b9f03b5ed73d"
+          test "$(git rev-parse HEAD:site/ios-audio-stability.js)" = "d8254b160719a647fc07164a96f3955d8b268bfd"
+          test "$(git rev-parse HEAD:site/index.html)" = "9a5163b054bdabbefaa0761eeff58701b5e6d1de"
+          test "$(git rev-parse HEAD:site/mobile.css)" = "a815f2314ac5a749435a73e41b3880922a0ca1d8"
+          test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
+
+      - name: Verify reconnect hotfix syntax and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check site/live-mobile.js
+          grep -F "const auth=await requestToken(true);" site/live-mobile.js
+          ! grep -Fq "requestToken(resume&&!!state.resumeHandle?false:true)" site/live-mobile.js
+          grep -F "sessionResumption:state.resumeHandle?{handle:state.resumeHandle}:{}" site/live-mobile.js
+          grep -F "audio/pcm;rate=16000" site/live-mobile.js
+          grep -F "createBuffer(1,samples.length,24000)" site/live-mobile.js
+          grep -F "START_OF_ACTIVITY_INTERRUPTS" site/live-mobile.js
+
+      - name: Verify backend contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
+          curl -fsS "$URL" -o /tmp/health.json
+          node -e "const x=require('/tmp/health.json'); if(!x.ok||!x.geminiConfigured||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2);"
