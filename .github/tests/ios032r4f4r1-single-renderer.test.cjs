@@ -1,0 +1,41 @@
+'use strict';
+const fs=require('fs');
+const assert=require('assert');
+const seismic=fs.readFileSync('site/mobile-seismic.js','utf8');
+const earth=fs.readFileSync('site/mobile-earth-reference.js','utf8');
+
+assert(seismic.includes("const VERSION='0.3.2R4F4R1-seismic-controller'"));
+assert(!seismic.includes("id='lokySeismicGlobe'"));
+assert(!seismic.includes('lokySeismicGlobe'));
+assert(!seismic.includes('function drawGlobe('));
+assert(!seismic.includes('attachGlobeControls'));
+assert(!seismic.includes('requestAnimationFrame(drawGlobe)'));
+assert(seismic.includes('.loky-seismic-mode .sphere-wrap{display:none!important}'));
+assert(seismic.includes("window.dispatchEvent(new CustomEvent('loky:seismic-mode'"));
+assert(seismic.includes('function selectQuake('));
+assert(seismic.includes('PROFUNDIDAD'));
+assert(seismic.includes('navigator.geolocation.getCurrentPosition'));
+assert(!/getUserMedia\s*\(/.test(seismic));
+assert(!/new\s+WebSocket\s*\(/.test(seismic));
+assert(!/LOKY_PC4_LIVE/.test(seismic));
+
+assert(earth.includes("const VERSION='0.3.2R4F4R1-single-earth-thermal'"));
+assert(earth.includes('const cacheCanvas=document.createElement'));
+assert(earth.includes('function rebuildStatic('));
+assert(earth.includes('staticDirty'));
+assert(earth.includes('const ACTIVE_FPS=24'));
+assert(earth.includes('const IDLE_FPS=18'));
+assert(earth.includes('const DPR_CAP=1.5'));
+assert(earth.includes("pointer-events:auto"));
+assert(earth.includes("document.getElementById('lokySeismicGlobe')?.remove()"));
+assert(earth.includes('function pickQuake('));
+assert(earth.includes("canvas.addEventListener('pointermove'"));
+assert(earth.includes('state.hitQuakes=[]'));
+assert(earth.includes('seismic.selectQuake(best)'));
+assert(earth.includes("const NE_COMMIT='ca96624a56bd078437bca8184e78163e5039ad19'"));
+assert(earth.includes('const MAX_DOTS=9800'));
+assert(!/getUserMedia\s*\(/.test(earth));
+assert(!/new\s+WebSocket\s*\(/.test(earth));
+assert(!/LOKY_PC4_LIVE/.test(earth));
+
+console.log('R4F4R1 single Earth renderer / thermal architecture PASS');
