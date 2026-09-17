@@ -1,0 +1,57 @@
+name: Validate iOS 0.3.2 Candidate
+
+on:
+  push:
+    branches: [candidate/ios-0.3.2-ios-audio-stability]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild exact frozen app icons
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p site/icons
+          cat deploy/icon180.part00 deploy/icon180.part01 deploy/icon180.part02 | tr -d '\r\n ' | base64 --decode > site/icons/icon-180.png
+          cat deploy/icon512.part00 deploy/icon512.part01 deploy/icon512.part02 deploy/icon512.part03 deploy/icon512.part04a deploy/icon512.fix00 deploy/icon512.fix01 deploy/icon512.fix02 deploy/icon512.fix03 | tr -d '\r\n ' | base64 --decode > site/icons/icon-512.png
+
+      - name: Verify protected visual core
+        run: |
+          set -euo pipefail
+          cd site
+          sha256sum -c ../PROTECTED_0_1_VISUAL_SHA256.txt
+
+      - name: Syntax and iOS audio stability scope
+        run: |
+          set -euo pipefail
+          node --check site/sphere-mobile.js
+          node --check site/app.js
+          node --check site/live-mobile.js
+          node --check site/ios-audio-stability.js
+          node --check site/sw.js
+          grep -F "const BUILD='0.3.2'" site/app.js
+          grep -F '"version": "0.3.2"' site/version.json
+          grep -F "navigator.audioSession.type=type" site/ios-audio-stability.js
+          grep -F "await ctx.suspend()" site/ios-audio-stability.js
+          grep -F "await ctx.resume()" site/ios-audio-stability.js
+          grep -F 'ios-audio-stability.js?v=0.3.2' site/index.html
+          grep -F "const VERSION='loky-pc4-mobile-ios-0.3.2'" site/sw.js
+          if grep -R -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then exit 1; fi
+          if grep -R -E -qi 'QWEN|FALLBACK LOCAL|speechSynthesis' site; then exit 1; fi
+
+      - name: Verify Gemini Live backend remains healthy
+        run: |
+          set -euo pipefail
+          URL='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
+          curl -fsS "$URL" -o /tmp/health.json
+          node -e "const x=require('/tmp/health.json'); if(!x.ok||!x.geminiConfigured||x.model!=='models/gemini-3.8-live') process.exit(2);"
+          code=$(curl -sS -o /tmp/denied.json -w '%{http_code}' -X POST -H 'x-loky-device: invalid-device' "$URL")
+          test "$code" = '401'
