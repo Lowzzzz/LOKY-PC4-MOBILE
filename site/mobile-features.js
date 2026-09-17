@@ -1,11 +1,11 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F1-silence-memory-slots';
+  const VERSION='0.3.2R4F1R1-timing-fix';
   const MEMORY_KEY='loky_pc4_mobile_memory_v1';
-  const MEMORY_LIMIT=20;
+  const MEMORY_LIMIT=12;
   const MEMORY_TEXT_LIMIT=140;
-  const MEMORY_CONTEXT_LIMIT=2200;
+  const MEMORY_CONTEXT_LIMIT=1200;
   const SILENCE_SENTINEL=Number.MAX_SAFE_INTEGER;
 
   const live=window.LOKY_PC4_LIVE;
@@ -36,6 +36,16 @@
     return /^(?:loky\s+)?hablame$/.test(n);
   }
 
+  function isStableMemoryCandidate(text){
+    const raw=String(text||'').trim();
+    const n=normalize(raw);
+    if(!n||raw.includes('?')||raw.includes('¿'))return false;
+    if(isSilenceCommand(n)||isResumeCommand(n))return false;
+    if(/^(que|cual|cuales|como|cuando|donde|por que|porque|quien|quienes|puedes|podrias|dime|explica|explicame|busca|haz|abre|cierra|continua|sigue)\b/.test(n))return false;
+
+    return /^(?:mi\s+nombre\s+es|mi\s+.+\s+(?:es|son)\s+|mis\s+.+\s+(?:es|son)\s+|me\s+gusta(?:n)?\s+|prefiero\s+|soy\s+|tengo\s+|vivo\s+en\s+|trabajo\s+en\s+|recuerda\s+que\s+|quiero\s+que\s+recuerdes\s+que\s+)/.test(n);
+  }
+
   function loadMemory(){
     try{
       const parsed=JSON.parse(localStorage.getItem(MEMORY_KEY)||'[]');
@@ -55,16 +65,16 @@
     clear(){try{localStorage.removeItem(MEMORY_KEY)}catch{}},
     remember(text){
       const clean=String(text||'').trim().replace(/\s+/g,' ');
-      if(clean.length<3||isSilenceCommand(clean)||isResumeCommand(clean))return false;
+      if(clean.length<3||!isStableMemoryCandidate(clean))return false;
       const clipped=clean.slice(0,MEMORY_TEXT_LIMIT);
-      const items=loadMemory();
-      if(items.at(-1)?.text===clipped)return false;
+      const items=loadMemory().filter(x=>isStableMemoryCandidate(x.text));
+      if(items.some(x=>normalize(x.text)===normalize(clipped)))return false;
       items.push({text:clipped,at:Date.now()});
       saveMemory(items);
       return true;
     },
     context(){
-      const items=loadMemory();
+      const items=loadMemory().filter(x=>isStableMemoryCandidate(x.text));
       if(!items.length)return '';
       const lines=[];
       let used=0;
@@ -75,7 +85,7 @@
         used+=line.length+1;
       }
       return lines.length
-        ? `Memoria local persistente del usuario (úsala solo cuando sea relevante y no la menciones como sistema):\n${lines.join('\n')}`
+        ? `Memoria local persistente del usuario (úsala sólo cuando sea relevante y no la menciones como sistema):\n${lines.join('\n')}`
         : '';
     }
   };
@@ -107,14 +117,19 @@
     body?.classList.remove('loky-silenced');
   }
 
-  // Protect output mute from internal playback state resets while silence is active.
+  // Isolated output gate only. The frozen R4 Conversation Core remains byte-exact.
+  // While the user is speaking, old model audio is never allowed to start playing.
   if(liveState){
     const desc=Object.getOwnPropertyDescriptor(liveState,'suppressPlaybackUntil');
     if(!desc||desc.configurable!==false){
       Object.defineProperty(liveState,'suppressPlaybackUntil',{
         configurable:true,
         enumerable:true,
-        get(){return silenced?SILENCE_SENTINEL:rawSuppress;},
+        get(){
+          return (silenced||liveState.userSpeaking===true)
+            ? SILENCE_SENTINEL
+            : rawSuppress;
+        },
         set(value){rawSuppress=Number(value)||0;}
       });
     }
@@ -153,22 +168,30 @@
     }).observe(conversationState,{childList:true,subtree:true,characterData:true});
   }
 
-  // Persist memory by augmenting setup only. No extra user turn and no second WebSocket.
+  // Memory may alter only the one setup frame. Realtime PCM frames bypass this
+  // feature layer completely so Safari's audio hot path stays identical to R4.
   const nativeSend=WebSocket.prototype.send;
   WebSocket.prototype.send=function(data){
+    if(
+      typeof data!=='string'||
+      !data.startsWith('{"setup":')||
+      !String(this.url||'').includes('BidiGenerateContentConstrained')
+    ){
+      return nativeSend.call(this,data);
+    }
+
     try{
-      if(typeof data==='string'&&String(this.url||'').includes('BidiGenerateContentConstrained')){
-        const parsed=JSON.parse(data);
-        if(parsed?.setup){
-          const context=memory.context();
-          if(context){
-            parsed.setup.systemInstruction=parsed.setup.systemInstruction||{parts:[]};
-            parsed.setup.systemInstruction.parts=Array.isArray(parsed.setup.systemInstruction.parts)
-              ? parsed.setup.systemInstruction.parts
-              : [];
-            parsed.setup.systemInstruction.parts.push({text:context});
-            data=JSON.stringify(parsed);
-          }
+      const parsed=JSON.parse(data);
+      const resumeHandle=parsed?.setup?.sessionResumption?.handle||'';
+      if(parsed?.setup&&!resumeHandle){
+        const context=memory.context();
+        if(context){
+          parsed.setup.systemInstruction=parsed.setup.systemInstruction||{parts:[]};
+          parsed.setup.systemInstruction.parts=Array.isArray(parsed.setup.systemInstruction.parts)
+            ? parsed.setup.systemInstruction.parts
+            : [];
+          parsed.setup.systemInstruction.parts.push({text:context});
+          data=JSON.stringify(parsed);
         }
       }
     }catch{}
@@ -196,6 +219,7 @@
     silence,
     resume,
     handlePhrase,
+    isStableMemoryCandidate,
     memory,
     slots,
   };
