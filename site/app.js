@@ -1,47 +1,34 @@
 (() => {
   'use strict';
-  const BUILD='0.3.2';
+  const BUILD='0.3.3';
   const status=document.getElementById('status');
   const fallback=document.getElementById('fallback');
   const updateButton=document.getElementById('updateButton');
   const buildLabel=document.getElementById('buildLabel');
-  const infoButton=document.getElementById('infoButton');
-  const statusSheet=document.getElementById('statusSheet');
-  const closeSheet=document.getElementById('closeSheet');
-  const sheetBackdrop=document.getElementById('sheetBackdrop');
 
-  buildLabel.textContent=`iOS ${BUILD} · GEMINI LIVE NATIVE`;
+  if(buildLabel)buildLabel.textContent=`iOS ${BUILD} · CLEAN DOCK UI`;
 
   let sphere=null;
   try{
     sphere=new window.LokyMobileSphere.MobileSphere(document.getElementById('lokySphere'));
     sphere.init();
     sphere.start();
-    status.textContent='SPHERE · 15K';
+    if(status)status.textContent='SPHERE · 15K';
   }catch(error){
     console.error(error);
-    status.textContent='VISUAL FALLBACK';
-    fallback.classList.remove('hidden');
+    if(status)status.textContent='VISUAL FALLBACK';
+    fallback?.classList.remove('hidden');
   }
 
   addEventListener('loky:sphere-quality',event=>{
     const count=event.detail?.count||0;
-    if(count)status.textContent=`SPHERE · ${Math.round(count/1000)}K ADAPTIVE`;
+    if(count&&status)status.textContent=`SPHERE · ${Math.round(count/1000)}K ADAPTIVE`;
   });
-
-  function setSheet(open){
-    statusSheet.classList.toggle('hidden',!open);
-    sheetBackdrop.classList.toggle('hidden',!open);
-    infoButton.setAttribute('aria-expanded',String(open));
-  }
-  infoButton.addEventListener('click',()=>setSheet(infoButton.getAttribute('aria-expanded')!=='true'));
-  closeSheet.addEventListener('click',()=>setSheet(false));
-  sheetBackdrop.addEventListener('click',()=>setSheet(false));
 
   window.LOKY_PC4_MOBILE={
     build:BUILD,
     platform:'ios-pwa',
-    phase:'gemini-live-native',
+    phase:'clean-dock-ui',
     sphereStats:()=>sphere?.stats?.()||null
   };
 
@@ -62,14 +49,14 @@
       if(!r.ok)return;
       const data=await r.json();
       const latest=String(data.version||'');
-      if(latest && latest!==BUILD){
+      if(latest&&latest!==BUILD&&updateButton){
         updateButton.classList.remove('hidden');
         updateButton.textContent=`ACTUALIZAR ${latest}`;
       }
     }catch{}
   }
 
-  updateButton.addEventListener('click',async()=>{
+  updateButton?.addEventListener('click',async()=>{
     updateButton.disabled=true;
     updateButton.textContent='ACTUALIZANDO…';
     try{
