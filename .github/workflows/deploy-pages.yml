@@ -46,15 +46,16 @@ jobs:
           node --check site/sphere-mobile.js
           node --check site/app.js
           node --check site/live-mobile.js
+          node --check site/ios-audio-stability.js
           node --check site/sw.js
 
-      - name: Verify iOS 0.3.1 native Live frame fix
+      - name: Verify iOS 0.3.2 native Live audio stability
         shell: bash
         run: |
           set -euo pipefail
-          grep -F "const BUILD='0.3.1'" site/app.js
+          grep -F "const BUILD='0.3.2'" site/app.js
           grep -F "phase:'gemini-live-native'" site/app.js
-          grep -F '"version": "0.3.1"' site/version.json
+          grep -F '"version": "0.3.2"' site/version.json
           grep -F 'BidiGenerateContentConstrained' site/live-mobile.js
           grep -F 'raw instanceof Blob' site/live-mobile.js
           grep -F 'raw instanceof ArrayBuffer' site/live-mobile.js
@@ -64,7 +65,10 @@ jobs:
           grep -F 'createBuffer(1,samples.length,24000)' site/live-mobile.js
           grep -F 'getUserMedia' site/live-mobile.js
           grep -F 'START_OF_ACTIVITY_INTERRUPTS' site/live-mobile.js
-          grep -F 'live-mobile.js?v=0.3.1' site/index.html
+          grep -F "navigator.audioSession.type=type" site/ios-audio-stability.js
+          grep -F "await ctx.suspend()" site/ios-audio-stability.js
+          grep -F "await ctx.resume()" site/ios-audio-stability.js
+          grep -F 'ios-audio-stability.js?v=0.3.2' site/index.html
           if grep -R -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then
             echo 'Secret/API key material must never be present in public Mobile files'
             exit 1
