@@ -1,0 +1,54 @@
+name: Deploy LOKY PC4 Mobile
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild frozen app icons
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p site/icons
+          cat deploy/icon180.part* | tr -d '\r\n ' | base64 --decode > site/icons/icon-180.png
+          cat deploy/icon512.part* | tr -d '\r\n ' | base64 --decode > site/icons/icon-512.png
+
+      - name: Verify OWNER PASS baseline byte-for-byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd site
+          sha256sum -c ../BASELINE_SHA256.txt
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
