@@ -286,7 +286,9 @@
     clearTimeout(state.setupTimer);state.setupTimer=0;
     try{
       setState(resume?'RECONECTANDO':'CONECTANDO','Preparando conversación nativa…');
-      const auth=await requestToken(resume&&!!state.resumeHandle?false:true);
+      // Every WebSocket session consumes a one-use ephemeral token. Reconnects
+      // must request a fresh token while preserving the session resume handle.
+      const auth=await requestToken(true);
       const ws=new WebSocket(`${WS_BASE}?access_token=${encodeURIComponent(auth.token)}`);
       ws.binaryType='arraybuffer';
       state.ws=ws;
