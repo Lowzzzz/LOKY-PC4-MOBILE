@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F5-devices-qr';
+  const VERSION='0.3.2R4F5R1-settings-scroll';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const DEVICE_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices';
   const QR_LIB='https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js';
@@ -15,7 +15,10 @@
     const style=document.createElement('style');
     style.id='lokySettingsPlusStyles';
     style.textContent=`
-      .loky-settings-plus{display:grid;gap:12px;padding-bottom:24px}
+      .loky-settings-plus{display:grid;gap:12px;padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))}
+      .loky-settings-window{height:100vh;height:100dvh;min-height:0}
+      .loky-settings-window .loky-feature-content{min-height:0;overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior-y:contain;scroll-behavior:smooth}
+      .loky-settings-window .loky-accordion{flex:none}
       .loky-accordion{border:1px solid rgba(100,198,232,.16);border-radius:20px;background:linear-gradient(180deg,rgba(7,29,42,.88),rgba(3,17,27,.91));overflow:hidden;box-shadow:0 16px 46px rgba(0,0,0,.16)}
       .loky-accordion-toggle{width:100%;min-height:64px;border:0;background:transparent;color:#d8f5ff;padding:14px 16px;display:grid;grid-template-columns:34px 1fr 26px;align-items:center;gap:10px;text-align:left;pointer-events:auto}
       .loky-accordion-icon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(107,211,246,.18);background:rgba(14,54,72,.48);color:#9ce9ff;font-size:14px;box-shadow:inset 0 1px rgba(255,255,255,.04)}
@@ -164,7 +167,7 @@
   function enhanceSettingsWindow(){
     const page=features.windows.active;if(!page||!page.classList.contains('loky-settings-window'))return page;
     const host=page.querySelector('.loky-feature-content');if(!host)return page;
-    host.textContent='';host.classList.add('loky-settings-plus');
+    host.textContent='';host.classList.add('loky-settings-plus');host.scrollTop=0;
     const talk=accordion('MODO DE HABLAR','Natural, normal, directo o vulgar.','◉',true);renderSpeechModes(talk.content);host.appendChild(talk.root);
     const voice=accordion('VOZ','Voz actual y futuras voces de LOKY.','♪',false);renderVoice(voice.content);host.appendChild(voice.root);
     const personality=accordion('PERSONALIDAD','Perfiles de comportamiento y expresión.','✦',false);renderPersonality(personality.content);host.appendChild(personality.root);
