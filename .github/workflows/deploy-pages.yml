@@ -60,14 +60,17 @@ jobs:
           node --check site/ios-audio-stability.js
           node --check site/sw.js
 
-      - name: Verify iOS 0.3.2R2 rebuilt Live conversation lifecycle
+      - name: Verify iOS 0.3.2R3 zero-rebuild low-latency conversation
         shell: bash
         run: |
           set -euo pipefail
           grep -F "const BUILD='0.3.2'" site/app.js
           grep -F "phase:'gemini-live-native'" site/app.js
           grep -F '"version": "0.3.2"' site/version.json
-          grep -F "version:'0.3.2R2-conversation-rebuild'" site/live-mobile.js
+          grep -F "const VERSION='0.3.2R3-conversation-zero-rebuild-lowlatency'" site/live-mobile.js
+          grep -F 'const MIC_BUFFER_SIZE=2048' site/live-mobile.js
+          grep -F 'const END_SILENCE_MS=250' site/live-mobile.js
+          grep -F 'const PREFIX_PADDING_MS=60' site/live-mobile.js
           grep -F 'BidiGenerateContentConstrained' site/live-mobile.js
           grep -F 'raw instanceof Blob' site/live-mobile.js
           grep -F 'raw instanceof ArrayBuffer' site/live-mobile.js
@@ -76,10 +79,8 @@ jobs:
           grep -F 'getUserMedia' site/live-mobile.js
           grep -F 'START_OF_ACTIVITY_INTERRUPTS' site/live-mobile.js
           grep -F 'contextWindowCompression:{slidingWindow:{}}' site/live-mobile.js
-          grep -F 'attachActiveHandlers(ws);' site/live-mobile.js
-          grep -F 'if(state.ws!==ws)return;' site/live-mobile.js
-          grep -F 'if(state.connectingWs!==ws)return;' site/live-mobile.js
-          grep -F 'const auth=await requestToken(!resume);' site/live-mobile.js
+          grep -F "message.goAway.timeLeft" site/live-mobile.js
+          grep -F "resume?.resumable!==false" site/live-mobile.js
           grep -F "navigator.audioSession.type=type" site/ios-audio-stability.js
           grep -F "await ctx.suspend()" site/ios-audio-stability.js
           grep -F "await ctx.resume()" site/ios-audio-stability.js
