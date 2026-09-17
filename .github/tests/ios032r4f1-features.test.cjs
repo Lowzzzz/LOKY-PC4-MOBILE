@@ -102,12 +102,10 @@ const api=context.LOKY_PC4_FEATURES;
 assert(api,'feature API missing');
 assert.equal(api.version,'0.3.2R4F1R1-timing-fix');
 
-// Four future-operation buttons must remain present and inert/reserved.
 assert.equal(api.slots.length,4);
 assert.equal(conversationShell.children.length,4);
 assert(api.slots.every(x=>x.disabled===true));
 
-// Silence remains functional and visual state remains externally observable.
 api.silence();
 assert.equal(api.silenced,true);
 assert(body.classList.contains('loky-silenced'));
@@ -118,7 +116,6 @@ assert.equal(api.silenced,false);
 assert(!body.classList.contains('loky-silenced'));
 assert.equal(liveState.suppressPlaybackUntil,0);
 
-// Critical overlap guard: no model playback may start while the user is speaking.
 liveState.userSpeaking=true;
 assert(liveState.suppressPlaybackUntil>1e15,'playback not blocked during user speech');
 liveState.suppressPlaybackUntil=123;
@@ -127,14 +124,12 @@ liveState.userSpeaking=false;
 assert.equal(liveState.suppressPlaybackUntil,123,'raw playback timing not restored after user speech');
 liveState.suppressPlaybackUntil=0;
 
-// Exact voice commands remain isolated from ordinary sentences.
 assert.equal(api.handlePhrase('LOKY silencio'),true);
 assert.equal(api.silenced,true);
 assert.equal(api.handlePhrase('LOKY háblame'),true);
 assert.equal(api.silenced,false);
 assert.equal(api.handlePhrase('quiero hablar sobre la palabra silencio mañana'),false);
 
-// Memory keeps stable facts/preferences, not every operational/question turn.
 api.memory.clear();
 assert.equal(api.memory.remember('Mi color favorito es azul'),true);
 assert.equal(api.memory.remember('Vivo cerca del mar'),true);
@@ -147,18 +142,18 @@ assert(snapshot.some(x=>x.text==='Mi color favorito es azul'));
 assert(snapshot.some(x=>x.text==='Vivo cerca del mar'));
 assert(!snapshot.some(x=>/Abre Google|Qué hora|Continúa|silencio/i.test(x.text)));
 
-// Fresh setup receives memory exactly once.
+// Fresh setup is the only WebSocket frame inspected. Two parses are expected here:
+// the setup frame itself + the small local-memory JSON array. PCM must add zero parses.
 const ws=new FakeWS('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=x');
 const beforeSetupParse=parseCount;
 ws.send(JSON.stringify({setup:{systemInstruction:{parts:[{text:'BASE'}]},sessionResumption:{}}}));
-assert.equal(parseCount,beforeSetupParse+1,'fresh setup was not the single parsed control frame');
+assert.equal(parseCount,beforeSetupParse+2,'fresh setup parse budget changed');
 const setup=JSON.parse(ws.sent[0]);
 const text=setup.setup.systemInstruction.parts.map(x=>x.text||'').join('\n');
 assert(text.includes('BASE'));
 assert(text.includes('Mi color favorito es azul'));
 assert(text.includes('Vivo cerca del mar'));
 
-// Audio hot path MUST bypass JSON.parse completely.
 const parseBeforeAudio=parseCount;
 for(let i=0;i<250;i++){
   ws.send('{"realtimeInput":{"audio":{"data":"AAAA","mimeType":"audio/pcm;rate=16000"}}}');
@@ -166,7 +161,7 @@ for(let i=0;i<250;i++){
 assert.equal(parseCount,parseBeforeAudio,'realtime PCM entered feature JSON parse hot path');
 assert.equal(ws.sent.length,251);
 
-// Resumed Gemini session already owns context; memory must not be appended again.
+// Resumed session: setup itself is parsed, but memory JSON is not loaded/injected again.
 const resumed=new FakeWS(ws.url);
 const beforeResumeParse=parseCount;
 resumed.send(JSON.stringify({setup:{systemInstruction:{parts:[{text:'BASE'}]},sessionResumption:{handle:'resume-123'}}}));
