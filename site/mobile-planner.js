@@ -637,6 +637,7 @@
     const meta=TYPE_META[type];
     const screen=make('section','loky-planner-screen');
     const top=make('div','loky-planner-top');
+    let deviceClockTimer=0;
     const back=make('button','loky-planner-back','‹ MEMORIAS');
     back.type='button';
     back.addEventListener('click',()=>{clearInterval(deviceClockTimer);screen.remove();});
@@ -674,8 +675,7 @@
       deviceTime.appendChild(make('span','',deviceTimeZone()));
     };
     paintDeviceTime();
-    const deviceClockTimer=setInterval(paintDeviceTime,30000);
-    screen.addEventListener('remove',()=>clearInterval(deviceClockTimer),{once:true});
+    deviceClockTimer=setInterval(paintDeviceTime,30000);
     formCard.appendChild(deviceTime);
 
     const notify=make('button','loky-planner-notify',notificationStatus());
