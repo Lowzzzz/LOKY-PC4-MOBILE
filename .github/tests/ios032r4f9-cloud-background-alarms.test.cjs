@@ -33,11 +33,12 @@ assert(!/new\s+WebSocket\s*\(/.test(bg));
 assert(!/LOKY_PC4_LIVE/.test(bg));
 assert(!/speechSynthesis/.test(bg));
 
-assert(sw.includes("const VERSION='loky-pc4-mobile-ios-0.3.2-r4f9'"));
+assert(sw.includes("const VERSION='loky-pc4-mobile-ios-0.3.2-r4f9r1'"));
 assert(sw.includes("'./mobile-background-alarm.js'"));
 assert(sw.includes("self.addEventListener('push'"));
 assert(sw.includes("self.registration.showNotification"));
 assert(sw.includes("LOKY · ALARMA"));
+assert(sw.includes("silent:false"));
 assert(sw.includes("requireInteraction:isAlarm"));
 assert(sw.includes("self.addEventListener('notificationclick'"));
 assert(sw.includes("new URL(target,self.registration.scope).href"));
