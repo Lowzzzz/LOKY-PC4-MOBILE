@@ -83,7 +83,7 @@ vm.runInContext(src,context,{filename:'mobile-planner.js'});
 
 const api=context.LOKY_PC4_PLANNER;
 assert(api,'planner API missing');
-assert(/0\.3\.2R4F8(?:-planner-v1|R1-alert-sounds|R2-safe-area-device-time|R3-voice-alarm-calendar-manual-stop|R4-robust-voice-planner-intents)/.test(api.version));
+assert(/0\.3\.2R4F8(?:-planner-v1|R1-alert-sounds|R2-safe-area-device-time|R3-voice-alarm-calendar-manual-stop|R4-robust-voice-planner-intents|R5-instant-alarm-capture)/.test(api.version));
 
 const now=new Date(2026,8,17,10,0,0,0).getTime();
 
@@ -199,6 +199,27 @@ assert.equal(p.at,now+3*60*60*1000);
 
 assert.equal(api.parseVoiceCommand('abre google',now),null);
 
+assert(api.instant,'instant alarm API missing');
+let fast=api.parseVoiceCommand('LOKY quiero que me programes una alarma para dentro de dos minutos',now);
+assert(fast&&fast.type==='alarm'&&!fast.error);
+assert.equal(api.instant.alarmReady('LOKY quiero que me programes una alarma para dentro de dos minutos',fast),true);
+
+fast=api.parseVoiceCommand('LOKY activa una alarma a las ocho de la noche',now);
+assert(fast&&fast.type==='alarm'&&!fast.error);
+assert.equal(api.instant.alarmReady('LOKY activa una alarma a las ocho de la noche',fast),true);
+
+fast=api.parseVoiceCommand('LOKY pon una alarma a las ocho',now);
+assert(fast&&fast.type==='alarm'&&!fast.error);
+assert.equal(api.instant.alarmReady('LOKY pon una alarma a las ocho',fast),false);
+
+fast=api.parseVoiceCommand('recuérdame probar esto en dos minutos',now);
+assert(fast&&fast.type==='reminder'&&!fast.error);
+assert.equal(api.instant.alarmReady('recuérdame probar esto en dos minutos',fast),false);
+
+fast=api.parseVoiceCommand('pon en mi calendario prueba mañana a las dos de la tarde',now);
+assert(fast&&fast.type==='calendar'&&!fast.error);
+assert.equal(api.instant.alarmReady('pon en mi calendario prueba mañana a las dos de la tarde',fast),false);
+
 const item=api.add('reminder','Comprar pan',now+3600000,'voice');
 assert(item);
 assert.equal(api.snapshot().length,1);
@@ -277,5 +298,11 @@ assert(src.includes("const alarmIntent="));
 assert(src.includes("const calendarIntent="));
 assert(src.includes("dentro\\s+de"));
 assert(src.includes("agendes"));
+assert(src.includes("function instantAlarmReady("));
+assert(src.includes("function scheduleInstantAlarmCapture("));
+assert(src.includes("new MutationObserver(scheduleInstantAlarmCapture)"));
+assert(src.includes("},220);"));
+assert(src.includes("lastInstantAlarm={"));
+assert(src.includes("if(existing)return true;"));
 
 console.log('R4F8 planner reminders alarms calendar PASS');
