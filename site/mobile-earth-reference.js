@@ -1,10 +1,11 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F4R2-fps-startup-optimization';
+  const VERSION='0.3.2R4F6-seismic-instant-precompiled';
   const NE_COMMIT='ca96624a56bd078437bca8184e78163e5039ad19';
   const LAND_URL=`https://raw.githubusercontent.com/nvkelso/natural-earth-vector/${NE_COMMIT}/geojson/ne_50m_land.geojson`;
   const COUNTRIES_URL=`https://raw.githubusercontent.com/nvkelso/natural-earth-vector/${NE_COMMIT}/geojson/ne_110m_admin_0_countries.geojson`;
+  const PRECOMPILED_URL='./earth-geometry-r4f6.json';
   const DOT_STEP=1.42;
   const MAX_DOTS=9800;
   const ACTIVE_FPS=60;
@@ -43,7 +44,7 @@
   document.head.appendChild(style);
 
   const geometry={landRings:[],countryRings:[],dots:[],ready:false,loading:false,error:''};
-  let raf=0,lastDraw=0,lastStatic=0,lastSize='',staticDirty=true,motionUntil=0,wasMoving=false,staticQuality='none';
+  let raf=0,lastDraw=0,lastStatic=0,lastSize='',staticDirty=true,motionUntil=0,wasMoving=false,staticQuality='none',geometryPromise=null;
   const pointers=new Map();
   let dragPointer=null,pinchDistance=0,pinchZoom=1,tapStart=null,tapMoved=false;
 
@@ -87,24 +88,65 @@
     return dots;
   }
 
-  async function getJson(url){const r=await fetch(url,{cache:'force-cache',mode:'cors'});if(!r.ok)throw new Error(`GEO_${r.status}`);return r.json();}
+  async function getJson(url,cache='force-cache'){const r=await fetch(url,{cache,mode:'cors'});if(!r.ok)throw new Error(`GEO_${r.status}`);return r.json();}
+  function useGeometry(landRings,countryRings,dots){
+    if(!Array.isArray(landRings)||landRings.length<20||!Array.isArray(countryRings)||countryRings.length<20||!Array.isArray(dots)||dots.length<1500)throw new Error('GEO_INCOMPLETE');
+    geometry.landRings=landRings;
+    geometry.countryRings=countryRings;
+    geometry.dots=dots.slice(0,MAX_DOTS);
+    geometry.ready=true;
+    geometry.error='';
+    staticDirty=true;
+    staticQuality='none';
+    app.classList.add('loky-earth-reference-ready');
+    if(state.active){motionUntil=performance.now()+MOTION_TAIL_MS;startLoop();}
+    return geometry;
+  }
+  async function loadFallbackGeometry(){
+    const [land,countries]=await Promise.all([getJson(LAND_URL),getJson(COUNTRIES_URL)]);
+    const landRings=flattenFeatures(land);
+    const countryRings=flattenFeatures(countries);
+    await yieldMain();
+    const dots=await buildDotsAsync(landRings);
+    return useGeometry(landRings,countryRings,dots);
+  }
   async function loadGeometry(force=false){
     if(geometry.ready&&!force)return geometry;
-    if(geometry.loading)return geometry;
+    if(geometryPromise&&!force)return geometryPromise;
     geometry.loading=true;geometry.error='';
-    try{
-      const [land,countries]=await Promise.all([getJson(LAND_URL),getJson(COUNTRIES_URL)]);
-      geometry.landRings=flattenFeatures(land);
-      geometry.countryRings=flattenFeatures(countries);
-      await yieldMain();
-      geometry.dots=await buildDotsAsync(geometry.landRings);
-      if(geometry.landRings.length<20||geometry.dots.length<1500)throw new Error('GEO_INCOMPLETE');
-      geometry.ready=true;geometry.loading=false;staticDirty=true;staticQuality='none';app.classList.add('loky-earth-reference-ready');
-      if(state.active){motionUntil=performance.now()+MOTION_TAIL_MS;startLoop();}
-    }catch(error){
-      geometry.error=String(error?.message||error||'GEO_FAIL');geometry.ready=false;geometry.loading=false;app.classList.remove('loky-earth-reference-ready');console.warn('[LOKY Earth] Natural Earth no disponible',geometry.error);
-    }
-    return geometry;
+    geometryPromise=(async()=>{
+      try{
+        if(!force){
+          try{
+            const packed=await getJson(PRECOMPILED_URL,'force-cache');
+            if(packed?.version!=='r4f6-precompiled-v1'||packed?.naturalEarthCommit!==NE_COMMIT)throw new Error('GEO_PACK_VERSION');
+            return useGeometry(packed.landRings,packed.countryRings,packed.dots);
+          }catch(precompiledError){
+            console.warn('[LOKY Earth] precompilado no disponible; usando fallback',precompiledError?.message||precompiledError);
+          }
+        }
+        return await loadFallbackGeometry();
+      }catch(error){
+        geometry.error=String(error?.message||error||'GEO_FAIL');
+        geometry.ready=false;
+        app.classList.remove('loky-earth-reference-ready');
+        console.warn('[LOKY Earth] Natural Earth no disponible',geometry.error);
+        return geometry;
+      }finally{
+        geometry.loading=false;
+        geometryPromise=null;
+      }
+    })();
+    return geometryPromise;
+  }
+  function scheduleWarmGeometry(){
+    const warm=()=>{if(!geometry.ready&&!geometry.loading)loadGeometry().catch(()=>{});};
+    const queue=()=>{
+      if('requestIdleCallback' in window)window.requestIdleCallback(warm,{timeout:2600});
+      else setTimeout(warm,900);
+    };
+    if(document.readyState==='complete')setTimeout(queue,700);
+    else window.addEventListener('load',()=>setTimeout(queue,700),{once:true});
   }
 
   function syncCanvas(){
@@ -192,10 +234,11 @@
   window.addEventListener('loky:seismic-data',()=>{motionUntil=performance.now()+180;startLoop();});
   window.addEventListener('resize',()=>{lastSize='';staticDirty=true;staticQuality='none';if(state.active)startLoop();},{passive:true});
   window.addEventListener('pagehide',stopLoop,{once:true});
+  scheduleWarmGeometry();
 
   window.LOKY_PC4_EARTH_REFERENCE={
     version:VERSION,
-    source:{naturalEarthCommit:NE_COMMIT,land:LAND_URL,countries:COUNTRIES_URL},
+    source:{naturalEarthCommit:NE_COMMIT,land:LAND_URL,countries:COUNTRIES_URL,precompiled:PRECOMPILED_URL},
     geometry,
     reload:()=>loadGeometry(true),
     stats:()=>({dots:geometry.dots.length,landRings:geometry.landRings.length,countryRings:geometry.countryRings.length,ready:geometry.ready,loading:geometry.loading,active:state.active,raf:Boolean(raf),fpsIdle:IDLE_FPS,fpsMoving:ACTIVE_FPS,dprCap:DPR_CAP,staticQuality})
