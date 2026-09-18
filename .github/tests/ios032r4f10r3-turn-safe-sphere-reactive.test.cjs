@@ -7,7 +7,7 @@ const live=fs.readFileSync('site/live-mobile.js','utf8');
 const index=fs.readFileSync('site/index.html','utf8');
 
 for(const needle of [
-  "const VERSION='0.3.2R4F10R3-reactive-sphere'",
+  "const VERSION='0.3.2R4F10R3R1-stronger-distortion'",
   "idle:{code:0,color:[57/255,169/255,255/255]",
   "listening:{code:1,color:[66/255,215/255,255/255]",
   "thinking:{code:2,color:[153/255,108/255,255/255]",
@@ -21,9 +21,12 @@ for(const needle of [
   "label==='PENSANDO'",
   "this.targetEnergy=Math.min(1,visual.energy+(resolved.activeUser?.20:0)+this.touchBoost)",
   "this.targetMotion=Math.min(1,visual.motion+(resolved.activeUser?.42:0))",
+  "float activeWarp=smoothstep(0.62,0.94,uMotion);",
+  "float warp=activeWarp*(0.034+speaking*0.020);",
+  "*0.028;",
 ]) assert(sphere.includes(needle),`missing sphere contract: ${needle}`);
 
-assert(index.includes('<script src="./sphere-mobile.js?v=0.3.2r4f10r3"></script>'));
+assert(index.includes('<script src="./sphere-mobile.js?v=0.3.2r4f10r3r1"></script>'));
 assert(index.includes('<script src="./live-mobile.js?v=0.3.2r4f10r3"></script>'));
 
 assert(live.includes("const VERSION='0.3.2R4-pc4-conversation-port'"));
