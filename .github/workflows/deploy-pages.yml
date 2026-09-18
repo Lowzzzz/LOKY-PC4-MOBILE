@@ -45,7 +45,6 @@ jobs:
         run: |
           set -euo pipefail
           PREVIEW='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-voice-preview'
-          PUSH='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'
           mkdir -p site/voice-previews
           curl --retry 2 --retry-delay 1 -fsS "$PREVIEW?warm=1" -o /tmp/preview-warm.json
           node -e "const x=require('/tmp/preview-warm.json'); if(!x.ok||x.version!==3||x.model!=='gemini-3.1-flash-tts-preview'||x.staticPreview!=='pcm-get-v1'||x.warm?.ready!==8||x.warm?.total!==8) process.exit(2)"
@@ -299,6 +298,7 @@ jobs:
           DEV='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices'
           TOKEN='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
           PREVIEW='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-voice-preview'
+          PUSH='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'
           curl -fsS "$DEV" -o /tmp/device-health.json
           node -e "const x=require('/tmp/device-health.json'); if(!x.ok||x.version!==2||x.guestActivation!=='handoff-code-v1') process.exit(2)"
           curl -fsS "$TOKEN" -o /tmp/token-health.json
