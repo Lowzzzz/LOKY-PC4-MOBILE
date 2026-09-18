@@ -64,7 +64,7 @@ vm.runInContext(src,context,{filename:'mobile-web-search.js'});
 
 const api=context.LOKY_PC4_WEB_SEARCH;
 assert(api,'web search API missing');
-assert.equal(api.version,'0.3.2R4F10R2-safe-local-search');
+assert.equal(api.version,'0.3.2R4F10R3-turn-safe-search');
 
 assert.equal(api.intent('LOKY búscame el teléfono de Apple Store Stamford'),true);
 assert.equal(api.intent('¿Cuál es el número de teléfono de Apple Store Stamford?'),true);
@@ -76,21 +76,24 @@ assert.equal(api.intent('recuérdame comprar leche en dos minutos'),false);
 assert.equal(api.intent('ponme una alarma en cinco minutos'),false);
 assert.equal(api.intent('abre google'),false);
 
-assert(index.includes('<script src="./mobile-web-search.js?v=0.3.2r4f10r2"></script>'));
-assert(index.indexOf('live-mobile.js?v=0.3.2') < index.indexOf('mobile-web-search.js?v=0.3.2r4f10r2'));
+assert(index.includes('<script src="./mobile-web-search.js?v=0.3.2r4f10r3"></script>'));
+assert(index.indexOf('live-mobile.js?v=0.3.2r4f10r3') < index.indexOf('mobile-web-search.js?v=0.3.2r4f10r3'));
 
 assert(src.includes("const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'"));
 assert(src.includes("const DEVICE_KEY='loky_pc4_device_capability_v1'"));
 assert(src.includes("const SEARCH_DEBOUNCE_MS=320"));
+assert(src.includes("const TURN_END_POLL_MS=90"));
+assert(src.includes("const TURN_SETTLE_MS=180"));
 assert(src.includes("const REPEAT_GUARD_MS=12000"));
 assert(src.includes("window.LOKY_PC4_LIVE"));
 assert(src.includes("state?.activeWs"));
 assert(src.includes("clientContent:{"));
 assert(src.includes("role:'user'"));
 assert(src.includes("turnComplete:true"));
-assert(src.includes("function announceLiveSearch("));
-assert(src.includes("LOKY WEB sí tiene acceso a búsqueda en Internet"));
-assert(src.includes("El resultado verificado llegará inmediatamente en un nuevo turno."));
+assert(!src.includes("function announceLiveSearch("));
+assert(!src.includes("Estoy buscando eso ahora"));
+assert(src.includes("if(liveState?.userSpeaking)"));
+assert(src.includes("if(window.LOKY_PC4_LIVE?.state?.userSpeaking)"));
 assert(!src.includes("turnComplete:false"));
 assert(!src.includes("function holdLiveSearch("));
 assert(src.includes("[LOKY WEB TOOL RESULT — BÚSQUEDA REAL EJECUTADA AHORA]"));
