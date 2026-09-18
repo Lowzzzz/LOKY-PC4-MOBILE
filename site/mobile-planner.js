@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F8R3-voice-alarm-calendar-manual-stop';
+  const VERSION='0.3.2R4F8R4-robust-voice-planner-intents';
   const STORE_KEY='loky_pc4_mobile_planner_v1';
   const ALERT_SOUND_KEY='loky_pc4_mobile_alert_sounds_v1';
   const MAX_ITEMS=80;
@@ -211,8 +211,25 @@
     target.setSeconds(0,0);
   }
 
+  const SPOKEN_NUMBERS={
+    un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,
+    diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,dieciseis:16,diecisiete:17,
+    dieciocho:18,diecinueve:19,veinte:20,veintiuno:21,veintidos:22,veintitres:23,
+    veinticuatro:24,veinticinco:25,veintiseis:26,veintisiete:27,veintiocho:28,veintinueve:29,
+    treinta:30,cuarenta:40,cincuenta:50,sesenta:60,
+  };
+
+  function spokenNumber(value){
+    const raw=normalize(value).replace(/\s+/g,' ').trim();
+    if(/^\d+$/.test(raw))return Number(raw);
+    if(Object.prototype.hasOwnProperty.call(SPOKEN_NUMBERS,raw))return SPOKEN_NUMBERS[raw];
+    const compound=raw.match(/^(treinta|cuarenta|cincuenta)\s+y\s+(uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve)$/);
+    if(compound)return (SPOKEN_NUMBERS[compound[1]]||0)+(SPOKEN_NUMBERS[compound[2]]||0);
+    return NaN;
+  }
+
   function parseHour(hour,minute,ampm,period){
-    let h=Number(hour),m=Number(minute||0);
+    let h=spokenNumber(hour),m=minute==null||minute===''?0:spokenNumber(minute);
     if(!Number.isFinite(h)||h<0||h>23||!Number.isFinite(m)||m<0||m>59)return null;
     const ap=String(ampm||'').toLowerCase();
     const part=String(period||'').toLowerCase();
@@ -226,11 +243,11 @@
     const n=normalize(rawText);
     const now=new Date(nowMs);
 
-    let m=n.match(/\ben\s+(\d{1,4})\s+(minuto|minutos|hora|horas)\b/);
+    let m=n.match(/\b(?:(?:para\s+)?dentro\s+de|de\s+aqui\s+a|en)\s+(?:unos?\s+)?(\d{1,4}|un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|veinte|veinticinco|treinta|cuarenta|cincuenta|sesenta)\s+(minuto|minutos|hora|horas)\b/);
     if(m){
-      const qty=Number(m[1]);
+      const qty=spokenNumber(m[1]);
       const unit=m[2].startsWith('hora')?3600000:60000;
-      return {at:nowMs+qty*unit,matched:m[0],relative:true};
+      if(Number.isFinite(qty)&&qty>0)return {at:nowMs+qty*unit,matched:m[0],relative:true};
     }
 
     const result=new Date(now);
@@ -262,12 +279,18 @@
       }
     }
 
-    const timeMatch=n.match(/\b(?:a|para)\s+las?\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?(?:\s+de\s+la\s+(manana|tarde|noche))?\b/) ||
-      n.match(/\b(\d{1,2})(?::(\d{2}))\s*(am|pm)?(?:\s+de\s+la\s+(manana|tarde|noche))?\b/);
+    const hourToken='(?:\\d{1,2}|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)';
+    const minuteToken='(?:\\d{1,2}|cinco|diez|quince|veinte|veinticinco|treinta|treinta y cinco|cuarenta|cuarenta y cinco|cincuenta|cincuenta y cinco)';
+    const spokenClock=n.match(new RegExp('\\b(?:a|para)\\s+la?s?\\s+('+hourToken+')(?:\\s*(?::|y)\\s*('+minuteToken+'|cuarto|media))?\\s*(am|pm)?(?:\\s+de\\s+la\\s+(manana|tarde|noche))?\\b'));
+    const numericClock=n.match(/\b(\d{1,2})(?::(\d{2}))\s*(am|pm)?(?:\s+de\s+la\s+(manana|tarde|noche))?\b/);
+    const timeMatch=spokenClock||numericClock;
     let explicitTime=false;
     if(timeMatch){
       const spokenPeriod=timeMatch[4]||((n.match(/\bde\s+la\s+(manana|tarde|noche)\b/)||[])[1]||'');
-      const time=parseHour(timeMatch[1],timeMatch[2],timeMatch[3],spokenPeriod);
+      let minute=timeMatch[2]||'';
+      if(minute==='cuarto')minute='quince';
+      if(minute==='media')minute='treinta';
+      const time=parseHour(timeMatch[1],minute,timeMatch[3],spokenPeriod);
       if(time){
         result.setHours(time.h,time.m,0,0);
         explicitTime=true;
@@ -295,7 +318,7 @@
     return String(raw||'')
       .replace(/\b(?:pasado\s+mañana|mañana|hoy)\b/gi,' ')
       .replace(/\b(?:domingo|lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado)\b/gi,' ')
-      .replace(/\ben\s+\d{1,4}\s+(?:minuto|minutos|hora|horas)\b/gi,' ')
+      .replace(/\b(?:(?:para\s+)?dentro\s+de|de\s+aqui\s+a|en)\s+(?:unos?\s+)?(?:\d{1,4}|un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|veinte|veinticinco|treinta|cuarenta|cincuenta|sesenta)\s+(?:minuto|minutos|hora|horas)\b/gi,' ')
       .replace(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/g,' ')
       .replace(/\b(?:a|para)\s+las?\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?(?:\s+de\s+la\s+(?:mañana|tarde|noche))?\b/gi,' ')
       .replace(/\b\d{1,2}:\d{2}\s*(?:am|pm)?(?:\s+de\s+la\s+(?:mañana|tarde|noche))?\b/gi,' ')
@@ -314,19 +337,31 @@
     let type='';
     let remainder='';
 
-    if(/^(?:recuerdame|recordame)\b/.test(n)){
+    const reminderIntent=/\b(?:recuerdame|recordame)\b/.test(n);
+    const alarmIntent=/\balarma(?:s)?\b/.test(n)||/\b(?:despiertame|despierta\s+me)\b/.test(n);
+    const calendarIntent=/\bcalendario\b/.test(n)||/\b(?:agenda|agendame|evento)\b/.test(n);
+
+    if(reminderIntent){
       type='reminder';
-      remainder=original.replace(/^\s*(?:loky\s+)?(?:recu[eé]rdame|recordame)\s*/i,'');
+      remainder=original.replace(/^\s*(?:loky[,:]?\s+)?/i,'');
+      remainder=remainder.replace(/^.*?\b(?:recu[eé]rdame|recordame)\b\s*/i,'');
       remainder=remainder.replace(/^que\s+/i,'');
-    }else if(/^(?:despiertame|despierta\s+me)\b/.test(n)){
+    }else if(alarmIntent){
       type='alarm';
-      remainder=original.replace(/^\s*(?:loky\s+)?(?:despi[eé]rtame|despierta\s+me)\s*/i,'');
-    }else if(/^(?:(?:ponme|pon|crea|programa|configura|establece|quiero)\s+)?(?:una\s+)?alarma\b/.test(n)){
-      type='alarm';
-      remainder=original.replace(/^\s*(?:loky\s+)?(?:(?:ponme|pon|crea|programa|configura|establece|quiero)\s+)?(?:una\s+)?alarma\s*/i,'');
-    }else if(/^(?:agenda|agendame|pon\s+en\s+(?:el\s+)?calendario|agrega\s+al\s+calendario|anade\s+al\s+calendario|crea\s+un\s+evento|programa\s+en\s+(?:el\s+)?calendario|anota\s+en\s+(?:el\s+)?calendario|calendario)\b/.test(n)){
+      remainder=original.replace(/^\s*(?:loky[,:]?\s+)?/i,'');
+      if(/\b(?:despi[eé]rtame|despierta\s+me)\b/i.test(remainder)){
+        remainder=remainder.replace(/^.*?\b(?:despi[eé]rtame|despierta\s+me)\b\s*/i,'');
+      }else{
+        remainder=remainder.replace(/^.*?\balarma(?:s)?\b\s*/i,'');
+      }
+    }else if(calendarIntent){
       type='calendar';
-      remainder=original.replace(/^\s*(?:loky\s+)?(?:agenda|ag[eé]ndame|pon\s+en\s+(?:el\s+)?calendario|agrega\s+al\s+calendario|anade\s+al\s+calendario|añade\s+al\s+calendario|crea\s+un\s+evento|programa\s+en\s+(?:el\s+)?calendario|anota\s+en\s+(?:el\s+)?calendario|calendario)\s*/i,'');
+      remainder=original.replace(/^\s*(?:loky[,:]?\s+)?/i,'');
+      if(/\bcalendario\b/i.test(remainder)){
+        remainder=remainder.replace(/^.*?\bcalendario\b\s*/i,'');
+      }else{
+        remainder=remainder.replace(/^.*?\b(?:agenda|ag[eé]ndame|evento)\b\s*/i,'');
+      }
     }else{
       return null;
     }
@@ -342,9 +377,11 @@
       .trim();
 
     if(type==='alarm'){
-      title=title||'Alarma';
-      if(/^para\s+/.test(normalize(title)))title=title.replace(/^para\s+/i,'');
-      if(!title)title='Alarma';
+      title=title
+        .replace(/^(?:que\s+)?(?:me\s+)?(?:pongas|programes|programas|crees|hagas|actives|configures|establezcas)\s*/i,'')
+        .replace(/^(?:para|a|en)\s*/i,'')
+        .trim();
+      if(!title||/^(?:una?|la)?\s*$/i.test(title))title='Alarma';
     }
     if(type==='calendar'&&!title)title='Evento';
     if(type==='reminder'&&!title)title='Recordatorio';
