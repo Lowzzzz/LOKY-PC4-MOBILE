@@ -6,7 +6,7 @@ const plus=fs.readFileSync('site/mobile-settings-plus.js','utf8');
 const live=fs.readFileSync('site/live-mobile.js','utf8');
 const features=fs.readFileSync('site/mobile-features.js','utf8');
 
-assert(plus.includes("const VERSION='0.3.2R4F7R2-instant-voice-preview'"));
+assert(/const VERSION='0\.3\.2R4F7R(?:2-instant-voice-preview|3-personality-audio-preview)'/.test(plus));
 assert(plus.includes("const VOICE_PREVIEW_STATIC_BASE='./voice-previews'"));
 assert(plus.includes("const VOICE_PREVIEW_STATIC_VERSION='0.3.2r4f7r2'"));
 assert(plus.includes("fetch(staticUrl,{cache:'force-cache'})"));
