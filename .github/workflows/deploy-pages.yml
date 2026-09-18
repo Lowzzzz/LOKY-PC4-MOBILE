@@ -45,6 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           PREVIEW='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-voice-preview'
+          PUSH='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'
           mkdir -p site/voice-previews
           curl --retry 2 --retry-delay 1 -fsS "$PREVIEW?warm=1" -o /tmp/preview-warm.json
           node -e "const x=require('/tmp/preview-warm.json'); if(!x.ok||x.version!==3||x.model!=='gemini-3.1-flash-tts-preview'||x.staticPreview!=='pcm-get-v1'||x.warm?.ready!==8||x.warm?.total!==8) process.exit(2)"
@@ -76,14 +77,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "7904479459f317101f226f4a50a186fb69060535"
+          test "$(git rev-parse HEAD:site/index.html)" = "495d2037c53ffc9e52b5c30a7ba4ca03dacad1a4"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
-          test "$(git rev-parse HEAD:site/sw.js)" = "6d35687e7ca347a6082119e7dd23969e616f61cb"
+          test "$(git rev-parse HEAD:site/sw.js)" = "6f9efe708ee69061bed5f218be791c121ac8d15f"
           if test -e site/mobile-continent-detail.js; then exit 1; fi
           grep -F '<script src="./mobile-settings-plus.js?v=0.3.2r4f5"></script>' site/index.html
           grep -F '<script src="./mobile-planner.js?v=0.3.2r4f8"></script>' site/index.html
+          grep -F '<script src="./mobile-background-alarm.js?v=0.3.2r4f9"></script>' site/index.html
           grep -F '<script src="./mobile-earth-reference.js?v=0.3.2r4f6"></script>' site/index.html
           grep -F "const VERSION='0.3.2R4F7R3-personality-audio-preview'" site/mobile-settings-plus.js
           grep -F "const VERSION='0.3.2R4F4R1-seismic-controller'" site/mobile-seismic.js
@@ -91,8 +93,9 @@ jobs:
           grep -F "const PRECOMPILED_URL='./earth-geometry-r4f6.json'" site/mobile-earth-reference.js
           grep -F 'function scheduleWarmGeometry(' site/mobile-earth-reference.js
           grep -F 'scheduleWarmGeometry();' site/mobile-earth-reference.js
-          grep -F "const VERSION='loky-pc4-mobile-ios-0.3.2-r4f6'" site/sw.js
+          grep -F "const VERSION='loky-pc4-mobile-ios-0.3.2-r4f9'" site/sw.js
           grep -F 'mobile-settings-plus\.js' site/sw.js
+          grep -F 'mobile-background-alarm\.js' site/sw.js
           grep -F 'mobile-seismic\.js' site/sw.js
           grep -F 'mobile-earth-reference\.js' site/sw.js
           grep -F 'earth-geometry-r4f6\.json' site/sw.js
@@ -144,6 +147,7 @@ jobs:
           node --check site/mobile-features.js
           node --check site/mobile-settings-plus.js
           node --check site/mobile-planner.js
+          node --check site/mobile-background-alarm.js
           node --check site/mobile-noise-guard.js
           node --check site/mobile-seismic.js
           node --check site/mobile-earth-reference.js
@@ -222,6 +226,29 @@ jobs:
           grep -F "['ALARMAS','Alarmas y temporizadores','A']" site/mobile-features.js
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|LOKY_PC4_LIVE' site/mobile-planner.js; then exit 1; fi
 
+      - name: Verify R4F9 cloud background alarm isolated layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
+          test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
+          test "$(git rev-parse HEAD:site/index.html)" = "495d2037c53ffc9e52b5c30a7ba4ca03dacad1a4"
+          test "$(git rev-parse HEAD:site/sw.js)" = "6f9efe708ee69061bed5f218be791c121ac8d15f"
+          grep -F "const VERSION='0.3.2R4F9-cloud-background-alarms'" site/mobile-background-alarm.js
+          grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'" site/mobile-background-alarm.js
+          grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-background-alarm.js
+          grep -F 'pushManager.subscribe({' site/mobile-background-alarm.js
+          grep -F 'userVisibleOnly:true' site/mobile-background-alarm.js
+          grep -F "await api('schedule_alarm'" site/mobile-background-alarm.js
+          grep -F "await api('cancel_alarm'" site/mobile-background-alarm.js
+          grep -F "await api('test_push',{})" site/mobile-background-alarm.js
+          grep -F 'ALARMA CON LOKY CERRADA · ACTIVAR' site/mobile-background-alarm.js
+          grep -F 'const SYNC_MS=500' site/mobile-background-alarm.js
+          grep -F "self.addEventListener('push'" site/sw.js
+          grep -F "self.addEventListener('notificationclick'" site/sw.js
+          grep -F 'new URL(target,self.registration.scope).href' site/sw.js
+          if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|LOKY_PC4_LIVE|speechSynthesis' site/mobile-background-alarm.js; then exit 1; fi
+
       - name: Verify iOS 0.3.2R4 PC4 conversation port remains frozen
         shell: bash
         run: |
@@ -257,6 +284,7 @@ jobs:
           node .github/tests/ios032r4f7r2-instant-voice-preview.test.cjs
           node .github/tests/ios032r4f7r3-personality-audio-preview.test.cjs
           node .github/tests/ios032r4f8-planner.test.cjs
+          node .github/tests/ios032r4f9-cloud-background-alarms.test.cjs
 
       - name: Verify Natural Earth USGS and device backends
         shell: bash
@@ -277,11 +305,15 @@ jobs:
           node -e "const x=require('/tmp/token-health.json'); if(!x.ok||x.auth!=='owner-or-invited-device-capability'||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2)"
           curl -fsS "$PREVIEW" -o /tmp/preview-health.json
           node -e "const x=require('/tmp/preview-health.json'); if(!x.ok||x.version!==3||x.model!=='gemini-3.1-flash-tts-preview'||x.sampleRate!==24000||x.cache!=='postgres-persistent-v1'||x.staticPreview!=='pcm-get-v1'||x.personalityPreview!=='selected-voice-cache-v1'||!Array.isArray(x.voices)||x.voices.length<8||!Array.isArray(x.personalities)||x.personalities.length<8||!x.personalities.includes('natural')||!x.personalities.includes('coach')) process.exit(2)"
+          curl -fsS "$PUSH" -o /tmp/push-health.json
+          node -e "const x=require('/tmp/push-health.json'); if(!x.ok||x.version!==1||x.backgroundAlarm!=='web-push-v1'||x.scheduler!=='pg-cron-30s'||typeof x.publicKey!=='string'||x.publicKey.length<50) process.exit(2)"
           code=$(curl -sS -o /tmp/device-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"status"}' "$DEV")
           test "$code" = '401'
           code=$(curl -sS -o /tmp/token-denied.json -w '%{http_code}' -X POST -H 'x-loky-device: invalid-device-123456789' "$TOKEN")
           test "$code" = '401'
           code=$(curl -sS -o /tmp/preview-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"voiceName":"Kore"}' "$PREVIEW")
+          test "$code" = '401'
+          code=$(curl -sS -o /tmp/push-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"status"}' "$PUSH")
           test "$code" = '401'
           curl -fsS 'https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js' -o /tmp/qrcode.min.js
           grep -F 'QRCode' /tmp/qrcode.min.js >/dev/null
