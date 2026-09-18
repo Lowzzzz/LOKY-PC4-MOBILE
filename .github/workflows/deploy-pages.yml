@@ -80,7 +80,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
-          test "$(git rev-parse HEAD:site/sw.js)" = "6f9efe708ee69061bed5f218be791c121ac8d15f"
+          test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           if test -e site/mobile-continent-detail.js; then exit 1; fi
           grep -F '<script src="./mobile-settings-plus.js?v=0.3.2r4f5"></script>' site/index.html
           grep -F '<script src="./mobile-planner.js?v=0.3.2r4f8"></script>' site/index.html
@@ -92,7 +92,7 @@ jobs:
           grep -F "const PRECOMPILED_URL='./earth-geometry-r4f6.json'" site/mobile-earth-reference.js
           grep -F 'function scheduleWarmGeometry(' site/mobile-earth-reference.js
           grep -F 'scheduleWarmGeometry();' site/mobile-earth-reference.js
-          grep -F "const VERSION='loky-pc4-mobile-ios-0.3.2-r4f9'" site/sw.js
+          grep -F "const VERSION='loky-pc4-mobile-ios-0.3.2-r4f9r1'" site/sw.js
           grep -F 'mobile-settings-plus\.js' site/sw.js
           grep -F 'mobile-background-alarm\.js' site/sw.js
           grep -F 'mobile-seismic\.js' site/sw.js
@@ -232,7 +232,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
           test "$(git rev-parse HEAD:site/index.html)" = "495d2037c53ffc9e52b5c30a7ba4ca03dacad1a4"
-          test "$(git rev-parse HEAD:site/sw.js)" = "6f9efe708ee69061bed5f218be791c121ac8d15f"
+          test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           grep -F "const VERSION='0.3.2R4F9-cloud-background-alarms'" site/mobile-background-alarm.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'" site/mobile-background-alarm.js
           grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-background-alarm.js
@@ -244,6 +244,7 @@ jobs:
           grep -F 'ALARMA CON LOKY CERRADA · ACTIVAR' site/mobile-background-alarm.js
           grep -F 'const SYNC_MS=500' site/mobile-background-alarm.js
           grep -F "self.addEventListener('push'" site/sw.js
+          grep -F 'silent:false' site/sw.js
           grep -F "self.addEventListener('notificationclick'" site/sw.js
           grep -F 'new URL(target,self.registration.scope).href' site/sw.js
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|LOKY_PC4_LIVE|speechSynthesis' site/mobile-background-alarm.js; then exit 1; fi
