@@ -4,7 +4,7 @@
   // PC4 Conversation Port for Mobile.
   // Desktop is read-only reference. This file is the only Mobile runtime owner
   // of mic -> attention/VAD -> Gemini Live -> PCM playback.
-  const VERSION='0.3.2R4F10R3-turn-end-guard';
+  const VERSION='0.3.2R4-pc4-conversation-port';
   const TOKEN_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token';
   const DEFAULT_MODEL='models/gemini-3.8-live';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
