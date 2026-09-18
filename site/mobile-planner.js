@@ -143,12 +143,13 @@
     target.setSeconds(0,0);
   }
 
-  function parseHour(hour,minute,ampm){
+  function parseHour(hour,minute,ampm,period){
     let h=Number(hour),m=Number(minute||0);
     if(!Number.isFinite(h)||h<0||h>23||!Number.isFinite(m)||m<0||m>59)return null;
     const ap=String(ampm||'').toLowerCase();
-    if(ap==='pm'&&h<12)h+=12;
-    if(ap==='am'&&h===12)h=0;
+    const part=String(period||'').toLowerCase();
+    if((ap==='pm'||part==='tarde'||part==='noche')&&h<12)h+=12;
+    if((ap==='am'||part==='manana')&&h===12)h=0;
     return {h,m};
   }
 
@@ -183,11 +184,11 @@
       setDayStart(result,now,0); explicitDay=true;
     }
 
-    const timeMatch=n.match(/\b(?:a|para)\s+las?\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/) ||
-      n.match(/\b(\d{1,2})(?::(\d{2}))\s*(am|pm)?\b/);
+    const timeMatch=n.match(/\b(?:a|para)\s+las?\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?(?:\s+de\s+la\s+(manana|tarde|noche))?\b/) ||
+      n.match(/\b(\d{1,2})(?::(\d{2}))\s*(am|pm)?(?:\s+de\s+la\s+(manana|tarde|noche))?\b/);
     let explicitTime=false;
     if(timeMatch){
-      const time=parseHour(timeMatch[1],timeMatch[2],timeMatch[3]);
+      const time=parseHour(timeMatch[1],timeMatch[2],timeMatch[3],timeMatch[4]);
       if(time){
         result.setHours(time.h,time.m,0,0);
         explicitTime=true;
@@ -213,8 +214,9 @@
       .replace(/\b(?:pasado\s+mañana|mañana|hoy)\b/gi,' ')
       .replace(/\ben\s+\d{1,4}\s+(?:minuto|minutos|hora|horas)\b/gi,' ')
       .replace(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/g,' ')
-      .replace(/\b(?:a|para)\s+las?\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b/gi,' ')
-      .replace(/\b\d{1,2}:\d{2}\s*(?:am|pm)?\b/gi,' ')
+      .replace(/\b(?:a|para)\s+las?\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?(?:\s+de\s+la\s+(?:mañana|tarde|noche))?\b/gi,' ')
+      .replace(/\b\d{1,2}:\d{2}\s*(?:am|pm)?(?:\s+de\s+la\s+(?:mañana|tarde|noche))?\b/gi,' ')
+      .replace(/\b(?:para|a|el)\s*$/i,' ')
       .replace(/\s+/g,' ')
       .trim();
   }
