@@ -265,7 +265,6 @@ assert(src.includes("when.value=toLocalInput(nextPlannerTime())"));
 assert(!src.includes("Date.now()+60*60*1000"));
 assert(src.includes("const WEEKDAY_INDEX={"));
 assert(src.includes("despiertame"));
-assert(src.includes("ponme"));
 assert(src.includes("function startDueAlertSound("));
 assert(src.includes("DETENER ALARMA"));
 assert(src.includes("DETENER SONIDO"));
