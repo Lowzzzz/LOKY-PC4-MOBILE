@@ -214,7 +214,7 @@ for(const id of ['loky','soft','digital','urgent','scifi','classic','pulse','sil
 }
 assert(src.includes("function showSoundSelector("));
 assert(src.includes("function playAlertSoundById("));
-assert(src.includes("alarmTone(item.type)"));
+assert(src.includes("startDueAlertSound(item.type)"));
 assert(src.includes("SONIDO DE ALERTA"));
 assert(src.includes("SELECCIONAR"));
 assert(src.includes("SILENCIOSO"));
