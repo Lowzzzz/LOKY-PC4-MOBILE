@@ -321,6 +321,7 @@
       .replace(/\b(?:(?:para\s+)?dentro\s+de|de\s+aqui\s+a|en)\s+(?:unos?\s+)?(?:\d{1,4}|un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|veinte|veinticinco|treinta|cuarenta|cincuenta|sesenta)\s+(?:minuto|minutos|hora|horas)\b/gi,' ')
       .replace(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/g,' ')
       .replace(/\b(?:a|para)\s+las?\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?(?:\s+de\s+la\s+(?:mañana|tarde|noche))?\b/gi,' ')
+      .replace(/\b(?:a|para)\s+la?s?\s+(?:una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)(?:\s+y\s+(?:cuarto|media|cinco|diez|quince|veinte|veinticinco|treinta|cuarenta|cincuenta))?\s*(?:am|pm)?(?:\s+de\s+la\s+(?:mañana|tarde|noche))?\b/gi,' ')
       .replace(/\b\d{1,2}:\d{2}\s*(?:am|pm)?(?:\s+de\s+la\s+(?:mañana|tarde|noche))?\b/gi,' ')
       .replace(/\bde\s+la\s+(?:mañana|tarde|noche)\b/gi,' ')
       .replace(/\bde\s+la\s*$/i,' ')
@@ -339,7 +340,7 @@
 
     const reminderIntent=/\b(?:recuerdame|recordame)\b/.test(n);
     const alarmIntent=/\balarma(?:s)?\b/.test(n)||/\b(?:despiertame|despierta\s+me)\b/.test(n);
-    const calendarIntent=/\bcalendario\b/.test(n)||/\b(?:agenda|agendame|evento)\b/.test(n);
+    const calendarIntent=/\bcalendario\b/.test(n)||/\b(?:agenda|agendame|agendes|agendar|evento)\b/.test(n);
 
     if(reminderIntent){
       type='reminder';
@@ -360,7 +361,7 @@
       if(/\bcalendario\b/i.test(remainder)){
         remainder=remainder.replace(/^.*?\bcalendario\b\s*/i,'');
       }else{
-        remainder=remainder.replace(/^.*?\b(?:agenda|ag[eé]ndame|evento)\b\s*/i,'');
+        remainder=remainder.replace(/^.*?\b(?:agenda|ag[eé]ndame|agendes|agendar|evento)\b\s*/i,'');
       }
     }else{
       return null;
