@@ -3,7 +3,7 @@ const fs=require('fs');
 const assert=require('assert');
 const plus=fs.readFileSync('site/mobile-settings-plus.js','utf8');
 
-assert(/const VERSION='0\.3\.2R4F(?:5(?:R3-settings-dashboard-clean|R4-guest-handoff)|7(?:-voice-personality-ui|R1-voice-preview-confirm|R2-instant-voice-preview))'/.test(plus));
+assert(/const VERSION='0\.3\.2R4F(?:5(?:R3-settings-dashboard-clean|R4-guest-handoff)|7(?:-voice-personality-ui|R1-voice-preview-confirm|R2-instant-voice-preview|R3-personality-audio-preview))'/.test(plus));
 assert(plus.includes('loky-settings-dashboard'));
 assert(plus.includes('MODO DE HABLAR'));
 assert(plus.includes('VOZ'));
@@ -17,6 +17,9 @@ assert(plus.includes('playVoicePreview'));
 assert(plus.includes('VOICE_PREVIEW_ENDPOINT'));
 assert(plus.includes('VOICE_PREVIEW_STATIC_BASE'));
 assert(plus.includes('preloadVoicePreviews'));
+assert(plus.includes('playPersonalityPreview'));
+assert(plus.includes('preloadPersonalityPreviews'));
+assert(plus.includes('{previewPersonality:true}'));
 assert(plus.includes('DISPOSITIVOS'));
 assert(plus.includes('ADMINISTRAR DISPOSITIVOS'));
 assert(plus.includes('renderSettingsDashboard'));
