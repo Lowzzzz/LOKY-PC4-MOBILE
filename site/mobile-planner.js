@@ -1,8 +1,9 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F8-planner-v1';
+  const VERSION='0.3.2R4F8R1-alert-sounds';
   const STORE_KEY='loky_pc4_mobile_planner_v1';
+  const ALERT_SOUND_KEY='loky_pc4_mobile_alert_sounds_v1';
   const MAX_ITEMS=80;
   const DUE_POLL_MS=15000;
   const FIRED_GRACE_MS=12*60*60*1000;
@@ -15,6 +16,19 @@
   let dueTimer=0;
   let alertAudioContext=null;
   let activeAlert=null;
+  let activeSoundNodes=[];
+
+  const ALERT_SOUNDS={
+    loky:{label:'LOKY',description:'Sonido actual de LOKY'},
+    soft:{label:'SUAVE',description:'Campana discreta'},
+    digital:{label:'DIGITAL',description:'Beep electrónico corto'},
+    urgent:{label:'URGENTE',description:'Aviso fuerte y repetitivo'},
+    scifi:{label:'SCI-FI',description:'Tono tecnológico'},
+    classic:{label:'CLASSIC',description:'Alarma tradicional'},
+    pulse:{label:'PULSE',description:'Pulsos cortos'},
+    silent:{label:'SILENCIOSO',description:'Solo alerta visual'},
+  };
+  const DEFAULT_ALERT_SOUNDS={reminder:'loky',calendar:'loky',alarm:'loky'};
 
   const TYPE_META={
     reminder:{label:'RECORDATORIO',plural:'RECORDATORIOS',icon:'R'},
@@ -41,6 +55,33 @@
       .replace(/[¿?¡!,]/g,' ')
       .replace(/\s+/g,' ')
       .trim();
+  }
+
+  function loadAlertSounds(){
+    try{
+      const parsed=JSON.parse(localStorage.getItem(ALERT_SOUND_KEY)||'{}');
+      const out={...DEFAULT_ALERT_SOUNDS};
+      for(const type of Object.keys(DEFAULT_ALERT_SOUNDS)){
+        const value=String(parsed?.[type]||'');
+        if(ALERT_SOUNDS[value])out[type]=value;
+      }
+      return out;
+    }catch{
+      return {...DEFAULT_ALERT_SOUNDS};
+    }
+  }
+
+  function getAlertSound(type){
+    const settings=loadAlertSounds();
+    return ALERT_SOUNDS[settings[type]]?settings[type]:'loky';
+  }
+
+  function setAlertSound(type,sound){
+    if(!TYPE_META[type]||!ALERT_SOUNDS[sound])return false;
+    const settings=loadAlertSounds();
+    settings[type]=sound;
+    try{localStorage.setItem(ALERT_SOUND_KEY,JSON.stringify(settings))}catch{}
+    return true;
   }
 
   function loadItems(){
@@ -286,6 +327,17 @@
       .loky-planner-add{height:38px;border-radius:11px;border:1px solid rgba(96,202,238,.24);background:rgba(12,57,77,.72);color:#c7f2ff;font-size:8px;font-weight:900;letter-spacing:.10em}
       .loky-planner-notify{height:34px;border-radius:10px;border:1px solid rgba(96,202,238,.17);background:rgba(8,38,52,.62);color:#9dd8eb;font-size:7.5px;font-weight:800;letter-spacing:.08em}
       .loky-planner-note{font-size:7.5px;line-height:1.45;color:#6f91a3;text-align:center}
+      .loky-sound-open{height:36px;border-radius:10px;border:1px solid rgba(96,202,238,.18);background:rgba(8,38,52,.66);color:#b6e8f8;font-size:7.5px;font-weight:900;letter-spacing:.09em}
+      .loky-sound-modal{position:fixed;z-index:340;inset:0;background:rgba(1,7,12,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:grid;place-items:center;padding:18px}
+      .loky-sound-card{width:min(90vw,420px);max-height:min(78vh,620px);overflow:auto;border:1px solid rgba(108,219,251,.22);border-radius:22px;background:linear-gradient(180deg,rgba(8,34,48,.99),rgba(3,16,25,.99));padding:16px;display:grid;gap:10px;box-shadow:0 26px 80px rgba(0,0,0,.55)}
+      .loky-sound-card>strong{text-align:center;font-size:10px;letter-spacing:.12em;color:#ddf7ff}
+      .loky-sound-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+      .loky-sound-choice{min-height:60px;border-radius:13px;border:1px solid rgba(100,190,224,.12);background:rgba(5,25,37,.72);color:#93bdcd;display:grid;align-content:center;gap:4px;padding:9px;text-align:left}
+      .loky-sound-choice strong{font-size:8px;letter-spacing:.08em;color:#b9e3f0}.loky-sound-choice span{font-size:7px;line-height:1.3;color:#668797}
+      .loky-sound-choice.is-selected{border-color:rgba(108,223,255,.48);background:rgba(15,67,88,.76);box-shadow:0 0 14px rgba(70,198,239,.10)}
+      .loky-sound-choice.is-selected strong{color:#e3fbff}
+      .loky-sound-status{min-height:15px;text-align:center;font-size:7px;color:#78aabd;letter-spacing:.05em}
+      .loky-sound-select{height:38px;border-radius:999px;border:1px solid rgba(108,223,255,.32);background:linear-gradient(180deg,rgba(24,92,119,.82),rgba(8,49,68,.88));color:#dcf9ff;font-size:8px;font-weight:900;letter-spacing:.12em}
       .loky-planner-list{display:grid;gap:7px}.loky-planner-empty{padding:24px 8px;text-align:center;color:#607f90;font-size:8.5px}
       .loky-planner-row{border:1px solid rgba(99,188,220,.11);border-radius:13px;background:rgba(4,20,31,.58);padding:9px 10px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
       .loky-planner-row.is-done{opacity:.48}.loky-planner-copy{min-width:0;display:grid;gap:3px}.loky-planner-copy strong{font-size:9px;color:#c8eaf5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.loky-planner-copy span{font-size:7.5px;color:#7093a5}.loky-planner-copy small{font-size:6.8px;color:#537282;letter-spacing:.08em}
@@ -380,22 +432,71 @@
     return alertAudioContext;
   }
 
-  async function alarmTone(){
+  function stopAlertSound(){
+    for(const node of activeSoundNodes){
+      try{node.stop()}catch{}
+      try{node.disconnect()}catch{}
+    }
+    activeSoundNodes=[];
+  }
+
+  function scheduleTone(ctx,{freq=880,start=0,duration=.18,gain=.12,wave='sine',endFreq=0}={}){
+    const osc=ctx.createOscillator();
+    const amp=ctx.createGain();
+    const at=ctx.currentTime+start;
+    osc.type=wave;
+    osc.frequency.setValueAtTime(freq,at);
+    if(endFreq>0)osc.frequency.exponentialRampToValueAtTime(endFreq,at+duration);
+    amp.gain.setValueAtTime(.0001,at);
+    amp.gain.exponentialRampToValueAtTime(Math.max(.001,gain),at+.018);
+    amp.gain.exponentialRampToValueAtTime(.0001,at+duration);
+    osc.connect(amp);
+    amp.connect(ctx.destination);
+    osc.start(at);
+    osc.stop(at+duration+.02);
+    activeSoundNodes.push(osc);
+    osc.onended=()=>{
+      activeSoundNodes=activeSoundNodes.filter(node=>node!==osc);
+      try{osc.disconnect()}catch{}
+      try{amp.disconnect()}catch{}
+    };
+  }
+
+  async function playAlertSoundById(soundId){
+    const id=ALERT_SOUNDS[soundId]?soundId:'loky';
+    stopAlertSound();
+    if(id==='silent')return true;
     try{
       const ctx=await primeAlertAudio();
-      if(!ctx)return;
-      const now=ctx.currentTime;
-      for(let i=0;i<3;i++){
-        const osc=ctx.createOscillator();
-        const gain=ctx.createGain();
-        osc.frequency.value=880-i*90;
-        gain.gain.setValueAtTime(0.0001,now+i*.32);
-        gain.gain.exponentialRampToValueAtTime(.16,now+i*.32+.02);
-        gain.gain.exponentialRampToValueAtTime(.0001,now+i*.32+.22);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(now+i*.32); osc.stop(now+i*.32+.24);
+      if(!ctx)return false;
+
+      if(id==='loky'){
+        for(let i=0;i<3;i++)scheduleTone(ctx,{freq:880-i*90,start:i*.32,duration:.22,gain:.16,wave:'sine'});
+      }else if(id==='soft'){
+        scheduleTone(ctx,{freq:660,start:0,duration:.30,gain:.07,wave:'sine'});
+        scheduleTone(ctx,{freq:880,start:.22,duration:.36,gain:.055,wave:'sine'});
+      }else if(id==='digital'){
+        scheduleTone(ctx,{freq:980,start:0,duration:.10,gain:.11,wave:'square'});
+        scheduleTone(ctx,{freq:1240,start:.14,duration:.10,gain:.10,wave:'square'});
+        scheduleTone(ctx,{freq:980,start:.28,duration:.10,gain:.09,wave:'square'});
+      }else if(id==='urgent'){
+        for(let i=0;i<5;i++)scheduleTone(ctx,{freq:i%2?820:1120,start:i*.19,duration:.14,gain:.17,wave:'square'});
+      }else if(id==='scifi'){
+        scheduleTone(ctx,{freq:420,endFreq:1220,start:0,duration:.42,gain:.10,wave:'sine'});
+        scheduleTone(ctx,{freq:980,endFreq:520,start:.38,duration:.34,gain:.08,wave:'triangle'});
+      }else if(id==='classic'){
+        for(let i=0;i<4;i++)scheduleTone(ctx,{freq:620,start:i*.27,duration:.19,gain:.13,wave:'triangle'});
+      }else if(id==='pulse'){
+        for(let i=0;i<4;i++)scheduleTone(ctx,{freq:i%2?720:480,start:i*.18,duration:.11,gain:.105,wave:'sine'});
       }
-    }catch{}
+      return true;
+    }catch{
+      return false;
+    }
+  }
+
+  async function alarmTone(type='alarm'){
+    return playAlertSoundById(getAlertSound(type));
   }
 
   function showDueAlert(item){
@@ -419,7 +520,7 @@
     overlay.appendChild(card);
     body.appendChild(overlay);
     activeAlert=overlay;
-    alarmTone();
+    alarmTone(item.type);
   }
 
   function markFired(id){
@@ -448,6 +549,63 @@
     clearInterval(dueTimer);
     dueTimer=setInterval(checkDue,DUE_POLL_MS);
     setTimeout(checkDue,300);
+  }
+
+  function showSoundSelector(type,onSaved){
+    const current=getAlertSound(type);
+    let draft=current;
+    const modal=make('div','loky-sound-modal');
+    const card=make('div','loky-sound-card');
+    card.appendChild(make('strong','','SONIDO DE ALERTA'));
+    const status=make('div','loky-sound-status','TOCA UN SONIDO PARA ESCUCHARLO');
+    const grid=make('div','loky-sound-grid');
+    const buttons=[];
+
+    const paint=()=>{
+      for(const btn of buttons)btn.classList.toggle('is-selected',btn.dataset.sound===draft);
+    };
+
+    for(const [key,meta] of Object.entries(ALERT_SOUNDS)){
+      const btn=make('button','loky-sound-choice');
+      btn.type='button';
+      btn.dataset.sound=key;
+      btn.appendChild(make('strong','',meta.label));
+      btn.appendChild(make('span','',meta.description));
+      btn.addEventListener('click',async()=>{
+        draft=key;
+        paint();
+        status.textContent=key==='silent'?'SILENCIOSO · SOLO ALERTA VISUAL':'REPRODUCIENDO MUESTRA…';
+        await playAlertSoundById(key);
+      });
+      buttons.push(btn);
+      grid.appendChild(btn);
+    }
+
+    const select=make('button','loky-sound-select','SELECCIONAR');
+    select.type='button';
+    select.addEventListener('click',()=>{
+      stopAlertSound();
+      if(setAlertSound(type,draft)){
+        modal.remove();
+        onSaved?.(draft);
+        toast(`Sonido ${ALERT_SOUNDS[draft].label} seleccionado para ${TYPE_META[type].plural.toLowerCase()}.`);
+      }
+    });
+
+    modal.addEventListener('click',event=>{
+      if(event.target===modal){
+        stopAlertSound();
+        modal.remove();
+      }
+    });
+
+    card.appendChild(grid);
+    card.appendChild(status);
+    card.appendChild(select);
+    modal.appendChild(card);
+    body.appendChild(modal);
+    paint();
+    primeAlertAudio().catch(()=>{});
   }
 
   function openPlannerPanel(page,type){
@@ -488,6 +646,17 @@
     notify.type='button';
     notify.addEventListener('click',()=>requestNotifications(notify));
     formCard.appendChild(notify);
+
+    const soundButton=make('button','loky-sound-open');
+    soundButton.type='button';
+    const paintSound=()=>{
+      const sound=getAlertSound(type);
+      soundButton.textContent=`SONIDO DE ALERTA · ${ALERT_SOUNDS[sound].label}`;
+    };
+    paintSound();
+    soundButton.addEventListener('click',()=>showSoundSelector(type,paintSound));
+    formCard.appendChild(soundButton);
+
     formCard.appendChild(make('div','loky-planner-note','Los avisos se disparan mientras LOKY está abierta y al volver a abrirla si algo venció. El aviso con la app totalmente cerrada se añadirá en la siguiente fase de Web Push.'));
     content.appendChild(formCard);
 
@@ -613,6 +782,12 @@
     remove:removeItem,
     parseVoiceCommand,
     checkDue,
+    sounds:{
+      profiles:ALERT_SOUNDS,
+      get:getAlertSound,
+      set:setAlertSound,
+      preview:playAlertSoundById,
+    },
     open(type='reminder'){
       const slot=document.querySelector('.feature-memory');
       slot?.click();
