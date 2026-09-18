@@ -188,7 +188,8 @@
       n.match(/\b(\d{1,2})(?::(\d{2}))\s*(am|pm)?(?:\s+de\s+la\s+(manana|tarde|noche))?\b/);
     let explicitTime=false;
     if(timeMatch){
-      const time=parseHour(timeMatch[1],timeMatch[2],timeMatch[3],timeMatch[4]);
+      const spokenPeriod=timeMatch[4]||((n.match(/\bde\s+la\s+(manana|tarde|noche)\b/)||[])[1]||'');
+      const time=parseHour(timeMatch[1],timeMatch[2],timeMatch[3],spokenPeriod);
       if(time){
         result.setHours(time.h,time.m,0,0);
         explicitTime=true;
