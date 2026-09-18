@@ -83,7 +83,7 @@ vm.runInContext(src,context,{filename:'mobile-planner.js'});
 
 const api=context.LOKY_PC4_PLANNER;
 assert(api,'planner API missing');
-assert.equal(api.version,'0.3.2R4F8-planner-v1');
+assert(/0\.3\.2R4F8(?:-planner-v1|R1-alert-sounds)/.test(api.version));
 
 const now=new Date(2026,8,17,10,0,0,0).getTime();
 
@@ -136,6 +136,21 @@ assert(api.snapshot()[0].doneAt>0);
 assert.equal(api.remove(item.id),true);
 assert.equal(api.snapshot().length,0);
 
+assert(api.sounds,'sounds API missing');
+assert.equal(Object.keys(api.sounds.profiles).length,8);
+assert.equal(api.sounds.get('reminder'),'loky');
+assert.equal(api.sounds.get('calendar'),'loky');
+assert.equal(api.sounds.get('alarm'),'loky');
+assert.equal(api.sounds.set('reminder','soft'),true);
+assert.equal(api.sounds.set('calendar','digital'),true);
+assert.equal(api.sounds.set('alarm','urgent'),true);
+assert.equal(api.sounds.get('reminder'),'soft');
+assert.equal(api.sounds.get('calendar'),'digital');
+assert.equal(api.sounds.get('alarm'),'urgent');
+assert.equal(api.sounds.set('alarm','silent'),true);
+assert.equal(api.sounds.get('alarm'),'silent');
+assert.equal(api.sounds.set('alarm','not-a-sound'),false);
+
 assert(!/new\s+WebSocket\s*\(/.test(src));
 assert(!/getUserMedia\s*\(/.test(src));
 assert(!/LOKY_PC4_LIVE/.test(src));
@@ -146,5 +161,16 @@ assert(src.includes("loky-organizer-card"));
 assert(src.includes("RECORDATORIOS"));
 assert(src.includes("CALENDARIO"));
 assert(src.includes("ALARMAS"));
+assert(src.includes("const ALERT_SOUND_KEY='loky_pc4_mobile_alert_sounds_v1'"));
+assert(src.includes("const ALERT_SOUNDS={"));
+for(const id of ['loky','soft','digital','urgent','scifi','classic','pulse','silent']){
+  assert(Object.prototype.hasOwnProperty.call(api.sounds.profiles,id),`missing sound ${id}`);
+}
+assert(src.includes("function showSoundSelector("));
+assert(src.includes("function playAlertSoundById("));
+assert(src.includes("alarmTone(item.type)"));
+assert(src.includes("SONIDO DE ALERTA"));
+assert(src.includes("SELECCIONAR"));
+assert(src.includes("SILENCIOSO"));
 
 console.log('R4F8 planner reminders alarms calendar PASS');
