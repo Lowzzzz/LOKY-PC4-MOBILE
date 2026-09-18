@@ -26,7 +26,7 @@ for(const needle of [
 assert(index.includes('<script src="./sphere-mobile.js?v=0.3.2r4f10r3"></script>'));
 assert(index.includes('<script src="./live-mobile.js?v=0.3.2r4f10r3"></script>'));
 
-assert(live.includes("const VERSION='0.3.2R4F10R3-turn-end-guard'"));
+assert(live.includes("const VERSION='0.3.2R4-pc4-conversation-port'"));
 assert(live.includes('const END_SILENCE_MS=850'));
 assert(live.includes('userSpeaking:false'));
 assert(live.includes('playing:new Set()'));
