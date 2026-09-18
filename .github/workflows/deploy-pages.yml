@@ -59,13 +59,13 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile.css)" = "b4eff4577685dce6b07867cc040d4b8369be2a51"
           test "$(git rev-parse HEAD:site/mobile-noise-guard.js)" = "c632c64738c0bb34d7e372d28a5532d238b23398"
 
-      - name: Verify R4F6 Earth update delivery and R4F5 Devices runtime exact
+      - name: Verify R4F6R1 Earth dots and R4F5 Devices runtime exact
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD:site/index.html)" = "96cf22a3ab11dea61c3d884ee83c842fccfe3b65"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
-          test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "310e6b59f54e504b60f4eb313dd8abb247a64ea4"
+          test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "52ce40ccc62282f9cf1aff473a064dd269dddb45"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "e0be0e36a8a45402664e9096b14f75106dfa0bce"
           test "$(git rev-parse HEAD:site/sw.js)" = "6d35687e7ca347a6082119e7dd23969e616f61cb"
           if test -e site/mobile-continent-detail.js; then exit 1; fi
@@ -73,7 +73,7 @@ jobs:
           grep -F '<script src="./mobile-earth-reference.js?v=0.3.2r4f6"></script>' site/index.html
           grep -F "const VERSION='0.3.2R4F5R4-guest-handoff'" site/mobile-settings-plus.js
           grep -F "const VERSION='0.3.2R4F4R1-seismic-controller'" site/mobile-seismic.js
-          grep -F "const VERSION='0.3.2R4F6-seismic-instant-precompiled'" site/mobile-earth-reference.js
+          grep -F "const VERSION='0.3.2R4F6R1-earth-dot-persistence'" site/mobile-earth-reference.js
           grep -F "const PRECOMPILED_URL='./earth-geometry-r4f6.json'" site/mobile-earth-reference.js
           grep -F 'function scheduleWarmGeometry(' site/mobile-earth-reference.js
           grep -F 'scheduleWarmGeometry();' site/mobile-earth-reference.js
@@ -88,6 +88,8 @@ jobs:
           grep -F '.loky-seismic-mode .sphere-wrap{display:none!important}' site/mobile-seismic.js
           grep -F 'const ACTIVE_FPS=60' site/mobile-earth-reference.js
           grep -F 'const IDLE_FPS=24' site/mobile-earth-reference.js
+          grep -F 'const FAST_DOT_STRIDE=1' site/mobile-earth-reference.js
+          if grep -Fq 'const FAST_DOT_STRIDE=4' site/mobile-earth-reference.js; then exit 1; fi
           grep -F 'async function buildDotsAsync(' site/mobile-earth-reference.js
           grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-settings-plus.js
           grep -F 'loky-pc4-mobile-devices' site/mobile-settings-plus.js
@@ -142,7 +144,7 @@ jobs:
           node .github/tests/ios032r4-pc4-conversation-port.test.cjs
           node .github/tests/ios032r4f2-settings-memory-windows.test.cjs
           node .github/tests/ios032r4f2r1-noise-guard.test.cjs
-          node .github/tests/ios032r4f6-seismic-instant-update-delivery.test.cjs
+          node .github/tests/ios032r4f6r1-earth-dot-persistence.test.cjs
           node .github/tests/ios032r4f5-devices-qr.test.cjs
           node .github/tests/ios032r4f5r3-settings-dashboard.test.cjs
           node .github/tests/ios032r4f5r4-guest-handoff.test.cjs
