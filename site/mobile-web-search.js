@@ -1,10 +1,10 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F10R1-verified-contact-live-tool';
+  const VERSION='0.3.2R4F10R2-safe-local-search';
   const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
-  const SEARCH_DEBOUNCE_MS=260;
+  const SEARCH_DEBOUNCE_MS=320;
   const REPEAT_GUARD_MS=12000;
 
   const userTranscript=document.getElementById('userTranscript');
@@ -12,8 +12,7 @@
   let inFlight=false;
   let lastSearchText='';
   let lastSearchAt=0;
-  let toolHoldActive=false;
-  let heldQuery='';
+  let lastAnnouncementAt=0;
 
   function normalize(text){
     return String(text||'')
@@ -141,20 +140,18 @@
     return {state,ws};
   }
 
-  function holdLiveSearch(query){
+  function announceLiveSearch(query){
     const channel=liveChannel();
     if(!channel)return false;
+    if(Date.now()-lastAnnouncementAt<1200)return true;
 
-    const key=normalize(query);
-    if(toolHoldActive&&heldQuery===key)return true;
-
-    const hold=[
-      '[LOKY WEB TOOL — BÚSQUEDA EN CURSO]',
+    const notice=[
+      '[LOKY WEB TOOL — BÚSQUEDA INICIADA]',
       `Consulta del usuario: ${query}`,
-      'La herramienta LOKY WEB está consultando Internet ahora mismo.',
-      'No respondas todavía esta solicitud desde memoria.',
-      'No digas que no tienes acceso a Internet, navegación o información en tiempo real.',
-      'Espera al siguiente bloque LOKY WEB TOOL RESULT; ese bloque completará este turno.'
+      'LOKY WEB sí tiene acceso a búsqueda en Internet y acaba de iniciarla.',
+      'Responde únicamente con una frase breve como: "Estoy buscando eso ahora."',
+      'No digas que no tienes Internet, navegación o acceso en tiempo real.',
+      'El resultado verificado llegará inmediatamente en un nuevo turno.'
     ].join('\n');
 
     try{
@@ -162,13 +159,12 @@
         clientContent:{
           turns:[{
             role:'user',
-            parts:[{text:hold}],
+            parts:[{text:notice}],
           }],
-          turnComplete:false,
+          turnComplete:true,
         },
       }));
-      toolHoldActive=true;
-      heldQuery=key;
+      lastAnnouncementAt=Date.now();
       return true;
     }catch{
       return false;
@@ -215,8 +211,6 @@
           turnComplete:true,
         },
       }));
-      toolHoldActive=false;
-      heldQuery='';
       return true;
     }catch{
       return false;
@@ -224,7 +218,6 @@
   }
 
   function finishLiveSearchError(query,error){
-    if(!toolHoldActive)return false;
     const channel=liveChannel();
     if(!channel)return false;
     const message=[
@@ -241,8 +234,6 @@
           turnComplete:true,
         },
       }));
-      toolHoldActive=false;
-      heldQuery='';
       return true;
     }catch{
       return false;
@@ -259,7 +250,7 @@
     inFlight=true;
     lastSearchText=key;
     lastSearchAt=Date.now();
-    holdLiveSearch(query);
+    announceLiveSearch(query);
     showSearching();
 
     try{
@@ -328,8 +319,7 @@
         window.LOKY_PC4_LIVE?.state?.activeWs&&
         window.LOKY_PC4_LIVE?.state?.setupReady
       ),
-      toolHoldActive,
-      heldQuery,
+      lastAnnouncementAt,
     }),
   };
 })();
