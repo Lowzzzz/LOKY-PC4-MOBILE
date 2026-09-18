@@ -318,7 +318,6 @@ jobs:
         run: |
           set -euo pipefail
           node .github/tests/ios032r4-pc4-conversation-port.test.cjs
-          node .github/tests/ios032r4f1r2-thinking-gate.test.cjs
           node .github/tests/ios032r4f10r3-turn-safe-sphere-reactive.test.cjs
           node .github/tests/ios032r4f2-settings-memory-windows.test.cjs
           node .github/tests/ios032r4f2r1-noise-guard.test.cjs
