@@ -87,14 +87,15 @@ self.addEventListener('push',event=>{
 self.addEventListener('notificationclick',event=>{
   event.notification?.close?.();
   const target=String(event.notification?.data?.url||'./');
+  const targetUrl=new URL(target,self.registration.scope).href;
   event.waitUntil((async()=>{
     const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     for(const client of clients){
       try{
-        if('navigate' in client)await client.navigate(target);
+        if('navigate' in client)await client.navigate(targetUrl);
         if('focus' in client)return await client.focus();
       }catch{}
     }
-    if(self.clients.openWindow)return await self.clients.openWindow(target);
+    if(self.clients.openWindow)return await self.clients.openWindow(targetUrl);
   })());
 });
