@@ -66,12 +66,12 @@ jobs:
           test "$(git rev-parse HEAD:site/index.html)" = "96cf22a3ab11dea61c3d884ee83c842fccfe3b65"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
-          test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "dae1c59d9e622c0ef52e9d108e07fb14d545506b"
+          test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "310a30011a3d2603533cf320e30eeef8ff08a3ac"
           test "$(git rev-parse HEAD:site/sw.js)" = "6d35687e7ca347a6082119e7dd23969e616f61cb"
           if test -e site/mobile-continent-detail.js; then exit 1; fi
           grep -F '<script src="./mobile-settings-plus.js?v=0.3.2r4f5"></script>' site/index.html
           grep -F '<script src="./mobile-earth-reference.js?v=0.3.2r4f6"></script>' site/index.html
-          grep -F "const VERSION='0.3.2R4F7-voice-personality-ui'" site/mobile-settings-plus.js
+          grep -F "const VERSION='0.3.2R4F7R1-voice-preview-confirm'" site/mobile-settings-plus.js
           grep -F "const VERSION='0.3.2R4F4R1-seismic-controller'" site/mobile-seismic.js
           grep -F "const VERSION='0.3.2R4F6R2-earth-coast-persistence'" site/mobile-earth-reference.js
           grep -F "const PRECOMPILED_URL='./earth-geometry-r4f6.json'" site/mobile-earth-reference.js
@@ -103,6 +103,11 @@ jobs:
           grep -F 'function showProfileModal(' site/mobile-settings-plus.js
           grep -F 'features.settings.setVoice' site/mobile-settings-plus.js
           grep -F 'features.settings.setPersonality' site/mobile-settings-plus.js
+          grep -F 'VOICE_PREVIEW_ENDPOINT' site/mobile-settings-plus.js
+          grep -F 'function playVoicePreview(' site/mobile-settings-plus.js
+          grep -F "const select=make('button','loky-choice-select','SELECCIONAR')" site/mobile-settings-plus.js
+          grep -F 'setter(draft)' site/mobile-settings-plus.js
+          if grep -Fq 'setter(key)' site/mobile-settings-plus.js; then exit 1; fi
           grep -F 'function renderDevicesScreen(' site/mobile-settings-plus.js
           if grep -Fq 'function accordion(' site/mobile-settings-plus.js; then exit 1; fi
           if grep -R -E -q 'getUserMedia\s*\(|new\s+WebSocket\s*\(|LOKY_PC4_LIVE' site/mobile-seismic.js site/mobile-earth-reference.js site/mobile-settings-plus.js; then exit 1; fi
@@ -123,7 +128,7 @@ jobs:
           node --check site/sw.js
           node --check .github/scripts/build-earth-geometry-r4f6.cjs
 
-      - name: Verify R4F7 voice and personality profile layer
+      - name: Verify R4F7R1 voice preview and profile layer
         shell: bash
         run: |
           set -euo pipefail
@@ -175,6 +180,7 @@ jobs:
           node .github/tests/ios032r4f5r3-settings-dashboard.test.cjs
           node .github/tests/ios032r4f5r4-guest-handoff.test.cjs
           node .github/tests/ios032r4f7-voice-personality-profiles.test.cjs
+          node .github/tests/ios032r4f7r1-voice-preview-confirm.test.cjs
 
       - name: Verify Natural Earth USGS and device backends
         shell: bash
@@ -188,13 +194,18 @@ jobs:
           node -e "const x=require('/tmp/quakes.json'); if(x.type!=='FeatureCollection'||!Array.isArray(x.features)||!x.metadata) process.exit(2);"
           DEV='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices'
           TOKEN='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
+          PREVIEW='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-voice-preview'
           curl -fsS "$DEV" -o /tmp/device-health.json
           node -e "const x=require('/tmp/device-health.json'); if(!x.ok||x.version!==2||x.guestActivation!=='handoff-code-v1') process.exit(2)"
           curl -fsS "$TOKEN" -o /tmp/token-health.json
           node -e "const x=require('/tmp/token-health.json'); if(!x.ok||x.auth!=='owner-or-invited-device-capability'||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2)"
+          curl -fsS "$PREVIEW" -o /tmp/preview-health.json
+          node -e "const x=require('/tmp/preview-health.json'); if(!x.ok||x.version!==1||x.model!=='gemini-3.1-flash-tts-preview'||x.sampleRate!==24000||!Array.isArray(x.voices)||x.voices.length<8||!x.voices.includes('Kore')||!x.voices.includes('Sulafat')) process.exit(2)"
           code=$(curl -sS -o /tmp/device-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"status"}' "$DEV")
           test "$code" = '401'
           code=$(curl -sS -o /tmp/token-denied.json -w '%{http_code}' -X POST -H 'x-loky-device: invalid-device-123456789' "$TOKEN")
+          test "$code" = '401'
+          code=$(curl -sS -o /tmp/preview-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"voiceName":"Kore"}' "$PREVIEW")
           test "$code" = '401'
           curl -fsS 'https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js' -o /tmp/qrcode.min.js
           grep -F 'QRCode' /tmp/qrcode.min.js >/dev/null
