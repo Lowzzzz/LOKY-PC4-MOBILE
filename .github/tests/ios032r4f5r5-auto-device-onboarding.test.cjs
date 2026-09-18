@@ -1,0 +1,26 @@
+'use strict';
+const fs=require('fs');
+const assert=require('assert');
+const plus=fs.readFileSync('site/mobile-settings-plus.js','utf8');
+
+assert(plus.includes("const VERSION='0.3.2R4F5R5-auto-device-onboarding'"));
+assert(plus.includes("const DEVICE_COOKIE='loky_pc4_guest_capability_v1'"));
+assert(plus.includes("const DEVICE_COOKIE_PATH='/LOKY-PC4-MOBILE/'"));
+assert(plus.includes("function readCookie"));
+assert(plus.includes("function validGuestCapability"));
+assert(plus.includes("function storeGuestCookie"));
+assert(plus.includes("function syncGuestCapabilityFromCookie"));
+assert(plus.includes("storeGuestCookie(String(data.capability),data.expiresAt)"));
+assert(plus.includes("se vinculará automáticamente"));
+assert(plus.includes("RECUPERACIÓN"));
+assert(plus.includes("api('claim_device'"));
+assert(plus.includes("CÓDIGO DE ACCESO"));
+assert(plus.includes("display-mode: standalone"));
+assert(plus.includes("SameSite=Strict"));
+assert(plus.includes("Secure"));
+assert(plus.includes("localStorage.setItem(DEVICE_KEY,cookieCap)"));
+assert(plus.includes("const bootstrappedFromCookie=syncGuestCapabilityFromCookie();"));
+assert(!/getUserMedia\s*\(/.test(plus));
+assert(!/new\s+WebSocket\s*\(/.test(plus));
+assert(!/LOKY_PC4_LIVE/.test(plus));
+console.log('R4F5R5 automatic guest onboarding PASS');
