@@ -1,8 +1,10 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F5R4-guest-handoff';
+  const VERSION='0.3.2R4F5R5-auto-device-onboarding';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
+  const DEVICE_COOKIE='loky_pc4_guest_capability_v1';
+  const DEVICE_COOKIE_PATH='/LOKY-PC4-MOBILE/';
   const DEVICE_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices';
   const QR_LIB='https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js';
   const features=window.LOKY_PC4_FEATURES;
@@ -187,7 +189,49 @@
     document.head.appendChild(style);
   }
 
-  function capability(){return localStorage.getItem(DEVICE_KEY)||'';}
+  function readCookie(name){
+    const prefix=`${encodeURIComponent(name)}=`;
+    for(const part of String(document.cookie||'').split(';')){
+      const item=part.trim();
+      if(item.startsWith(prefix)){
+        try{return decodeURIComponent(item.slice(prefix.length));}catch{return item.slice(prefix.length);}
+      }
+    }
+    return '';
+  }
+
+  function validGuestCapability(value){
+    return /^lkguest_[A-Za-z0-9_-]{20,}$/.test(String(value||''));
+  }
+
+  function storeGuestCookie(value,expiresAt){
+    if(!validGuestCapability(value))return false;
+    const expiry=Date.parse(expiresAt||'');
+    const maxAge=Number.isFinite(expiry)
+      ?Math.max(60,Math.floor((expiry-Date.now())/1000))
+      :86400;
+    document.cookie=`${encodeURIComponent(DEVICE_COOKIE)}=${encodeURIComponent(String(value))}; Max-Age=${maxAge}; Path=${DEVICE_COOKIE_PATH}; Secure; SameSite=Strict`;
+    return true;
+  }
+
+  function syncGuestCapabilityFromCookie(){
+    if(localStorage.getItem(DEVICE_KEY))return false;
+    const cookieCap=readCookie(DEVICE_COOKIE);
+    if(!validGuestCapability(cookieCap))return false;
+    localStorage.setItem(DEVICE_KEY,cookieCap);
+    return true;
+  }
+
+  function capability(){
+    const local=localStorage.getItem(DEVICE_KEY)||'';
+    if(local)return local;
+    const cookieCap=readCookie(DEVICE_COOKIE);
+    if(validGuestCapability(cookieCap)){
+      localStorage.setItem(DEVICE_KEY,cookieCap);
+      return cookieCap;
+    }
+    return '';
+  }
   function normalizeGuestCode(value){return String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
   function isGuestCode(value){return /^G[A-Z2-9]{8}$/.test(normalizeGuestCode(value));}
 
@@ -648,6 +692,7 @@
       if(!response.ok||!data?.ok||String(data.capability||'').length<16||!isGuestCode(data.activationCode)){
         throw new Error(data?.error||'INVITE_FAILED');
       }
+      storeGuestCookie(String(data.capability),data.expiresAt);
       url.searchParams.delete('invite');
       history.replaceState({},'',url.pathname+(url.search||'')+url.hash);
 
@@ -659,10 +704,20 @@
         return;
       }
 
-      text.textContent='Instala o abre LOKY desde la pantalla de inicio y usa este código de invitado. No uses el código Owner.';
+      text.textContent='Acceso preparado. Añade LOKY a la pantalla de inicio y ábrela: se vinculará automáticamente. No uses el código Owner.';
+      const recovery=make('button','loky-guest-copy','RECUPERACIÓN');
+      recovery.type='button';
       const code=make('strong','loky-guest-code',String(data.activationCode));
+      code.style.display='none';
       const copy=make('button','loky-guest-copy','COPIAR CÓDIGO');
       copy.type='button';
+      copy.style.display='none';
+      recovery.addEventListener('click',()=>{
+        const visible=code.style.display!=='none';
+        code.style.display=visible?'none':'';
+        copy.style.display=visible?'none':'';
+        recovery.textContent=visible?'RECUPERACIÓN':'OCULTAR RECUPERACIÓN';
+      });
       copy.addEventListener('click',async()=>{
         try{
           await navigator.clipboard.writeText(String(data.activationCode));
@@ -670,6 +725,7 @@
           setTimeout(()=>copy.textContent='COPIAR CÓDIGO',1200);
         }catch{}
       });
+      card.appendChild(recovery);
       card.appendChild(code);
       card.appendChild(copy);
     }catch(error){
@@ -681,9 +737,14 @@
     }
   }
 
+  const bootstrappedFromCookie=syncGuestCapabilityFromCookie();
   injectStyles();
-  setupGuestActivation();
-  processInviteFromUrl();
+  if(bootstrappedFromCookie){
+    setTimeout(()=>location.reload(),60);
+  }else{
+    setupGuestActivation();
+    processInviteFromUrl();
+  }
 
   window.LOKY_PC4_SETTINGS_PLUS={
     version:VERSION,
@@ -691,6 +752,7 @@
     enhanceSettingsWindow,
     processInviteFromUrl,
     setupGuestActivation,
-    normalizeGuestCode
+    normalizeGuestCode,
+    syncGuestCapabilityFromCookie
   };
 })();
