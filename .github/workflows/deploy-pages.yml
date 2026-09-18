@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "495d2037c53ffc9e52b5c30a7ba4ca03dacad1a4"
+          test "$(git rev-parse HEAD:site/index.html)" = "412bf7c426f71ca5d555ee62e22f175df5103993"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
@@ -85,6 +85,7 @@ jobs:
           grep -F '<script src="./mobile-settings-plus.js?v=0.3.2r4f5"></script>' site/index.html
           grep -F '<script src="./mobile-planner.js?v=0.3.2r4f8"></script>' site/index.html
           grep -F '<script src="./mobile-background-alarm.js?v=0.3.2r4f9"></script>' site/index.html
+          grep -F '<script src="./mobile-web-search.js?v=0.3.2r4f10"></script>' site/index.html
           grep -F '<script src="./mobile-earth-reference.js?v=0.3.2r4f6"></script>' site/index.html
           grep -F "const VERSION='0.3.2R4F7R3-personality-audio-preview'" site/mobile-settings-plus.js
           grep -F "const VERSION='0.3.2R4F4R1-seismic-controller'" site/mobile-seismic.js
@@ -147,6 +148,7 @@ jobs:
           node --check site/mobile-settings-plus.js
           node --check site/mobile-planner.js
           node --check site/mobile-background-alarm.js
+          node --check site/mobile-web-search.js
           node --check site/mobile-noise-guard.js
           node --check site/mobile-seismic.js
           node --check site/mobile-earth-reference.js
@@ -249,6 +251,28 @@ jobs:
           grep -F 'new URL(target,self.registration.scope).href' site/sw.js
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|LOKY_PC4_LIVE|speechSynthesis' site/mobile-background-alarm.js; then exit 1; fi
 
+      - name: Verify R4F10 cloud web search isolated layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/live-mobile.js)" = "af201c91e1db634ef62cd6505696a602e293bc83"
+          test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
+          test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
+          test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
+          test "$(git rev-parse HEAD:site/mobile-web-search.js)" = "effedc3d6df8287c289435dfeba1bd35e08ed1c0"
+          test "$(git rev-parse HEAD:site/index.html)" = "412bf7c426f71ca5d555ee62e22f175df5103993"
+          grep -F "const VERSION='0.3.2R4F10-cloud-web-search'" site/mobile-web-search.js
+          grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'" site/mobile-web-search.js
+          grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-web-search.js
+          grep -F 'window.LOKY_PC4_LIVE' site/mobile-web-search.js
+          grep -F 'state?.activeWs' site/mobile-web-search.js
+          grep -F 'clientContent:{' site/mobile-web-search.js
+          grep -F "role:'user'" site/mobile-web-search.js
+          grep -F 'turnComplete:true' site/mobile-web-search.js
+          grep -F 'RESULTADO VERIFICADO' site/mobile-web-search.js
+          grep -F 'FUENTES' site/mobile-web-search.js
+          if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|speechSynthesis|navigator\.geolocation' site/mobile-web-search.js; then exit 1; fi
+
       - name: Verify iOS 0.3.2R4 PC4 conversation port remains frozen
         shell: bash
         run: |
@@ -285,6 +309,7 @@ jobs:
           node .github/tests/ios032r4f7r3-personality-audio-preview.test.cjs
           node .github/tests/ios032r4f8-planner.test.cjs
           node .github/tests/ios032r4f9-cloud-background-alarms.test.cjs
+          node .github/tests/ios032r4f10-cloud-web-search.test.cjs
 
       - name: Verify Natural Earth USGS and device backends
         shell: bash
@@ -300,6 +325,7 @@ jobs:
           TOKEN='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
           PREVIEW='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-voice-preview'
           PUSH='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'
+          SEARCH='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'
           curl -fsS "$DEV" -o /tmp/device-health.json
           node -e "const x=require('/tmp/device-health.json'); if(!x.ok||x.version!==2||x.guestActivation!=='handoff-code-v1') process.exit(2)"
           curl -fsS "$TOKEN" -o /tmp/token-health.json
@@ -308,6 +334,8 @@ jobs:
           node -e "const x=require('/tmp/preview-health.json'); if(!x.ok||x.version!==3||x.model!=='gemini-3.1-flash-tts-preview'||x.sampleRate!==24000||x.cache!=='postgres-persistent-v1'||x.staticPreview!=='pcm-get-v1'||x.personalityPreview!=='selected-voice-cache-v1'||!Array.isArray(x.voices)||x.voices.length<8||!Array.isArray(x.personalities)||x.personalities.length<8||!x.personalities.includes('natural')||!x.personalities.includes('coach')) process.exit(2)"
           curl -fsS "$PUSH" -o /tmp/push-health.json
           node -e "const x=require('/tmp/push-health.json'); if(!x.ok||x.version!==1||x.backgroundAlarm!=='web-push-v1'||x.scheduler!=='pg-cron-30s'||typeof x.publicKey!=='string'||x.publicKey.length<50) process.exit(2)"
+          curl -fsS "$SEARCH" -o /tmp/search-health.json
+          node -e "const x=require('/tmp/search-health.json'); if(!x.ok||x.version!==7||x.provider!=='bing-rss-v1'||x.synthesis!=='gemini-live-existing-session'||x.auth!=='owner-or-invited-device-capability') process.exit(2)"
           code=$(curl -sS -o /tmp/device-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"status"}' "$DEV")
           test "$code" = '401'
           code=$(curl -sS -o /tmp/token-denied.json -w '%{http_code}' -X POST -H 'x-loky-device: invalid-device-123456789' "$TOKEN")
@@ -315,6 +343,8 @@ jobs:
           code=$(curl -sS -o /tmp/preview-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"voiceName":"Kore"}' "$PREVIEW")
           test "$code" = '401'
           code=$(curl -sS -o /tmp/push-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"status"}' "$PUSH")
+          test "$code" = '401'
+          code=$(curl -sS -o /tmp/search-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"search","query":"OpenAI official website"}' "$SEARCH")
           test "$code" = '401'
           curl -fsS 'https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js' -o /tmp/qrcode.min.js
           grep -F 'QRCode' /tmp/qrcode.min.js >/dev/null
