@@ -1,10 +1,10 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F10-cloud-web-search';
+  const VERSION='0.3.2R4F10R1-verified-contact-live-tool';
   const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
-  const SEARCH_DEBOUNCE_MS=420;
+  const SEARCH_DEBOUNCE_MS=260;
   const REPEAT_GUARD_MS=12000;
 
   const userTranscript=document.getElementById('userTranscript');
@@ -12,6 +12,8 @@
   let inFlight=false;
   let lastSearchText='';
   let lastSearchAt=0;
+  let toolHoldActive=false;
+  let heldQuery='';
 
   function normalize(text){
     return String(text||'')
@@ -93,7 +95,7 @@
   function showResult(result){
     const card=ensureCard();
     card.classList.remove('is-loading');
-    card.querySelector('.loky-web-search-status').textContent='RESULTADO VERIFICADO';
+    card.querySelector('.loky-web-search-status').textContent='WEB EN TIEMPO REAL · VERIFICADO';
     card.querySelector('.loky-web-search-answer').textContent=String(result?.answer||'').slice(0,1200);
 
     const sources=card.querySelector('.loky-web-search-sources');
@@ -131,27 +133,80 @@
     ).join('\n');
   }
 
-  function injectIntoLive(query,result){
+  function liveChannel(){
     const live=window.LOKY_PC4_LIVE;
     const state=live?.state;
     const ws=state?.activeWs;
-    if(!ws||ws.readyState!==1||!state?.setupReady)return false;
+    if(!ws||ws.readyState!==1||!state?.setupReady)return null;
+    return {state,ws};
+  }
 
+  function holdLiveSearch(query){
+    const channel=liveChannel();
+    if(!channel)return false;
+
+    const key=normalize(query);
+    if(toolHoldActive&&heldQuery===key)return true;
+
+    const hold=[
+      '[LOKY WEB TOOL — BÚSQUEDA EN CURSO]',
+      `Consulta del usuario: ${query}`,
+      'La herramienta LOKY WEB está consultando Internet ahora mismo.',
+      'No respondas todavía esta solicitud desde memoria.',
+      'No digas que no tienes acceso a Internet, navegación o información en tiempo real.',
+      'Espera al siguiente bloque LOKY WEB TOOL RESULT; ese bloque completará este turno.'
+    ].join('\n');
+
+    try{
+      channel.ws.send(JSON.stringify({
+        clientContent:{
+          turns:[{
+            role:'user',
+            parts:[{text:hold}],
+          }],
+          turnComplete:false,
+        },
+      }));
+      toolHoldActive=true;
+      heldQuery=key;
+      return true;
+    }catch{
+      return false;
+    }
+  }
+
+  function injectIntoLive(query,result){
+    const channel=liveChannel();
+    if(!channel)return false;
+
+    const verifiedPhone=String(result?.facts?.verifiedPhone?.value||'');
+    const sourceCount=Number(result?.facts?.verifiedPhone?.sourceCount||0);
     const context=[
-      '[LOKY WEB SEARCH — RESULTADO VERIFICADO]',
+      '[LOKY WEB TOOL RESULT — BÚSQUEDA REAL EJECUTADA AHORA]',
       `Consulta original del usuario: ${query}`,
+      `Hora de búsqueda: ${String(result?.searchedAt||new Date().toISOString())}`,
+      'Estado de acceso Web de LOKY: ACTIVO.',
       '',
+      verifiedPhone
+        ? `Dato de contacto verificado: ${verifiedPhone} (respaldado por ${sourceCount} fuente${sourceCount===1?'':'s'} pública${sourceCount===1?'':'s'}).`
+        : '',
       'Resultado de búsqueda:',
       String(result?.answer||''),
       '',
       'Fuentes públicas:',
       sourceText(result),
       '',
-      'Instrucción para LOKY: responde ahora al usuario de forma natural, breve y en español usando este resultado verificado. Si hay un teléfono, dirección, horario, precio o URL solicitado, dilo claramente. No inventes datos adicionales. Si el resultado dice que falta ciudad o zona, pídesela al usuario. No expliques detalles técnicos de esta búsqueda salvo que te los pregunten.'
-    ].join('\n');
+      'INSTRUCCIÓN OBLIGATORIA PARA LOKY:',
+      'Esta información fue obtenida de Internet AHORA por la herramienta LOKY WEB.',
+      'NO digas que no tienes acceso a Internet, que no puedes navegar, o que no tienes acceso en tiempo real cuando recibas este bloque.',
+      'Responde directamente al usuario con el dato verificado más relevante.',
+      'Si pidió teléfono, dirección, horario, precio o URL, dilo primero y claramente.',
+      'Si existen varias fuentes, prioriza el dato con mayor respaldo y menciona brevemente que fue verificado.',
+      'No inventes datos adicionales y no expliques detalles técnicos salvo que el usuario los pregunte.'
+    ].filter(Boolean).join('\n');
 
     try{
-      ws.send(JSON.stringify({
+      channel.ws.send(JSON.stringify({
         clientContent:{
           turns:[{
             role:'user',
@@ -160,6 +215,34 @@
           turnComplete:true,
         },
       }));
+      toolHoldActive=false;
+      heldQuery='';
+      return true;
+    }catch{
+      return false;
+    }
+  }
+
+  function finishLiveSearchError(query,error){
+    if(!toolHoldActive)return false;
+    const channel=liveChannel();
+    if(!channel)return false;
+    const message=[
+      '[LOKY WEB TOOL RESULT — BÚSQUEDA FALLIDA]',
+      `Consulta: ${query}`,
+      `Error de herramienta: ${String(error?.message||error).slice(0,160)}`,
+      'La herramienta Web existe y sí puede buscar en tiempo real, pero esta consulta no pudo completarse.',
+      'Responde al usuario que la búsqueda Web falló esta vez y pídele reformular o añadir ciudad/nombre exacto. No digas que careces de acceso a Internet.'
+    ].join('\n');
+    try{
+      channel.ws.send(JSON.stringify({
+        clientContent:{
+          turns:[{role:'user',parts:[{text:message}]}],
+          turnComplete:true,
+        },
+      }));
+      toolHoldActive=false;
+      heldQuery='';
       return true;
     }catch{
       return false;
@@ -176,6 +259,7 @@
     inFlight=true;
     lastSearchText=key;
     lastSearchAt=Date.now();
+    holdLiveSearch(query);
     showSearching();
 
     try{
@@ -185,6 +269,7 @@
       return result;
     }catch(error){
       showError(error);
+      finishLiveSearchError(query,error);
       return false;
     }finally{
       inFlight=false;
@@ -243,6 +328,8 @@
         window.LOKY_PC4_LIVE?.state?.activeWs&&
         window.LOKY_PC4_LIVE?.state?.setupReady
       ),
+      toolHoldActive,
+      heldQuery,
     }),
   };
 })();
