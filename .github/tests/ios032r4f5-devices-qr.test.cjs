@@ -4,7 +4,7 @@ const assert=require('assert');
 const settings=fs.readFileSync('site/mobile-settings-plus.js','utf8');
 const index=fs.readFileSync('site/index.html','utf8');
 
-assert(/const VERSION='0\.3\.2R4F(?:5(?:-devices-qr|R3-settings-dashboard-clean|R4-guest-handoff)|7-voice-personality-ui)'/.test(settings));
+assert(/const VERSION='0\.3\.2R4F(?:5(?:-devices-qr|R3-settings-dashboard-clean|R4-guest-handoff)|7(?:-voice-personality-ui|R1-voice-preview-confirm))'/.test(settings));
 assert(settings.includes("loky-pc4-mobile-devices"));
 assert(settings.includes("action:'redeem_invite'"));
 assert(settings.includes("api('create_invite'"));
