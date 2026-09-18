@@ -3,7 +3,7 @@ const fs=require('fs');
 const assert=require('assert');
 const plus=fs.readFileSync('site/mobile-settings-plus.js','utf8');
 
-assert(plus.includes("const VERSION='0.3.2R4F5R4-guest-handoff'"));
+assert(/const VERSION='0\.3\.2R4F(?:5R4-guest-handoff|7-voice-personality-ui)'/.test(plus));
 assert(plus.includes("function normalizeGuestCode"));
 assert(plus.includes("function isGuestCode"));
 assert(plus.includes("action:'redeem_invite'"));
