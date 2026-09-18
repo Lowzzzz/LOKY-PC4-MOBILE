@@ -1,4 +1,4 @@
-const VERSION='loky-pc4-mobile-ios-0.3.2-r4f9';
+const VERSION='loky-pc4-mobile-ios-0.3.2-r4f9r1';
 const CACHE=`${VERSION}-shell`;
 const SHELL=[
   './','./index.html','./mobile.css','./sphere-mobile.js','./app.js','./live-mobile.js',
@@ -76,6 +76,7 @@ self.addEventListener('push',event=>{
       body,
       tag,
       renotify:true,
+      silent:false,
       requireInteraction:isAlarm,
       icon:'./icons/icon-180.png',
       badge:'./icons/icon-180.png',
