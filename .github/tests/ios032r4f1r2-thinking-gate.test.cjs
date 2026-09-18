@@ -94,7 +94,7 @@ api.resume();
 
 // No transport ownership moved into the feature layer.
 const core=fs.readFileSync('site/live-mobile.js','utf8');
-assert(core.includes("const VERSION='0.3.2R4F10R3-turn-end-guard'"));
+assert(core.includes("const VERSION='0.3.2R4-pc4-conversation-port'"));
 assert(core.includes("sendRealtime(ws,{activityStart:{}})"));
 assert(core.includes("sendRealtime(ws,{activityEnd:{}})"));
 
