@@ -1,10 +1,12 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F10R2-safe-local-search';
+  const VERSION='0.3.2R4F10R3-turn-safe-search';
   const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const SEARCH_DEBOUNCE_MS=320;
+  const TURN_END_POLL_MS=90;
+  const TURN_SETTLE_MS=180;
   const REPEAT_GUARD_MS=12000;
 
   const userTranscript=document.getElementById('userTranscript');
@@ -12,7 +14,6 @@
   let inFlight=false;
   let lastSearchText='';
   let lastSearchAt=0;
-  let lastAnnouncementAt=0;
 
   function normalize(text){
     return String(text||'')
@@ -140,37 +141,6 @@
     return {state,ws};
   }
 
-  function announceLiveSearch(query){
-    const channel=liveChannel();
-    if(!channel)return false;
-    if(Date.now()-lastAnnouncementAt<1200)return true;
-
-    const notice=[
-      '[LOKY WEB TOOL — BÚSQUEDA INICIADA]',
-      `Consulta del usuario: ${query}`,
-      'LOKY WEB sí tiene acceso a búsqueda en Internet y acaba de iniciarla.',
-      'Responde únicamente con una frase breve como: "Estoy buscando eso ahora."',
-      'No digas que no tienes Internet, navegación o acceso en tiempo real.',
-      'El resultado verificado llegará inmediatamente en un nuevo turno.'
-    ].join('\n');
-
-    try{
-      channel.ws.send(JSON.stringify({
-        clientContent:{
-          turns:[{
-            role:'user',
-            parts:[{text:notice}],
-          }],
-          turnComplete:true,
-        },
-      }));
-      lastAnnouncementAt=Date.now();
-      return true;
-    }catch{
-      return false;
-    }
-  }
-
   function injectIntoLive(query,result){
     const channel=liveChannel();
     if(!channel)return false;
@@ -250,7 +220,6 @@
     inFlight=true;
     lastSearchText=key;
     lastSearchAt=Date.now();
-    announceLiveSearch(query);
     showSearching();
 
     try{
@@ -272,12 +241,30 @@
     const text=String(userTranscript?.textContent||'').trim();
     if(!text||text==='—'||!searchIntent(text))return;
 
-    searchTimer=setTimeout(()=>{
+    const waitForTurnEnd=()=>{
       searchTimer=0;
       const stable=String(userTranscript?.textContent||'').trim();
       if(!stable||stable==='—'||!searchIntent(stable))return;
-      runSearch(stable);
-    },SEARCH_DEBOUNCE_MS);
+
+      const liveState=window.LOKY_PC4_LIVE?.state;
+      if(liveState?.userSpeaking){
+        searchTimer=setTimeout(waitForTurnEnd,TURN_END_POLL_MS);
+        return;
+      }
+
+      searchTimer=setTimeout(()=>{
+        searchTimer=0;
+        const finalText=String(userTranscript?.textContent||'').trim();
+        if(!finalText||finalText==='—'||!searchIntent(finalText))return;
+        if(window.LOKY_PC4_LIVE?.state?.userSpeaking){
+          waitForTurnEnd();
+          return;
+        }
+        runSearch(finalText);
+      },TURN_SETTLE_MS);
+    };
+
+    searchTimer=setTimeout(waitForTurnEnd,SEARCH_DEBOUNCE_MS);
   }
 
   function injectStyles(){
@@ -318,8 +305,7 @@
       liveReady:!!(
         window.LOKY_PC4_LIVE?.state?.activeWs&&
         window.LOKY_PC4_LIVE?.state?.setupReady
-      ),
-      lastAnnouncementAt,
+      )
     }),
   };
 })();
