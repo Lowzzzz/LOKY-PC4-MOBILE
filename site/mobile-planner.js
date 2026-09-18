@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F8R2-safe-area-device-time';
+  const VERSION='0.3.2R4F8R3-voice-alarm-calendar-manual-stop';
   const STORE_KEY='loky_pc4_mobile_planner_v1';
   const ALERT_SOUND_KEY='loky_pc4_mobile_alert_sounds_v1';
   const MAX_ITEMS=80;
@@ -17,6 +17,8 @@
   let alertAudioContext=null;
   let activeAlert=null;
   let activeSoundNodes=[];
+  let activeAlertSoundTimer=0;
+  let activeAlertSoundRepeats=0;
 
   const ALERT_SOUNDS={
     loky:{label:'LOKY',description:'Sonido actual de LOKY'},
@@ -34,6 +36,9 @@
     reminder:{label:'RECORDATORIO',plural:'RECORDATORIOS',icon:'R'},
     calendar:{label:'EVENTO',plural:'CALENDARIO',icon:'C'},
     alarm:{label:'ALARMA',plural:'ALARMAS',icon:'A'},
+  };
+  const WEEKDAY_INDEX={
+    domingo:0,lunes:1,martes:2,miercoles:3,jueves:4,viernes:5,sabado:6,
   };
 
   function make(tag,className,text){
@@ -231,6 +236,7 @@
     const result=new Date(now);
     result.setSeconds(0,0);
     let explicitDay=false;
+    let explicitWeekday=false;
 
     const dateMatch=n.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
     if(dateMatch){
@@ -245,6 +251,15 @@
       setDayStart(result,now,1); explicitDay=true;
     }else if(/\bhoy\b/.test(n)){
       setDayStart(result,now,0); explicitDay=true;
+    }else{
+      const weekdayMatch=n.match(/\b(domingo|lunes|martes|miercoles|jueves|viernes|sabado)\b/);
+      if(weekdayMatch){
+        const target=WEEKDAY_INDEX[weekdayMatch[1]];
+        const delta=(target-now.getDay()+7)%7;
+        setDayStart(result,now,delta);
+        explicitDay=true;
+        explicitWeekday=true;
+      }
     }
 
     const timeMatch=n.match(/\b(?:a|para)\s+las?\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?(?:\s+de\s+la\s+(manana|tarde|noche))?\b/) ||
@@ -268,6 +283,9 @@
     if(!explicitDay&&explicitTime&&result.getTime()<=nowMs+30000){
       result.setDate(result.getDate()+1);
     }
+    if(explicitWeekday&&explicitTime&&result.getTime()<=nowMs+30000){
+      result.setDate(result.getDate()+7);
+    }
 
     if(result.getTime()<=nowMs-60000&&dateMatch)return null;
     return {at:result.getTime(),matched:'absolute',relative:false};
@@ -276,6 +294,7 @@
   function stripTemporal(raw){
     return String(raw||'')
       .replace(/\b(?:pasado\s+mañana|mañana|hoy)\b/gi,' ')
+      .replace(/\b(?:domingo|lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado)\b/gi,' ')
       .replace(/\ben\s+\d{1,4}\s+(?:minuto|minutos|hora|horas)\b/gi,' ')
       .replace(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/g,' ')
       .replace(/\b(?:a|para)\s+las?\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?(?:\s+de\s+la\s+(?:mañana|tarde|noche))?\b/gi,' ')
@@ -299,12 +318,15 @@
       type='reminder';
       remainder=original.replace(/^\s*(?:loky\s+)?(?:recu[eé]rdame|recordame)\s*/i,'');
       remainder=remainder.replace(/^que\s+/i,'');
-    }else if(/^(?:(?:pon|crea|programa)\s+)?(?:una\s+)?alarma\b/.test(n)){
+    }else if(/^(?:despiertame|despierta\s+me)\b/.test(n)){
       type='alarm';
-      remainder=original.replace(/^\s*(?:loky\s+)?(?:(?:pon|crea|programa)\s+)?(?:una\s+)?alarma\s*/i,'');
-    }else if(/^(?:agenda|agrega\s+al\s+calendario|anade\s+al\s+calendario|añade\s+al\s+calendario|crea\s+un\s+evento|programa\s+en\s+calendario)\b/.test(n)){
+      remainder=original.replace(/^\s*(?:loky\s+)?(?:despi[eé]rtame|despierta\s+me)\s*/i,'');
+    }else if(/^(?:(?:ponme|pon|crea|programa|configura|establece|quiero)\s+)?(?:una\s+)?alarma\b/.test(n)){
+      type='alarm';
+      remainder=original.replace(/^\s*(?:loky\s+)?(?:(?:ponme|pon|crea|programa|configura|establece|quiero)\s+)?(?:una\s+)?alarma\s*/i,'');
+    }else if(/^(?:agenda|agendame|pon\s+en\s+(?:el\s+)?calendario|agrega\s+al\s+calendario|anade\s+al\s+calendario|crea\s+un\s+evento|programa\s+en\s+(?:el\s+)?calendario|anota\s+en\s+(?:el\s+)?calendario|calendario)\b/.test(n)){
       type='calendar';
-      remainder=original.replace(/^\s*(?:loky\s+)?(?:agenda|agrega\s+al\s+calendario|anade\s+al\s+calendario|añade\s+al\s+calendario|crea\s+un\s+evento|programa\s+en\s+calendario)\s*/i,'');
+      remainder=original.replace(/^\s*(?:loky\s+)?(?:agenda|ag[eé]ndame|pon\s+en\s+(?:el\s+)?calendario|agrega\s+al\s+calendario|anade\s+al\s+calendario|añade\s+al\s+calendario|crea\s+un\s+evento|programa\s+en\s+(?:el\s+)?calendario|anota\s+en\s+(?:el\s+)?calendario|calendario)\s*/i,'');
     }else{
       return null;
     }
@@ -315,6 +337,7 @@
     let title=stripTemporal(remainder)
       .replace(/^para\s+/i,'')
       .replace(/^que\s+/i,'')
+      .replace(/^(?:un|una|el|la)\s+/i,'')
       .replace(/[.]+$/,'')
       .trim();
 
@@ -372,7 +395,10 @@
       .loky-due-card{width:min(88vw,380px);border:1px solid rgba(109,218,252,.24);border-radius:23px;background:linear-gradient(180deg,rgba(8,36,51,.99),rgba(3,16,25,.99));box-shadow:0 28px 90px rgba(0,0,0,.58);padding:21px;display:grid;gap:10px;text-align:center}
       .loky-due-icon{width:46px;height:46px;margin:auto;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(107,216,249,.30);background:rgba(12,62,82,.62);color:#aeeeff;font-size:15px;font-weight:900;box-shadow:0 0 28px rgba(74,202,245,.14)}
       .loky-due-card strong{font-size:12px;letter-spacing:.11em;color:#def8ff}.loky-due-card span{font-size:9px;line-height:1.45;color:#9fc7d7}
-      .loky-due-dismiss{height:38px;border-radius:999px;border:1px solid rgba(108,219,251,.25);background:rgba(10,55,74,.74);color:#cff5ff;font-size:8px;font-weight:900;letter-spacing:.10em}
+      .loky-due-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+      .loky-due-dismiss,.loky-due-stop{height:38px;border-radius:999px;border:1px solid rgba(108,219,251,.25);background:rgba(10,55,74,.74);color:#cff5ff;font-size:8px;font-weight:900;letter-spacing:.10em}
+      .loky-due-stop{background:rgba(42,29,23,.68);border-color:rgba(255,177,112,.20);color:#ffd6b1}
+      .loky-due-stop:disabled{opacity:.55}
     `;
     document.head.appendChild(style);
   }
@@ -456,12 +482,21 @@
     return alertAudioContext;
   }
 
-  function stopAlertSound(){
+  function stopToneNodes(){
     for(const node of activeSoundNodes){
       try{node.stop()}catch{}
       try{node.disconnect()}catch{}
     }
     activeSoundNodes=[];
+  }
+
+  function stopAlertSound(){
+    if(activeAlertSoundTimer){
+      clearInterval(activeAlertSoundTimer);
+      activeAlertSoundTimer=0;
+    }
+    activeAlertSoundRepeats=0;
+    stopToneNodes();
   }
 
   function scheduleTone(ctx,{freq=880,start=0,duration=.18,gain=.12,wave='sine',endFreq=0}={}){
@@ -488,7 +523,7 @@
 
   async function playAlertSoundById(soundId){
     const id=ALERT_SOUNDS[soundId]?soundId:'loky';
-    stopAlertSound();
+    stopToneNodes();
     if(id==='silent')return true;
     try{
       const ctx=await primeAlertAudio();
@@ -523,6 +558,33 @@
     return playAlertSoundById(getAlertSound(type));
   }
 
+  async function startDueAlertSound(type){
+    stopAlertSound();
+    const sound=getAlertSound(type);
+    if(sound==='silent')return false;
+
+    const repeatEvery=type==='alarm'?1800:type==='reminder'?2300:2600;
+    const maxRepeats=type==='alarm'?Number.POSITIVE_INFINITY:type==='reminder'?4:3;
+
+    const ring=async()=>{
+      if(activeAlertSoundRepeats>=maxRepeats){
+        if(activeAlertSoundTimer){
+          clearInterval(activeAlertSoundTimer);
+          activeAlertSoundTimer=0;
+        }
+        return;
+      }
+      activeAlertSoundRepeats++;
+      await playAlertSoundById(sound);
+    };
+
+    await ring();
+    if(activeAlertSoundRepeats<maxRepeats){
+      activeAlertSoundTimer=setInterval(ring,repeatEvery);
+    }
+    return true;
+  }
+
   function showDueAlert(item){
     if(activeAlert)return;
     const overlay=make('div','loky-due-alert');
@@ -532,19 +594,43 @@
     card.appendChild(make('strong','',meta.label));
     card.appendChild(make('span','',item.title));
     card.appendChild(make('span','',fmtDate(item.at)));
+    const actions=make('div','loky-due-actions');
+    const stop=make('button','loky-due-stop',item.type==='alarm'?'DETENER ALARMA':'DETENER SONIDO');
+    stop.type='button';
+    stop.addEventListener('click',()=>{
+      stopAlertSound();
+      stop.disabled=true;
+      stop.textContent='SONIDO DETENIDO';
+      if(item.type==='alarm'){
+        overlay.remove();
+        activeAlert=null;
+        refreshOrganizerCards();
+      }
+    });
+
     const dismiss=make('button','loky-due-dismiss',item.type==='reminder'?'MARCAR HECHO':'CERRAR');
     dismiss.type='button';
     dismiss.addEventListener('click',()=>{
+      stopAlertSound();
       if(item.type==='reminder')updateItem(item.id,{done:true});
       overlay.remove();
       activeAlert=null;
       refreshOrganizerCards();
     });
-    card.appendChild(dismiss);
+
+    if(item.type==='alarm'){
+      actions.style.gridTemplateColumns='1fr';
+      actions.appendChild(stop);
+    }else{
+      actions.appendChild(stop);
+      actions.appendChild(dismiss);
+    }
+
+    card.appendChild(actions);
     overlay.appendChild(card);
     body.appendChild(overlay);
     activeAlert=overlay;
-    alarmTone(item.type);
+    startDueAlertSound(item.type);
   }
 
   function markFired(id){
@@ -599,6 +685,7 @@
         draft=key;
         paint();
         status.textContent=key==='silent'?'SILENCIOSO · SOLO ALERTA VISUAL':'REPRODUCIENDO MUESTRA…';
+        stopAlertSound();
         await playAlertSoundById(key);
       });
       buttons.push(btn);
@@ -828,6 +915,8 @@
       get:getAlertSound,
       set:setAlertSound,
       preview:playAlertSoundById,
+      stop:stopAlertSound,
+      startDue:startDueAlertSound,
     },
     open(type='reminder'){
       const slot=document.querySelector('.feature-memory');
