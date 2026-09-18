@@ -64,7 +64,7 @@ vm.runInContext(src,context,{filename:'mobile-web-search.js'});
 
 const api=context.LOKY_PC4_WEB_SEARCH;
 assert(api,'web search API missing');
-assert.equal(api.version,'0.3.2R4F10R1-verified-contact-live-tool');
+assert.equal(api.version,'0.3.2R4F10R2-safe-local-search');
 
 assert.equal(api.intent('LOKY búscame el teléfono de Apple Store Stamford'),true);
 assert.equal(api.intent('¿Cuál es el número de teléfono de Apple Store Stamford?'),true);
@@ -81,15 +81,18 @@ assert(index.indexOf('live-mobile.js?v=0.3.2') < index.indexOf('mobile-web-searc
 
 assert(src.includes("const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'"));
 assert(src.includes("const DEVICE_KEY='loky_pc4_device_capability_v1'"));
-assert(src.includes("const SEARCH_DEBOUNCE_MS=260"));
+assert(src.includes("const SEARCH_DEBOUNCE_MS=320"));
 assert(src.includes("const REPEAT_GUARD_MS=12000"));
 assert(src.includes("window.LOKY_PC4_LIVE"));
 assert(src.includes("state?.activeWs"));
 assert(src.includes("clientContent:{"));
 assert(src.includes("role:'user'"));
 assert(src.includes("turnComplete:true"));
-assert(src.includes("function holdLiveSearch("));
-assert(src.includes("turnComplete:false"));
+assert(src.includes("function announceLiveSearch("));
+assert(src.includes("LOKY WEB sí tiene acceso a búsqueda en Internet"));
+assert(src.includes("El resultado verificado llegará inmediatamente en un nuevo turno."));
+assert(!src.includes("turnComplete:false"));
+assert(!src.includes("function holdLiveSearch("));
 assert(src.includes("[LOKY WEB TOOL RESULT — BÚSQUEDA REAL EJECUTADA AHORA]"));
 assert(src.includes("Estado de acceso Web de LOKY: ACTIVO."));
 assert(src.includes("NO digas que no tienes acceso a Internet"));
@@ -98,8 +101,6 @@ assert(src.includes("WEB EN TIEMPO REAL · VERIFICADO"));
 assert(src.includes("FUENTES"));
 assert(src.includes("noopener noreferrer"));
 assert(src.includes("window.LOKY_PC4_WEB_SEARCH"));
-assert(src.includes("toolHoldActive"));
-assert(src.includes("heldQuery"));
 
 assert(!/new\s+WebSocket\s*\(/.test(src));
 assert(!/getUserMedia\s*\(/.test(src));
