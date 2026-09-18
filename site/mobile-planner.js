@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F8R1-alert-sounds';
+  const VERSION='0.3.2R4F8R2-safe-area-device-time';
   const STORE_KEY='loky_pc4_mobile_planner_v1';
   const ALERT_SOUND_KEY='loky_pc4_mobile_alert_sounds_v1';
   const MAX_ITEMS=80;
@@ -161,6 +161,28 @@
 
   function pad(n){return String(n).padStart(2,'0')}
 
+  function deviceTimeZone(){
+    try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'LOCAL'}catch{return 'LOCAL'}
+  }
+
+  function fmtDeviceClock(ms=Date.now()){
+    const d=new Date(ms);
+    try{
+      return new Intl.DateTimeFormat('es',{
+        hour:'numeric',minute:'2-digit',hour12:true
+      }).format(d).toUpperCase();
+    }catch{
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+  }
+
+  function nextPlannerTime(ms=Date.now()){
+    const d=new Date(ms);
+    d.setSeconds(0,0);
+    d.setMinutes(d.getMinutes()+5);
+    return d.getTime();
+  }
+
   function toLocalInput(ms){
     const d=new Date(ms);
     if(!Number.isFinite(d.getTime()))return '';
@@ -316,7 +338,7 @@
       .loky-organizer-card.loky-planner-ready:active{filter:brightness(1.14)}
       .loky-organizer-card.loky-planner-ready em{color:#7bcfe9}
       .loky-planner-screen{position:absolute;z-index:8;inset:0;background:linear-gradient(180deg,#07131e 0%,#030a11 100%);display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
-      .loky-planner-top{height:54px;display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:center;padding:0 12px;border-bottom:1px solid rgba(104,193,225,.10);background:rgba(5,17,27,.92)}
+      .loky-planner-top{box-sizing:border-box;height:calc(54px + var(--safe-top));display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:center;padding:var(--safe-top) 12px 0;border-bottom:1px solid rgba(104,193,225,.10);background:rgba(5,17,27,.92)}
       .loky-planner-back{height:32px;padding:0 11px;border-radius:999px;border:1px solid rgba(102,203,239,.18);background:rgba(10,40,55,.58);color:#bfefff;font-size:8px;font-weight:800;letter-spacing:.07em}
       .loky-planner-title{display:grid;gap:2px}.loky-planner-title strong{font-size:10px;letter-spacing:.12em;color:#d9f6ff}.loky-planner-title span{font-size:7.5px;color:#6e90a2}
       .loky-planner-badge{padding:5px 8px;border-radius:999px;border:1px solid rgba(104,205,240,.14);background:rgba(8,42,57,.58);font-size:7px;color:#80b6c9}
@@ -327,6 +349,8 @@
       .loky-planner-add{height:38px;border-radius:11px;border:1px solid rgba(96,202,238,.24);background:rgba(12,57,77,.72);color:#c7f2ff;font-size:8px;font-weight:900;letter-spacing:.10em}
       .loky-planner-notify{height:34px;border-radius:10px;border:1px solid rgba(96,202,238,.17);background:rgba(8,38,52,.62);color:#9dd8eb;font-size:7.5px;font-weight:800;letter-spacing:.08em}
       .loky-planner-note{font-size:7.5px;line-height:1.45;color:#6f91a3;text-align:center}
+      .loky-device-time{min-height:30px;border-radius:10px;border:1px solid rgba(96,202,238,.10);background:rgba(5,27,39,.54);display:flex;align-items:center;justify-content:center;gap:7px;padding:0 9px;color:#7098aa;font-size:7px;letter-spacing:.06em;text-align:center}
+      .loky-device-time strong{color:#b8e9f8;font-size:7.5px;letter-spacing:.08em}
       .loky-sound-open{height:36px;border-radius:10px;border:1px solid rgba(96,202,238,.18);background:rgba(8,38,52,.66);color:#b6e8f8;font-size:7.5px;font-weight:900;letter-spacing:.09em}
       .loky-sound-modal{position:fixed;z-index:340;inset:0;background:rgba(1,7,12,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:grid;place-items:center;padding:18px}
       .loky-sound-card{width:min(90vw,420px);max-height:min(78vh,620px);overflow:auto;border:1px solid rgba(108,219,251,.22);border-radius:22px;background:linear-gradient(180deg,rgba(8,34,48,.99),rgba(3,16,25,.99));padding:16px;display:grid;gap:10px;box-shadow:0 26px 80px rgba(0,0,0,.55)}
@@ -615,7 +639,7 @@
     const top=make('div','loky-planner-top');
     const back=make('button','loky-planner-back','‹ MEMORIAS');
     back.type='button';
-    back.addEventListener('click',()=>screen.remove());
+    back.addEventListener('click',()=>{clearInterval(deviceClockTimer);screen.remove();});
     const title=make('div','loky-planner-title');
     title.appendChild(make('strong','',meta.plural));
     title.appendChild(make('span','',type==='calendar'?'Eventos y agenda':type==='alarm'?'Alarmas programadas':'Avisos y tareas pendientes'));
@@ -634,13 +658,25 @@
     text.placeholder=type==='alarm'?'Nombre de alarma (opcional)':type==='calendar'?'Nombre del evento':'¿Qué debo recordarte?';
     const when=make('input','loky-planner-input');
     when.type='datetime-local';
-    when.value=toLocalInput(Date.now()+60*60*1000);
+    when.value=toLocalInput(nextPlannerTime());
     const add=make('button','loky-planner-add',type==='calendar'?'AGREGAR EVENTO':type==='alarm'?'PROGRAMAR ALARMA':'GUARDAR RECORDATORIO');
     add.type='button';
     form.appendChild(text);
     form.appendChild(when);
     form.appendChild(add);
     formCard.appendChild(form);
+
+    const deviceTime=make('div','loky-device-time');
+    const paintDeviceTime=()=>{
+      while(deviceTime.firstChild)deviceTime.removeChild(deviceTime.firstChild);
+      deviceTime.appendChild(make('span','','HORA LOCAL DEL DISPOSITIVO'));
+      deviceTime.appendChild(make('strong','',fmtDeviceClock()));
+      deviceTime.appendChild(make('span','',deviceTimeZone()));
+    };
+    paintDeviceTime();
+    const deviceClockTimer=setInterval(paintDeviceTime,30000);
+    screen.addEventListener('remove',()=>clearInterval(deviceClockTimer),{once:true});
+    formCard.appendChild(deviceTime);
 
     const notify=make('button','loky-planner-notify',notificationStatus());
     notify.type='button';
@@ -782,6 +818,11 @@
     remove:removeItem,
     parseVoiceCommand,
     checkDue,
+    time:{
+      zone:deviceTimeZone,
+      format:fmtDeviceClock,
+      nextDefault:nextPlannerTime,
+    },
     sounds:{
       profiles:ALERT_SOUNDS,
       get:getAlertSound,
