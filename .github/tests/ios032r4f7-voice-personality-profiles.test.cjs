@@ -23,11 +23,16 @@ assert(features.includes("if(parsed?.setup&&!resumeHandle)"));
 assert(features.includes("get voice(){return loadSettings().voice;}"));
 assert(features.includes("get personality(){return loadSettings().personality;}"));
 
-assert(plus.includes("const VERSION='0.3.2R4F7-voice-personality-ui'"));
+assert(/const VERSION='0\.3\.2R4F7(?:-voice-personality-ui|R1-voice-preview-confirm)'/.test(plus));
 assert(plus.includes('showProfileModal'));
 assert(plus.includes('features.settings.setVoice'));
 assert(plus.includes('features.settings.setPersonality'));
-assert(plus.includes('una sesión activa no se interrumpe'));
+assert(plus.includes('SELECCIONAR'));
+assert(plus.includes('VOICE_PREVIEW_ENDPOINT'));
+assert(plus.includes('playVoicePreview'));
+assert(plus.includes('decodePcm16'));
+assert(plus.includes('Solo se guarda cuando pulses SELECCIONAR'));
+assert(!plus.includes('setter(key)'));
 
 assert(live.includes("const VERSION='0.3.2R4-pc4-conversation-port'"));
 assert(live.includes("voiceConfig:{prebuiltVoiceConfig:{voiceName:'Kore'}}"));
