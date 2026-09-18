@@ -175,8 +175,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/mobile-planner.js)" = "7a87eeabe15ca743c4cedb7ae0ce400f7f6c1509"
-          grep -F "const VERSION='0.3.2R4F8R1-alert-sounds'" site/mobile-planner.js
+          test "$(git rev-parse HEAD:site/mobile-planner.js)" = "cfb79975e37650b4e4d784c8945af19f344524cb"
+          grep -F "const VERSION='0.3.2R4F8R2-safe-area-device-time'" site/mobile-planner.js
           grep -F "const STORE_KEY='loky_pc4_mobile_planner_v1'" site/mobile-planner.js
           grep -F 'function parseVoiceCommand(' site/mobile-planner.js
           grep -F 'function openPlannerPanel(' site/mobile-planner.js
@@ -190,6 +190,14 @@ jobs:
           grep -F 'alarmTone(item.type)' site/mobile-planner.js
           grep -F 'SONIDO DE ALERTA' site/mobile-planner.js
           grep -F 'SELECCIONAR' site/mobile-planner.js
+          grep -F 'height:calc(54px + var(--safe-top))' site/mobile-planner.js
+          grep -F 'padding:var(--safe-top) 12px 0' site/mobile-planner.js
+          grep -F 'function deviceTimeZone(' site/mobile-planner.js
+          grep -F 'function fmtDeviceClock(' site/mobile-planner.js
+          grep -F 'function nextPlannerTime(' site/mobile-planner.js
+          grep -F 'HORA LOCAL DEL DISPOSITIVO' site/mobile-planner.js
+          grep -F 'when.value=toLocalInput(nextPlannerTime())' site/mobile-planner.js
+          if grep -Fq 'Date.now()+60*60*1000' site/mobile-planner.js; then exit 1; fi
           grep -F "['RECORDATORIOS','Avisos y tareas pendientes','R']" site/mobile-features.js
           grep -F "['CALENDARIO','Eventos y agenda','C']" site/mobile-features.js
           grep -F "['ALARMAS','Alarmas y temporizadores','A']" site/mobile-features.js
