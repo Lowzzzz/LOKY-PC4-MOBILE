@@ -53,7 +53,7 @@ jobs:
             test "$(stat -c%s "site/voice-previews/$voice.pcm")" -gt 20000
           done
 
-      - name: Verify protected visual assets and authorized R4F10R3 sphere
+      - name: Verify protected visual assets and authorized R4F10R3R1 sphere
         shell: bash
         run: |
           set -euo pipefail
@@ -65,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD:site/live-mobile.js)" = "f28a58275661f8513e9e3b29911c62f51e04bd28"
-          test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "116fb39156a549c4d9b535fb44c5e936c6a8374b"
+          test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "9550b79c231527cc4e659f15ce35a8d3bb973380"
           test "$(git rev-parse HEAD:site/ios-audio-stability.js)" = "d8254b160719a647fc07164a96f3955d8b268bfd"
           test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "f7314f4e0dab972697059337b838becd11f8c5f8"
@@ -251,7 +251,7 @@ jobs:
           grep -F 'new URL(target,self.registration.scope).href' site/sw.js
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|LOKY_PC4_LIVE|speechSynthesis' site/mobile-background-alarm.js; then exit 1; fi
 
-      - name: Verify R4F10R3 turn-safe web search and reactive sphere layer
+      - name: Verify R4F10R3R1 turn-safe web search and stronger reactive sphere layer
         shell: bash
         run: |
           set -euo pipefail
@@ -282,14 +282,14 @@ jobs:
           grep -F 'function finishLiveSearchError(' site/mobile-web-search.js
           grep -F 'WEB EN TIEMPO REAL · VERIFICADO' site/mobile-web-search.js
           grep -F 'FUENTES' site/mobile-web-search.js
-          grep -F "const VERSION='0.3.2R4F10R3-reactive-sphere'" site/sphere-mobile.js
+          grep -F "const VERSION='0.3.2R4F10R3R1-stronger-distortion'" site/sphere-mobile.js
           grep -F 'live?.userSpeaking' site/sphere-mobile.js
           grep -F 'live?.playing?.size' site/sphere-mobile.js
           grep -F "label==='LOKY HABLANDO'" site/sphere-mobile.js
           grep -F "label==='PENSANDO'" site/sphere-mobile.js
           grep -F 'uniform float uMotion;' site/sphere-mobile.js
           grep -F 'uniform float uState;' site/sphere-mobile.js
-          grep -F '<script src="./sphere-mobile.js?v=0.3.2r4f10r3"></script>' site/index.html
+          grep -F '<script src="./sphere-mobile.js?v=0.3.2r4f10r3r1"></script>' site/index.html
           grep -F '<script src="./live-mobile.js?v=0.3.2r4f10r3"></script>' site/index.html
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|speechSynthesis|navigator\.geolocation' site/mobile-web-search.js; then exit 1; fi
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|fetch[[:space:]]*\(' site/sphere-mobile.js; then exit 1; fi
