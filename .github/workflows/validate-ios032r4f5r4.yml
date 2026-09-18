@@ -1,0 +1,67 @@
+name: Validate iOS 0.3.2R4F5R4 Guest Handoff
+
+on:
+  push:
+    branches: [candidate/ios-0.3.2R4F5R4-guest-handoff]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify isolated runtime scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=9b718c8680689fdbb69eeb7cb05db588afc3934f
+          changed="$(git diff --name-only "$BASE"..HEAD | grep -v '^\.github/' || true)"
+          test "$changed" = "site/mobile-settings-plus.js"
+
+      - name: Verify frozen Mobile runtime byte-exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/live-mobile.js)" = "af201c91e1db634ef62cd6505696a602e293bc83"
+          test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "f99882addf9a263ae8c41f12f111b9f03b5ed73d"
+          test "$(git rev-parse HEAD:site/ios-audio-stability.js)" = "d8254b160719a647fc07164a96f3955d8b268bfd"
+          test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
+          test "$(git rev-parse HEAD:site/sw.js)" = "f65be5534df529c8f3e409b6a5e1ca6f29967725"
+          test "$(git rev-parse HEAD:site/mobile-features.js)" = "a9c02db6ffcf8efcb76d8e1bc35ca5439240a81f"
+          test "$(git rev-parse HEAD:site/mobile.css)" = "b4eff4577685dce6b07867cc040d4b8369be2a51"
+          test "$(git rev-parse HEAD:site/mobile-noise-guard.js)" = "c632c64738c0bb34d7e372d28a5532d238b23398"
+          test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
+          test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "34b1d603625476b569f275c5720a08603711ed73"
+
+      - name: Verify guest handoff layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check site/mobile-settings-plus.js
+          node .github/tests/ios032r4f5-devices-qr.test.cjs
+          node .github/tests/ios032r4f5r3-settings-dashboard.test.cjs
+          node .github/tests/ios032r4f5r4-guest-handoff.test.cjs
+
+      - name: Re-run frozen conversation and visual tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/tests/ios032r4-pc4-conversation-port.test.cjs
+          node .github/tests/ios032r4f2-settings-memory-windows.test.cjs
+          node .github/tests/ios032r4f2r1-noise-guard.test.cjs
+          node .github/tests/ios032r4f4r2-fps-startup.test.cjs
+
+      - name: Verify device backend v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEV='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices'
+          curl -fsS "$DEV" -o /tmp/dev.json
+          node -e "const x=require('/tmp/dev.json'); if(!x.ok||x.version!==2||x.guestActivation!=='handoff-code-v1') process.exit(2)"
