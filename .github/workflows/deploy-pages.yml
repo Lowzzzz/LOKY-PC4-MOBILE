@@ -175,7 +175,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ed7c6384c00c3fde6367c13780ff80dc1f5f983f"
+          test "$(git rev-parse HEAD:site/mobile-planner.js)" = "d49c88caccd7800f55a07d2aeb6b147325a71d32"
           grep -F "const VERSION='0.3.2R4F8-planner-v1'" site/mobile-planner.js
           grep -F "const STORE_KEY='loky_pc4_mobile_planner_v1'" site/mobile-planner.js
           grep -F 'function parseVoiceCommand(' site/mobile-planner.js
