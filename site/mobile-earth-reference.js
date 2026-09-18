@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F6R1-earth-dot-persistence';
+  const VERSION='0.3.2R4F6R2-earth-coast-persistence';
   const NE_COMMIT='ca96624a56bd078437bca8184e78163e5039ad19';
   const LAND_URL=`https://raw.githubusercontent.com/nvkelso/natural-earth-vector/${NE_COMMIT}/geojson/ne_50m_land.geojson`;
   const COUNTRIES_URL=`https://raw.githubusercontent.com/nvkelso/natural-earth-vector/${NE_COMMIT}/geojson/ne_110m_admin_0_countries.geojson`;
@@ -176,7 +176,7 @@
     if(!fast){target.shadowColor='rgba(65,195,255,.26)';target.shadowBlur=Math.max(1.5,w/700);}
     for(let i=0;i<geometry.dots.length;i+=stride){const dot=geometry.dots[i],p=project(dot[0],dot[1],radius,cx,cy);if(!p)continue;const s=baseSize*(.78+p.z*.82)*(dot[2]>.76?1.30:1);target.globalAlpha=.24+.66*p.z;target.fillStyle=dot[2]>.70?'rgba(118,222,255,.98)':'rgba(60,168,242,.92)';target.fillRect(p.x-s*.5,p.y-s*.5,s,s);}
     target.restore();target.globalAlpha=1;
-    const glow=Math.max(2.1,w/430),fine=Math.max(.78,w/1180),coastStep=fast?4:1;
+    const glow=Math.max(2.1,w/430),fine=Math.max(.78,w/1180),coastStep=1;
     for(const ring of geometry.landRings){if(!fast)drawRing(target,ring,radius,cx,cy,'rgba(39,144,235,.085)',glow,1,coastStep);drawRing(target,ring,radius,cx,cy,'rgba(112,220,255,.58)',fine,1,coastStep);}
     if(!fast){const border=Math.max(.4,w/1600);for(const ring of geometry.countryRings)drawRing(target,ring,radius,cx,cy,'rgba(77,171,229,.11)',border,.9,1);}
   }
