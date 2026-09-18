@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F6-seismic-instant-precompiled';
+  const VERSION='0.3.2R4F6R1-earth-dot-persistence';
   const NE_COMMIT='ca96624a56bd078437bca8184e78163e5039ad19';
   const LAND_URL=`https://raw.githubusercontent.com/nvkelso/natural-earth-vector/${NE_COMMIT}/geojson/ne_50m_land.geojson`;
   const COUNTRIES_URL=`https://raw.githubusercontent.com/nvkelso/natural-earth-vector/${NE_COMMIT}/geojson/ne_110m_admin_0_countries.geojson`;
@@ -11,7 +11,7 @@
   const ACTIVE_FPS=60;
   const IDLE_FPS=24;
   const DPR_CAP=1.5;
-  const FAST_DOT_STRIDE=4;
+  const FAST_DOT_STRIDE=1;
   const MOTION_TAIL_MS=220;
 
   const seismic=window.LOKY_PC4_SEISMIC;
