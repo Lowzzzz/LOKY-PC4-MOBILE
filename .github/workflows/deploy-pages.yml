@@ -357,7 +357,7 @@ jobs:
           curl -fsS "$PUSH" -o /tmp/push-health.json
           node -e "const x=require('/tmp/push-health.json'); if(!x.ok||x.version!==1||x.backgroundAlarm!=='web-push-v1'||x.scheduler!=='pg-cron-30s'||typeof x.publicKey!=='string'||x.publicKey.length<50) process.exit(2)"
           curl -fsS "$SEARCH" -o /tmp/search-health.json
-          node -e "const x=require('/tmp/search-health.json'); if(!x.ok||x.version!==11||x.provider!=='hybrid-local-v2'||x.synthesis!=='gemini-live-existing-session'||x.auth!=='owner-or-invited-device-capability') process.exit(2)"
+          node -e "const x=require('/tmp/search-health.json'); if(!x.ok||x.version!==14||x.provider!=='hybrid-local-v2'||x.synthesis!=='gemini-live-existing-session'||x.auth!=='owner-or-invited-device-capability') process.exit(2)"
           code=$(curl -sS -o /tmp/device-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"status"}' "$DEV")
           test "$code" = '401'
           code=$(curl -sS -o /tmp/token-denied.json -w '%{http_code}' -X POST -H 'x-loky-device: invalid-device-123456789' "$TOKEN")
