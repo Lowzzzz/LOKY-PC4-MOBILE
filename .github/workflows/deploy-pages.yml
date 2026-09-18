@@ -76,13 +76,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "96cf22a3ab11dea61c3d884ee83c842fccfe3b65"
+          test "$(git rev-parse HEAD:site/index.html)" = "7904479459f317101f226f4a50a186fb69060535"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
           test "$(git rev-parse HEAD:site/sw.js)" = "6d35687e7ca347a6082119e7dd23969e616f61cb"
           if test -e site/mobile-continent-detail.js; then exit 1; fi
           grep -F '<script src="./mobile-settings-plus.js?v=0.3.2r4f5"></script>' site/index.html
+          grep -F '<script src="./mobile-planner.js?v=0.3.2r4f8"></script>' site/index.html
           grep -F '<script src="./mobile-earth-reference.js?v=0.3.2r4f6"></script>' site/index.html
           grep -F "const VERSION='0.3.2R4F7R3-personality-audio-preview'" site/mobile-settings-plus.js
           grep -F "const VERSION='0.3.2R4F4R1-seismic-controller'" site/mobile-seismic.js
@@ -142,6 +143,7 @@ jobs:
           node --check site/ios-audio-stability.js
           node --check site/mobile-features.js
           node --check site/mobile-settings-plus.js
+          node --check site/mobile-planner.js
           node --check site/mobile-noise-guard.js
           node --check site/mobile-seismic.js
           node --check site/mobile-earth-reference.js
@@ -168,6 +170,23 @@ jobs:
           grep -F 'if(parsed?.setup&&!resumeHandle)' site/mobile-features.js
           if grep -Fq 'getUserMedia(' site/mobile-settings-plus.js; then exit 1; fi
           if grep -Fq 'new WebSocket(' site/mobile-settings-plus.js; then exit 1; fi
+
+      - name: Verify R4F8 planner isolated layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ed7c6384c00c3fde6367c13780ff80dc1f5f983f"
+          grep -F "const VERSION='0.3.2R4F8-planner-v1'" site/mobile-planner.js
+          grep -F "const STORE_KEY='loky_pc4_mobile_planner_v1'" site/mobile-planner.js
+          grep -F 'function parseVoiceCommand(' site/mobile-planner.js
+          grep -F 'function openPlannerPanel(' site/mobile-planner.js
+          grep -F "String(conversationState.textContent||'').trim()==='PENSANDO'" site/mobile-planner.js
+          grep -F 'Notification.requestPermission()' site/mobile-planner.js
+          grep -F 'navigator.serviceWorker?.ready' site/mobile-planner.js
+          grep -F "['RECORDATORIOS','Avisos y tareas pendientes','R']" site/mobile-features.js
+          grep -F "['CALENDARIO','Eventos y agenda','C']" site/mobile-features.js
+          grep -F "['ALARMAS','Alarmas y temporizadores','A']" site/mobile-features.js
+          if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|LOKY_PC4_LIVE' site/mobile-planner.js; then exit 1; fi
 
       - name: Verify iOS 0.3.2R4 PC4 conversation port remains frozen
         shell: bash
@@ -203,6 +222,7 @@ jobs:
           node .github/tests/ios032r4f7r1-voice-preview-confirm.test.cjs
           node .github/tests/ios032r4f7r2-instant-voice-preview.test.cjs
           node .github/tests/ios032r4f7r3-personality-audio-preview.test.cjs
+          node .github/tests/ios032r4f8-planner.test.cjs
 
       - name: Verify Natural Earth USGS and device backends
         shell: bash
