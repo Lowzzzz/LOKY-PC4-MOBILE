@@ -187,7 +187,7 @@ jobs:
           grep -F 'const ALERT_SOUNDS={' site/mobile-planner.js
           grep -F 'function playAlertSoundById(' site/mobile-planner.js
           grep -F 'function showSoundSelector(' site/mobile-planner.js
-          grep -F 'alarmTone(item.type)' site/mobile-planner.js
+          grep -F 'startDueAlertSound(item.type)' site/mobile-planner.js
           grep -F 'SONIDO DE ALERTA' site/mobile-planner.js
           grep -F 'SELECCIONAR' site/mobile-planner.js
           grep -F 'height:calc(54px + var(--safe-top))' site/mobile-planner.js
