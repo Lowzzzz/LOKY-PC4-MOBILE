@@ -59,11 +59,11 @@ jobs:
           test "$(git rev-parse HEAD:site/index.html)" = "9d76e96b31e06a1846f42bce0f25dabcf3a8af3a"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "34b1d603625476b569f275c5720a08603711ed73"
-          test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "c1b848bec505e0771ad4797a0489f7077eee9540"
+          test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "e0be0e36a8a45402664e9096b14f75106dfa0bce"
           if test -e site/mobile-continent-detail.js; then exit 1; fi
           grep -F '<script src="./mobile-settings-plus.js?v=0.3.2r4f5"></script>' site/index.html
           grep -F '<script src="./mobile-earth-reference.js?v=0.3.2r4f4"></script>' site/index.html
-          grep -F "const VERSION='0.3.2R4F5R3-settings-dashboard-clean'" site/mobile-settings-plus.js
+          grep -F "const VERSION='0.3.2R4F5R4-guest-handoff'" site/mobile-settings-plus.js
           grep -F "const VERSION='0.3.2R4F4R1-seismic-controller'" site/mobile-seismic.js
           grep -F "const VERSION='0.3.2R4F4R2-fps-startup-optimization'" site/mobile-earth-reference.js
           if grep -Fq 'lokySeismicGlobe' site/mobile-seismic.js; then echo 'Legacy globe must be deleted'; exit 1; fi
@@ -77,6 +77,8 @@ jobs:
           grep -F '04f46c6a0708418cb7b96fc563eacae0fbf77674' site/mobile-settings-plus.js
           grep -F 'loky-settings-dashboard' site/mobile-settings-plus.js
           grep -F 'ADMINISTRAR DISPOSITIVOS' site/mobile-settings-plus.js
+          grep -F "api('claim_device'" site/mobile-settings-plus.js
+          grep -F 'CÓDIGO DE ACCESO' site/mobile-settings-plus.js
           grep -F 'function renderDevicesScreen(' site/mobile-settings-plus.js
           if grep -Fq 'function accordion(' site/mobile-settings-plus.js; then exit 1; fi
           if grep -R -E -q 'getUserMedia\s*\(|new\s+WebSocket\s*\(|LOKY_PC4_LIVE' site/mobile-seismic.js site/mobile-earth-reference.js site/mobile-settings-plus.js; then exit 1; fi
@@ -125,6 +127,7 @@ jobs:
           node .github/tests/ios032r4f4r2-fps-startup.test.cjs
           node .github/tests/ios032r4f5-devices-qr.test.cjs
           node .github/tests/ios032r4f5r3-settings-dashboard.test.cjs
+          node .github/tests/ios032r4f5r4-guest-handoff.test.cjs
 
       - name: Verify Natural Earth USGS and device backends
         shell: bash
