@@ -53,7 +53,7 @@ jobs:
             test "$(stat -c%s "site/voice-previews/$voice.pcm")" -gt 20000
           done
 
-      - name: Verify frozen iOS 0.1 visual core
+      - name: Verify protected visual assets and authorized R4F10R3 sphere
         shell: bash
         run: |
           set -euo pipefail
