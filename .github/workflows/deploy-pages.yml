@@ -78,10 +78,10 @@ jobs:
           grep -F 'function scheduleWarmGeometry(' site/mobile-earth-reference.js
           grep -F 'scheduleWarmGeometry();' site/mobile-earth-reference.js
           grep -F "const VERSION='loky-pc4-mobile-ios-0.3.2-r4f6'" site/sw.js
-          grep -F 'mobile-settings-plus\\.js' site/sw.js
-          grep -F 'mobile-seismic\\.js' site/sw.js
-          grep -F 'mobile-earth-reference\\.js' site/sw.js
-          grep -F 'earth-geometry-r4f6\\.json' site/sw.js
+          grep -F 'mobile-settings-plus\.js' site/sw.js
+          grep -F 'mobile-seismic\.js' site/sw.js
+          grep -F 'mobile-earth-reference\.js' site/sw.js
+          grep -F 'earth-geometry-r4f6\.json' site/sw.js
           grep -F 'event.respondWith(networkFirst(event.request))' site/sw.js
           if grep -Fq 'lokySeismicGlobe' site/mobile-seismic.js; then echo 'Legacy globe must be deleted'; exit 1; fi
           if grep -Fq 'function drawGlobe(' site/mobile-seismic.js; then echo 'Legacy draw loop must be deleted'; exit 1; fi
