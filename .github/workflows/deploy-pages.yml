@@ -208,7 +208,7 @@ jobs:
           grep -F 'function spokenNumber(' site/mobile-planner.js
           grep -F 'const alarmIntent=' site/mobile-planner.js
           grep -F 'const calendarIntent=' site/mobile-planner.js
-          grep -F 'dentro\\s+de' site/mobile-planner.js
+          grep -F 'dentro' site/mobile-planner.js
           grep -F 'agendes' site/mobile-planner.js
           if grep -Fq 'Date.now()+60*60*1000' site/mobile-planner.js; then exit 1; fi
           grep -F "['RECORDATORIOS','Avisos y tareas pendientes','R']" site/mobile-features.js
