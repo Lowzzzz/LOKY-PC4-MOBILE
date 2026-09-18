@@ -105,7 +105,7 @@ vm.runInContext(src,context,{filename:'mobile-features.js'});
 
 const api=context.LOKY_PC4_FEATURES;
 assert(api,'feature API missing');
-assert.equal(api.version,'0.3.2R4F2-settings-memory-windows');
+assert.equal(api.version,'0.3.2R4F7-voice-personality-profiles');
 
 // Dock contract: left slots remain reserved; right slots become actionable.
 assert.equal(api.slots.length,4);
@@ -124,11 +124,22 @@ els.conversationState.textContent='ESCUCHANDO';
 api.thinkingGate.sync();
 assert.equal(track.enabled,true);
 
-// Settings persist and include the requested vulgar mode without touching PCM frames.
+// Settings persist and include speech mode + voice + personality without touching PCM frames.
 assert.equal(api.settings.speechMode,'natural');
+assert.equal(api.settings.voice,'kore');
+assert.equal(api.settings.personality,'natural');
+assert.equal(api.settings.voiceName(),'Kore');
 assert.equal(api.settings.setSpeechMode('vulgar'),true);
+assert.equal(api.settings.setVoice('sulafat'),true);
+assert.equal(api.settings.setPersonality('experta'),true);
 assert.equal(api.settings.speechMode,'vulgar');
+assert.equal(api.settings.voice,'sulafat');
+assert.equal(api.settings.personality,'experta');
+assert.equal(api.settings.voiceName(),'Sulafat');
 assert(api.settings.instruction().includes('VULGAR'));
+assert(api.settings.personalityInstruction().includes('EXPERTA'));
+assert.equal(Object.keys(api.voices).length,8);
+assert.equal(Object.keys(api.personalities).length,8);
 
 // Manual memories are visible to context, and can be deleted.
 api.memory.clear();
@@ -179,6 +190,18 @@ const setupText=setup.setup.systemInstruction.parts.map(x=>x.text||'').join('\n'
 assert(setupText.includes('BASE'));
 assert(setupText.includes('Mi bebida favorita es café'));
 assert(setupText.includes('Modo de hablar VULGAR'));
+assert(setupText.includes('Personalidad EXPERTA'));
+assert.equal(setup.setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName,'Sulafat');
+
+// Resumption frames remain untouched by the profile layer.
+const resumed=new FakeWS('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=x');
+const resumeFrame={setup:{
+  generationConfig:{speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Kore'}}}},
+  systemInstruction:{parts:[{text:'BASE'}]},
+  sessionResumption:{handle:'resume-123'}
+}};
+resumed.send(JSON.stringify(resumeFrame));
+assert.deepEqual(JSON.parse(resumed.sent[0]),resumeFrame);
 
 const parseBeforePcm=parseCount;
 for(let i=0;i<200;i++)ws.send('{"realtimeInput":{"audio":{"data":"AAAA","mimeType":"audio/pcm;rate=16000"}}}');
