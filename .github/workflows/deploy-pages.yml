@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "412bf7c426f71ca5d555ee62e22f175df5103993"
+          test "$(git rev-parse HEAD:site/index.html)" = "06f5f407051e3f90f2ad7f2cdeffe17026cba16e"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
@@ -85,7 +85,7 @@ jobs:
           grep -F '<script src="./mobile-settings-plus.js?v=0.3.2r4f5"></script>' site/index.html
           grep -F '<script src="./mobile-planner.js?v=0.3.2r4f8"></script>' site/index.html
           grep -F '<script src="./mobile-background-alarm.js?v=0.3.2r4f9"></script>' site/index.html
-          grep -F '<script src="./mobile-web-search.js?v=0.3.2r4f10"></script>' site/index.html
+          grep -F '<script src="./mobile-web-search.js?v=0.3.2r4f10r2"></script>' site/index.html
           grep -F '<script src="./mobile-earth-reference.js?v=0.3.2r4f6"></script>' site/index.html
           grep -F "const VERSION='0.3.2R4F7R3-personality-audio-preview'" site/mobile-settings-plus.js
           grep -F "const VERSION='0.3.2R4F4R1-seismic-controller'" site/mobile-seismic.js
@@ -233,7 +233,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
-          test "$(git rev-parse HEAD:site/index.html)" = "412bf7c426f71ca5d555ee62e22f175df5103993"
+          test "$(git rev-parse HEAD:site/index.html)" = "06f5f407051e3f90f2ad7f2cdeffe17026cba16e"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           grep -F "const VERSION='0.3.2R4F9-cloud-background-alarms'" site/mobile-background-alarm.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'" site/mobile-background-alarm.js
@@ -260,7 +260,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           test "$(git rev-parse HEAD:site/mobile-web-search.js)" = "18ced163488b7a833f0cc495cf150e4f8e24d65f"
-          test "$(git rev-parse HEAD:site/index.html)" = "412bf7c426f71ca5d555ee62e22f175df5103993"
+          test "$(git rev-parse HEAD:site/index.html)" = "06f5f407051e3f90f2ad7f2cdeffe17026cba16e"
           grep -F "const VERSION='0.3.2R4F10R2-safe-local-search'" site/mobile-web-search.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'" site/mobile-web-search.js
           grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-web-search.js
