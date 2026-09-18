@@ -23,13 +23,14 @@ assert(features.includes("if(parsed?.setup&&!resumeHandle)"));
 assert(features.includes("get voice(){return loadSettings().voice;}"));
 assert(features.includes("get personality(){return loadSettings().personality;}"));
 
-assert(/const VERSION='0\.3\.2R4F7(?:-voice-personality-ui|R1-voice-preview-confirm|R2-instant-voice-preview)'/.test(plus));
+assert(/const VERSION='0\.3\.2R4F7(?:-voice-personality-ui|R1-voice-preview-confirm|R2-instant-voice-preview|R3-personality-audio-preview)'/.test(plus));
 assert(plus.includes('showProfileModal'));
 assert(plus.includes('features.settings.setVoice'));
 assert(plus.includes('features.settings.setPersonality'));
 assert(plus.includes('SELECCIONAR'));
 assert(plus.includes('VOICE_PREVIEW_ENDPOINT'));
 assert(plus.includes('playVoicePreview'));
+assert(plus.includes('playPersonalityPreview'));
 assert(plus.includes('decodePcm16'));
 assert(plus.includes('Solo se guarda cuando pulses SELECCIONAR'));
 assert(!plus.includes('setter(key)'));
