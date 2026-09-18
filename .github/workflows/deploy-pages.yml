@@ -175,8 +175,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/mobile-planner.js)" = "cfb79975e37650b4e4d784c8945af19f344524cb"
-          grep -F "const VERSION='0.3.2R4F8R2-safe-area-device-time'" site/mobile-planner.js
+          test "$(git rev-parse HEAD:site/mobile-planner.js)" = "56c8af38fa7266019159cf5a8277c6270f7c7ccb"
+          grep -F "const VERSION='0.3.2R4F8R3-voice-alarm-calendar-manual-stop'" site/mobile-planner.js
           grep -F "const STORE_KEY='loky_pc4_mobile_planner_v1'" site/mobile-planner.js
           grep -F 'function parseVoiceCommand(' site/mobile-planner.js
           grep -F 'function openPlannerPanel(' site/mobile-planner.js
@@ -197,6 +197,15 @@ jobs:
           grep -F 'function nextPlannerTime(' site/mobile-planner.js
           grep -F 'HORA LOCAL DEL DISPOSITIVO' site/mobile-planner.js
           grep -F 'when.value=toLocalInput(nextPlannerTime())' site/mobile-planner.js
+          grep -F 'const WEEKDAY_INDEX={' site/mobile-planner.js
+          grep -F 'function startDueAlertSound(' site/mobile-planner.js
+          grep -F 'DETENER ALARMA' site/mobile-planner.js
+          grep -F 'DETENER SONIDO' site/mobile-planner.js
+          grep -F 'Number.POSITIVE_INFINITY' site/mobile-planner.js
+          grep -F 'startDueAlertSound(item.type)' site/mobile-planner.js
+          grep -F 'activeAlertSoundTimer' site/mobile-planner.js
+          grep -F 'ponme' site/mobile-planner.js
+          grep -F 'despiertame' site/mobile-planner.js
           if grep -Fq 'Date.now()+60*60*1000' site/mobile-planner.js; then exit 1; fi
           grep -F "['RECORDATORIOS','Avisos y tareas pendientes','R']" site/mobile-features.js
           grep -F "['CALENDARIO','Eventos y agenda','C']" site/mobile-features.js
