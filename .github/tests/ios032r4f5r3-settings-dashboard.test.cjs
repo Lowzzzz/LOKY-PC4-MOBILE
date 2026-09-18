@@ -3,7 +3,7 @@ const fs=require('fs');
 const assert=require('assert');
 const plus=fs.readFileSync('site/mobile-settings-plus.js','utf8');
 
-assert(plus.includes("const VERSION='0.3.2R4F5R3-settings-dashboard-clean'"));
+assert(/const VERSION='0\.3\.2R4F5(?:R3-settings-dashboard-clean|R4-guest-handoff)'/.test(plus));
 assert(plus.includes('loky-settings-dashboard'));
 assert(plus.includes('MODO DE HABLAR'));
 assert(plus.includes('VOZ'));
