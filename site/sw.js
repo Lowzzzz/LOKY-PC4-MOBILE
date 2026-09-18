@@ -1,6 +1,11 @@
-const VERSION='loky-pc4-mobile-ios-0.3.2';
+const VERSION='loky-pc4-mobile-ios-0.3.2-r4f6';
 const CACHE=`${VERSION}-shell`;
-const SHELL=['./','./index.html','./mobile.css','./sphere-mobile.js','./app.js','./live-mobile.js','./ios-audio-stability.js','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-512.png'];
+const SHELL=[
+  './','./index.html','./mobile.css','./sphere-mobile.js','./app.js','./live-mobile.js',
+  './ios-audio-stability.js','./mobile-features.js','./mobile-settings-plus.js',
+  './mobile-noise-guard.js','./mobile-seismic.js','./mobile-earth-reference.js',
+  './earth-geometry-r4f6.json','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-512.png'
+];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));
@@ -31,11 +36,11 @@ self.addEventListener('fetch',event=>{
   const url=new URL(event.request.url);
   if(url.origin!==self.location.origin)return;
 
-  const critical=
+  const runtimeAsset=
     event.request.mode==='navigate'||
-    /\/(index\.html|app\.js|live-mobile\.js|ios-audio-stability\.js|sphere-mobile\.js|mobile\.css|version\.json|manifest\.webmanifest)$/.test(url.pathname);
+    /\/(index\.html|app\.js|live-mobile\.js|ios-audio-stability\.js|sphere-mobile\.js|mobile-features\.js|mobile-settings-plus\.js|mobile-noise-guard\.js|mobile-seismic\.js|mobile-earth-reference\.js|earth-geometry-r4f6\.json|mobile\.css|version\.json|manifest\.webmanifest)$/.test(url.pathname);
 
-  if(critical){
+  if(runtimeAsset){
     event.respondWith(networkFirst(event.request));
     return;
   }
