@@ -142,7 +142,7 @@ jobs:
           DEV='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices'
           TOKEN='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
           curl -fsS "$DEV" -o /tmp/device-health.json
-          node -e "const x=require('/tmp/device-health.json'); if(!x.ok||x.version!==1) process.exit(2)"
+          node -e "const x=require('/tmp/device-health.json'); if(!x.ok||x.version!==2||x.guestActivation!=='handoff-code-v1') process.exit(2)"
           curl -fsS "$TOKEN" -o /tmp/token-health.json
           node -e "const x=require('/tmp/token-health.json'); if(!x.ok||x.auth!=='owner-or-invited-device-capability'||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2)"
           code=$(curl -sS -o /tmp/device-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"status"}' "$DEV")
