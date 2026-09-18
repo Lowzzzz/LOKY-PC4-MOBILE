@@ -6,7 +6,7 @@ const plus=fs.readFileSync('site/mobile-settings-plus.js','utf8');
 const live=fs.readFileSync('site/live-mobile.js','utf8');
 const features=fs.readFileSync('site/mobile-features.js','utf8');
 
-assert(plus.includes("const VERSION='0.3.2R4F7R1-voice-preview-confirm'"));
+assert(/const VERSION='0\.3\.2R4F7R(?:1-voice-preview-confirm|2-instant-voice-preview)'/.test(plus));
 assert(plus.includes("const VOICE_PREVIEW_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-voice-preview'"));
 assert(plus.includes('function stopVoicePreview()'));
 assert(plus.includes('async function primeVoicePreviewAudio()'));
