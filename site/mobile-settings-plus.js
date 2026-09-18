@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F7R2-instant-voice-preview';
+  const VERSION='0.3.2R4F7R3-personality-audio-preview';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const DEVICE_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices';
   const VOICE_PREVIEW_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-voice-preview';
@@ -15,6 +15,8 @@
   let voicePreviewContext=null;
   let voicePreviewSource=null;
   const voicePreviewCache=new Map();
+  const personalityPreviewCache=new Map();
+  const personalityPreviewPending=new Map();
   let voicePreviewRequest=0;
 
   function make(tag,className,text){
@@ -371,6 +373,86 @@
     const names=[...new Set(Object.values(profiles||{}).map(meta=>String(meta?.name||meta?.label||'')).filter(Boolean))];
     for(const name of names)fetchVoicePreview(name).catch(()=>{});
   }
+  async function fetchPersonalityPreview(personality){
+    const voiceName=String(features.settings.voiceName?.()||'Kore');
+    const key=`${voiceName}:${personality}`;
+    if(personalityPreviewCache.has(key))return personalityPreviewCache.get(key);
+    if(personalityPreviewPending.has(key))return personalityPreviewPending.get(key);
+
+    const promise=(async()=>{
+      const cap=capability();
+      if(!cap)throw new Error('DEVICE_NOT_AUTHORIZED');
+      const response=await fetch(VOICE_PREVIEW_ENDPOINT,{
+        method:'POST',
+        headers:{'content-type':'application/json','x-loky-device':cap},
+        cache:'no-store',
+        body:JSON.stringify({action:'personality',voiceName,personality}),
+      });
+      const data=await response.json().catch(()=>({ok:false,error:`HTTP_${response.status}`}));
+      if(!response.ok||!data?.ok||!data?.audio)throw new Error(data?.error||`HTTP_${response.status}`);
+      const value={
+        bytes:base64ToBytes(String(data.audio)),
+        sampleRate:Number(data.sampleRate)||24000,
+        voiceName,
+        personality,
+        source:'backend',
+      };
+      personalityPreviewCache.set(key,value);
+      return value;
+    })();
+
+    personalityPreviewPending.set(key,promise);
+    try{
+      return await promise;
+    }finally{
+      personalityPreviewPending.delete(key);
+    }
+  }
+
+  function preloadPersonalityPreviews(profiles){
+    const keys=Object.keys(profiles||{});
+    (async()=>{
+      for(const key of keys){
+        try{await fetchPersonalityPreview(key);}catch{}
+      }
+    })();
+  }
+
+  async function playPersonalityPreview(personality,status){
+    const voiceName=String(features.settings.voiceName?.()||'Kore');
+    const cacheKey=`${voiceName}:${personality}`;
+    const requestId=++voicePreviewRequest;
+    stopVoicePreview();
+    voicePreviewRequest=requestId;
+    if(status){
+      status.classList.remove('is-error');
+      status.textContent=personalityPreviewCache.has(cacheKey)?'REPRODUCIENDO PERSONALIDAD…':'CARGANDO PERSONALIDAD…';
+    }
+    try{
+      const ctx=await primeVoicePreviewAudio();
+      const preview=await fetchPersonalityPreview(personality);
+      if(requestId!==voicePreviewRequest)return false;
+      const source=ctx.createBufferSource();
+      source.buffer=decodePcm16(preview.bytes,preview.sampleRate);
+      source.connect(ctx.destination);
+      voicePreviewSource=source;
+      source.onended=()=>{
+        if(voicePreviewSource===source)voicePreviewSource=null;
+        if(status&&requestId===voicePreviewRequest)status.textContent='MUESTRA LISTA · PUEDES PROBAR OTRA PERSONALIDAD';
+      };
+      source.start();
+      if(status)status.textContent='REPRODUCIENDO PERSONALIDAD…';
+      return true;
+    }catch(error){
+      if(status&&requestId===voicePreviewRequest){
+        status.classList.add('is-error');
+        status.textContent='NO SE PUDO REPRODUCIR LA PERSONALIDAD';
+      }
+      console.warn('[LOKY Personality Preview]',error?.message||error);
+      return false;
+    }
+  }
+
 
   async function playVoicePreview(voiceName,status){
     const requestId=++voicePreviewRequest;
@@ -408,7 +490,8 @@
     card.appendChild(make('strong','',title));
     const noteEl=note?make('span','loky-choice-note',note):null;
     if(noteEl)card.appendChild(noteEl);
-    const status=make('div','loky-choice-preview-status',options.previewVoice?'TOCA UNA VOZ PARA ESCUCHARLA':'ELIGE UNA OPCIÓN Y CONFIRMA');
+    const statusText=options.previewVoice?'TOCA UNA VOZ PARA ESCUCHARLA':options.previewPersonality?'TOCA UNA PERSONALIDAD PARA ESCUCHARLA':'ELIGE UNA OPCIÓN Y CONFIRMA';
+    const status=make('div','loky-choice-preview-status',statusText);
     card.appendChild(status);
     const grid=make('div','loky-choice-grid');
     let draft=current;
@@ -431,6 +514,9 @@
           const voiceName=String(meta?.name||meta?.label||'Kore');
           await primeVoicePreviewAudio().catch(()=>{});
           await playVoicePreview(voiceName,status);
+        }else if(options.previewPersonality){
+          await primeVoicePreviewAudio().catch(()=>{});
+          await playPersonalityPreview(key,status);
         }else{
           status.classList.remove('is-error');
           status.textContent=`${String(meta?.label||key).toUpperCase()} · LISTA PARA SELECCIONAR`;
@@ -442,6 +528,7 @@
     card.appendChild(grid);
     paint();
     if(options.previewVoice)setTimeout(()=>preloadVoicePreviews(profiles),0);
+    if(options.previewPersonality)setTimeout(()=>preloadPersonalityPreviews(profiles),0);
 
     const select=make('button','loky-choice-select','SELECCIONAR');
     select.type='button';
@@ -524,7 +611,8 @@
     personality.addEventListener('click',()=>showProfileModal(
       page,host,'PERSONALIDAD',features.personalities||{},features.settings.personality,
       value=>features.settings.setPersonality(value),
-      'Toca una personalidad para preseleccionarla. Solo se guarda cuando pulses SELECCIONAR.'
+      'Toca una personalidad para escuchar cómo se expresa LOKY con tu voz actual. Solo se guarda cuando pulses SELECCIONAR.',
+      {previewPersonality:true}
     ));
     host.appendChild(personality);
 
