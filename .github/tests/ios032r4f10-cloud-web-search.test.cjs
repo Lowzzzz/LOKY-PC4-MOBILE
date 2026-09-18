@@ -76,8 +76,8 @@ assert.equal(api.intent('recuérdame comprar leche en dos minutos'),false);
 assert.equal(api.intent('ponme una alarma en cinco minutos'),false);
 assert.equal(api.intent('abre google'),false);
 
-assert(index.includes('<script src="./mobile-web-search.js?v=0.3.2r4f10"></script>'));
-assert(index.indexOf('live-mobile.js?v=0.3.2') < index.indexOf('mobile-web-search.js?v=0.3.2r4f10'));
+assert(index.includes('<script src="./mobile-web-search.js?v=0.3.2r4f10r2"></script>'));
+assert(index.indexOf('live-mobile.js?v=0.3.2') < index.indexOf('mobile-web-search.js?v=0.3.2r4f10r2'));
 
 assert(src.includes("const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'"));
 assert(src.includes("const DEVICE_KEY='loky_pc4_device_capability_v1'"));
