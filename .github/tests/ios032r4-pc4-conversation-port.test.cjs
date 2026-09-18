@@ -5,7 +5,7 @@ const src=fs.readFileSync('site/live-mobile.js','utf8');
 
 // Contract: only one conversation owner with manual Attention/VAD.
 for(const needle of [
-  "const VERSION='0.3.2R4F10R3-turn-end-guard'",
+  "const VERSION='0.3.2R4-pc4-conversation-port'",
   'const MIC_BUFFER_SIZE=2048',
   'const PRE_ROLL_CHUNKS=4',
   'const START_FRAMES_IDLE=3',
