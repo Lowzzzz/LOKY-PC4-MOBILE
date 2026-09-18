@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F2-settings-memory-windows';
+  const VERSION='0.3.2R4F7-voice-personality-profiles';
   const MEMORY_KEY='loky_pc4_mobile_memory_v1';
   const SETTINGS_KEY='loky_pc4_mobile_settings_v1';
   const MEMORY_LIMIT=12;
@@ -30,6 +30,28 @@
     normal:{label:'Normal',description:'Lenguaje claro y equilibrado, sin exagerar el tono.',instruction:'Modo de hablar NORMAL: responde con lenguaje claro, equilibrado y cotidiano.'},
     direct:{label:'Directo',description:'Va al punto, con menos rodeos y respuestas más cortas.',instruction:'Modo de hablar DIRECTO: ve al punto, reduce rodeos y prioriza respuestas breves y concretas.'},
     vulgar:{label:'Vulgar',description:'Más callejero, con jerga y palabrotas cuando encajen naturalmente.',instruction:'Modo de hablar VULGAR: puedes usar lenguaje muy coloquial, jerga y palabrotas cuando encajen de forma natural. No conviertas cada respuesta en insultos; evita amenazas, humillación dirigida y lenguaje discriminatorio.'},
+  };
+
+  const VOICE_PROFILES={
+    kore:{name:'Kore',label:'Kore',description:'Firme · voz actual protegida'},
+    achird:{name:'Achird',label:'Achird',description:'Amistosa · cercana'},
+    sulafat:{name:'Sulafat',label:'Sulafat',description:'Cálida · suave'},
+    charon:{name:'Charon',label:'Charon',description:'Informativa · clara'},
+    puck:{name:'Puck',label:'Puck',description:'Optimista · dinámica'},
+    gacrux:{name:'Gacrux',label:'Gacrux',description:'Madura · serena'},
+    aoede:{name:'Aoede',label:'Aoede',description:'Ligera · relajada'},
+    umbriel:{name:'Umbriel',label:'Umbriel',description:'Tranquila · casual'},
+  };
+
+  const PERSONALITIES={
+    natural:{label:'Natural',description:'La personalidad actual de LOKY.',instruction:''},
+    amigo:{label:'Amigo',description:'Cercano, casual y espontáneo.',instruction:'Personalidad AMIGO: conversa como un amigo cercano, natural y espontáneo. Puedes usar humor ligero cuando encaje, sin perder claridad ni utilidad.'},
+    profesional:{label:'Profesional',description:'Serio, claro y organizado.',instruction:'Personalidad PROFESIONAL: mantén un tono serio, claro, organizado y confiable. Estructura bien las respuestas sin sonar rígido ni robótico.'},
+    calida:{label:'Cálida',description:'Tranquila, paciente y acogedora.',instruction:'Personalidad CÁLIDA: responde con tono tranquilo, paciente y acogedor. Sé empático sin exagerar ni convertir cada respuesta en apoyo emocional.'},
+    experta:{label:'Experta',description:'Técnica, precisa y analítica.',instruction:'Personalidad EXPERTA: prioriza precisión, razonamiento técnico y explicaciones claras. Da detalle cuando sea útil, pero conserva una conversación natural.'},
+    divertida:{label:'Divertida',description:'Juguetona, expresiva y con humor.',instruction:'Personalidad DIVERTIDA: sé más juguetón, expresivo y con humor natural cuando encaje. No sacrifiques exactitud ni claridad por hacer bromas.'},
+    companera:{label:'Compañera',description:'Atenta al contexto y continuidad.',instruction:'Personalidad COMPAÑERA: presta especial atención al contexto de la conversación, continuidad y preferencias relevantes del usuario. Habla de forma cercana y colaborativa.'},
+    coach:{label:'Coach',description:'Motivadora y orientada a acción.',instruction:'Personalidad COACH: ayuda a convertir objetivos en pasos concretos, motivando de manera práctica y breve. Evita sermones o entusiasmo excesivo.'},
   };
 
   function normalize(text){
@@ -124,29 +146,55 @@
     try{
       const parsed=JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}');
       const speechMode=SPEECH_MODES[parsed?.speechMode]?parsed.speechMode:'natural';
-      return {speechMode};
+      const voice=VOICE_PROFILES[parsed?.voice]?parsed.voice:'kore';
+      const personality=PERSONALITIES[parsed?.personality]?parsed.personality:'natural';
+      return {speechMode,voice,personality};
     }catch{
-      return {speechMode:'natural'};
+      return {speechMode:'natural',voice:'kore',personality:'natural'};
     }
   }
 
   function saveSettings(next){
-    const speechMode=SPEECH_MODES[next?.speechMode]?next.speechMode:'natural';
-    try{localStorage.setItem(SETTINGS_KEY,JSON.stringify({speechMode}))}catch{}
-    return {speechMode};
+    const current=loadSettings();
+    const speechMode=SPEECH_MODES[next?.speechMode]?next.speechMode:current.speechMode;
+    const voice=VOICE_PROFILES[next?.voice]?next.voice:current.voice;
+    const personality=PERSONALITIES[next?.personality]?next.personality:current.personality;
+    const value={speechMode,voice,personality};
+    try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(value))}catch{}
+    return value;
   }
 
   const settings={
     snapshot(){return {...loadSettings()};},
     get speechMode(){return loadSettings().speechMode;},
+    get voice(){return loadSettings().voice;},
+    get personality(){return loadSettings().personality;},
     setSpeechMode(mode){
       if(!SPEECH_MODES[mode])return false;
       saveSettings({speechMode:mode});
       return true;
     },
+    setVoice(voice){
+      if(!VOICE_PROFILES[voice])return false;
+      saveSettings({voice});
+      return true;
+    },
+    setPersonality(personality){
+      if(!PERSONALITIES[personality])return false;
+      saveSettings({personality});
+      return true;
+    },
+    voiceName(){
+      const voice=loadSettings().voice;
+      return VOICE_PROFILES[voice]?.name||'Kore';
+    },
     instruction(){
       const mode=loadSettings().speechMode;
       return SPEECH_MODES[mode]?.instruction||'';
+    },
+    personalityInstruction(){
+      const personality=loadSettings().personality;
+      return PERSONALITIES[personality]?.instruction||'';
     },
   };
 
@@ -304,16 +352,26 @@
         const additions=[];
         const memoryContext=memory.context();
         const speechInstruction=settings.instruction();
+        const personalityInstruction=settings.personalityInstruction();
+        const voiceName=settings.voiceName();
+
+        parsed.setup.generationConfig=parsed.setup.generationConfig||{};
+        parsed.setup.generationConfig.speechConfig=parsed.setup.generationConfig.speechConfig||{};
+        parsed.setup.generationConfig.speechConfig.voiceConfig=parsed.setup.generationConfig.speechConfig.voiceConfig||{};
+        parsed.setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig={voiceName};
+
         if(memoryContext)additions.push(memoryContext);
         if(speechInstruction)additions.push(speechInstruction);
+        if(personalityInstruction)additions.push(personalityInstruction);
+
         if(additions.length){
           parsed.setup.systemInstruction=parsed.setup.systemInstruction||{parts:[]};
           parsed.setup.systemInstruction.parts=Array.isArray(parsed.setup.systemInstruction.parts)
             ? parsed.setup.systemInstruction.parts
             : [];
           for(const text of additions)parsed.setup.systemInstruction.parts.push({text});
-          data=JSON.stringify(parsed);
         }
+        data=JSON.stringify(parsed);
       }
     }catch{}
     return nativeSend.call(this,data);
@@ -556,6 +614,8 @@
     memory,
     settings,
     speechModes:SPEECH_MODES,
+    voices:VOICE_PROFILES,
+    personalities:PERSONALITIES,
     slots,
     windows:{
       openSettings:openSettingsWindow,
