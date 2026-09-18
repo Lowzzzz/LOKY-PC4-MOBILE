@@ -5,12 +5,12 @@ const src=fs.readFileSync('site/live-mobile.js','utf8');
 
 // Contract: only one conversation owner with manual Attention/VAD.
 for(const needle of [
-  "const VERSION='0.3.2R4-pc4-conversation-port'",
+  "const VERSION='0.3.2R4F10R3-turn-end-guard'",
   'const MIC_BUFFER_SIZE=2048',
   'const PRE_ROLL_CHUNKS=4',
   'const START_FRAMES_IDLE=3',
   'const START_FRAMES_BARGE=2',
-  'const END_SILENCE_MS=420',
+  'const END_SILENCE_MS=850',
   "automaticActivityDetection:{disabled:true}",
   "activityHandling:'START_OF_ACTIVITY_INTERRUPTS'",
   "sendRealtime(ws,{activityStart:{}})",
@@ -29,7 +29,7 @@ assert(!src.includes('automaticActivityDetection:{disabled:false}'),'server VAD 
 const cfg={
   idleFrames:3,
   bargeFrames:2,
-  endMs:420,
+  endMs:850,
   minStart:0.012,
   minBarge:0.026,
   minEnd:0.007,
@@ -74,11 +74,11 @@ function frame(s,level,playback=false){
   assert.equal(s.speaking,true);
 }
 
-// 3) Natural 250 ms pause must NOT cut the sentence; >420 ms silence ends it.
+// 3) Natural mid-sentence pauses up to ~650 ms must NOT cut the sentence; >850 ms silence ends it.
 {
   const s=make();
   frame(s,0.035);frame(s,0.035);frame(s,0.035);
-  for(let t=0;t<256;t+=cfg.chunkMs)frame(s,0.002);
+  for(let t=0;t<640;t+=cfg.chunkMs)frame(s,0.002);
   assert.equal(s.speaking,true,'natural mid-sentence pause cut the user');
   for(let t=0;t<260;t+=cfg.chunkMs)frame(s,0.002);
   assert.equal(s.speaking,false,'long silence did not end the turn');
