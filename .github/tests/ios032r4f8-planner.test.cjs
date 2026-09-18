@@ -83,7 +83,7 @@ vm.runInContext(src,context,{filename:'mobile-planner.js'});
 
 const api=context.LOKY_PC4_PLANNER;
 assert(api,'planner API missing');
-assert(/0\.3\.2R4F8(?:-planner-v1|R1-alert-sounds|R2-safe-area-device-time|R3-voice-alarm-calendar-manual-stop)/.test(api.version));
+assert(/0\.3\.2R4F8(?:-planner-v1|R1-alert-sounds|R2-safe-area-device-time|R3-voice-alarm-calendar-manual-stop|R4-robust-voice-planner-intents)/.test(api.version));
 
 const now=new Date(2026,8,17,10,0,0,0).getTime();
 
@@ -159,6 +159,43 @@ assert.equal(p.title,'cita');
 d=new Date(p.at);
 assert.equal(d.getDate(),18);
 assert.equal(d.getHours(),9);
+
+p=api.parseVoiceCommand('LOKY quiero que me programes una alarma para dentro de dos minutos',now);
+assert(p);
+assert.equal(p.type,'alarm');
+assert.equal(p.title,'Alarma');
+assert.equal(p.at,now+2*60*1000);
+
+p=api.parseVoiceCommand('LOKY activa una alarma a las ocho de la noche',now);
+assert(p);
+assert.equal(p.type,'alarm');
+assert.equal(p.title,'Alarma');
+d=new Date(p.at);
+assert.equal(d.getHours(),20);
+
+p=api.parseVoiceCommand('necesito una alarma en cinco minutos',now);
+assert(p);
+assert.equal(p.type,'alarm');
+assert.equal(p.at,now+5*60*1000);
+
+p=api.parseVoiceCommand('hazme una alarma a la una de la tarde',now);
+assert(p);
+assert.equal(p.type,'alarm');
+d=new Date(p.at);
+assert.equal(d.getHours(),13);
+
+p=api.parseVoiceCommand('quiero que me agendes una reunión mañana a las dos de la tarde',now);
+assert(p);
+assert.equal(p.type,'calendar');
+assert.equal(p.title,'reunión');
+d=new Date(p.at);
+assert.equal(d.getHours(),14);
+
+p=api.parseVoiceCommand('pon en mi calendario dentista dentro de tres horas',now);
+assert(p);
+assert.equal(p.type,'calendar');
+assert.equal(p.title,'dentista');
+assert.equal(p.at,now+3*60*60*1000);
 
 assert.equal(api.parseVoiceCommand('abre google',now),null);
 
@@ -236,5 +273,10 @@ assert(src.includes("Number.POSITIVE_INFINITY"));
 assert(src.includes("type==='reminder'?4:3"));
 assert(src.includes("stopAlertSound();"));
 assert(src.includes("startDueAlertSound(item.type)"));
+assert(src.includes("function spokenNumber("));
+assert(src.includes("const alarmIntent="));
+assert(src.includes("const calendarIntent="));
+assert(src.includes("dentro\\s+de"));
+assert(src.includes("agendes"));
 
 console.log('R4F8 planner reminders alarms calendar PASS');
