@@ -175,8 +175,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/mobile-planner.js)" = "f3e0e89ff00116d118d8b1bf4d5ba0866cd09bf3"
-          grep -F "const VERSION='0.3.2R4F8R4-robust-voice-planner-intents'" site/mobile-planner.js
+          test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
+          grep -F "const VERSION='0.3.2R4F8R5-instant-alarm-capture'" site/mobile-planner.js
           grep -F "const STORE_KEY='loky_pc4_mobile_planner_v1'" site/mobile-planner.js
           grep -F 'function parseVoiceCommand(' site/mobile-planner.js
           grep -F 'function openPlannerPanel(' site/mobile-planner.js
@@ -210,6 +210,12 @@ jobs:
           grep -F 'const calendarIntent=' site/mobile-planner.js
           grep -F 'dentro' site/mobile-planner.js
           grep -F 'agendes' site/mobile-planner.js
+          grep -F 'function instantAlarmReady(' site/mobile-planner.js
+          grep -F 'function scheduleInstantAlarmCapture(' site/mobile-planner.js
+          grep -F 'new MutationObserver(scheduleInstantAlarmCapture)' site/mobile-planner.js
+          grep -F '},220);' site/mobile-planner.js
+          grep -F 'lastInstantAlarm={' site/mobile-planner.js
+          grep -F 'if(existing)return true;' site/mobile-planner.js
           if grep -Fq 'Date.now()+60*60*1000' site/mobile-planner.js; then exit 1; fi
           grep -F "['RECORDATORIOS','Avisos y tareas pendientes','R']" site/mobile-features.js
           grep -F "['CALENDARIO','Eventos y agenda','C']" site/mobile-features.js
