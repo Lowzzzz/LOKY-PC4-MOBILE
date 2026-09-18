@@ -1,10 +1,12 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F7R1-voice-preview-confirm';
+  const VERSION='0.3.2R4F7R2-instant-voice-preview';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const DEVICE_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices';
   const VOICE_PREVIEW_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-voice-preview';
+  const VOICE_PREVIEW_STATIC_BASE='./voice-previews';
+  const VOICE_PREVIEW_STATIC_VERSION='0.3.2r4f7r2';
   const QR_LIB='https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js';
   const features=window.LOKY_PC4_FEATURES;
   if(!features)return;
@@ -313,10 +315,17 @@
     return voicePreviewContext;
   }
 
-  function decodePcm16(base64,sampleRate=24000){
+  function base64ToBytes(base64){
     const binary=atob(String(base64||''));
     const bytes=new Uint8Array(binary.length);
     for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+    return bytes;
+  }
+
+  function decodePcm16(bytesLike,sampleRate=24000){
+    const bytes=bytesLike instanceof Uint8Array
+      ? bytesLike
+      : new Uint8Array(bytesLike instanceof ArrayBuffer?bytesLike:new ArrayBuffer(0));
     const samples=Math.floor(bytes.byteLength/2);
     const ctx=voicePreviewContext;
     if(!ctx||samples<1)throw new Error('VOICE_PREVIEW_EMPTY');
@@ -329,6 +338,20 @@
 
   async function fetchVoicePreview(voiceName){
     if(voicePreviewCache.has(voiceName))return voicePreviewCache.get(voiceName);
+
+    try{
+      const staticUrl=`${VOICE_PREVIEW_STATIC_BASE}/${encodeURIComponent(voiceName)}.pcm?v=${VOICE_PREVIEW_STATIC_VERSION}`;
+      const response=await fetch(staticUrl,{cache:'force-cache'});
+      if(response.ok){
+        const bytes=new Uint8Array(await response.arrayBuffer());
+        if(bytes.byteLength>1000){
+          const value={bytes,sampleRate:24000,source:'static'};
+          voicePreviewCache.set(voiceName,value);
+          return value;
+        }
+      }
+    }catch{}
+
     const cap=capability();
     if(!cap)throw new Error('DEVICE_NOT_AUTHORIZED');
     const response=await fetch(VOICE_PREVIEW_ENDPOINT,{
@@ -339,9 +362,14 @@
     });
     const data=await response.json().catch(()=>({ok:false,error:`HTTP_${response.status}`}));
     if(!response.ok||!data?.ok||!data?.audio)throw new Error(data?.error||`HTTP_${response.status}`);
-    const value={audio:String(data.audio),sampleRate:Number(data.sampleRate)||24000};
+    const value={bytes:base64ToBytes(String(data.audio)),sampleRate:Number(data.sampleRate)||24000,source:'backend'};
     voicePreviewCache.set(voiceName,value);
     return value;
+  }
+
+  function preloadVoicePreviews(profiles){
+    const names=[...new Set(Object.values(profiles||{}).map(meta=>String(meta?.name||meta?.label||'')).filter(Boolean))];
+    for(const name of names)fetchVoicePreview(name).catch(()=>{});
   }
 
   async function playVoicePreview(voiceName,status){
@@ -350,14 +378,14 @@
     voicePreviewRequest=requestId;
     if(status){
       status.classList.remove('is-error');
-      status.textContent='CARGANDO MUESTRA…';
+      status.textContent=voicePreviewCache.has(voiceName)?'REPRODUCIENDO MUESTRA…':'CARGANDO MUESTRA…';
     }
     try{
       const ctx=await primeVoicePreviewAudio();
       const preview=await fetchVoicePreview(voiceName);
       if(requestId!==voicePreviewRequest)return false;
       const source=ctx.createBufferSource();
-      source.buffer=decodePcm16(preview.audio,preview.sampleRate);
+      source.buffer=decodePcm16(preview.bytes,preview.sampleRate);
       source.connect(ctx.destination);
       voicePreviewSource=source;
       source.onended=()=>{if(voicePreviewSource===source)voicePreviewSource=null;if(status&&requestId===voicePreviewRequest)status.textContent='MUESTRA LISTA · PUEDES PROBAR OTRA VOZ';};
@@ -413,6 +441,7 @@
     }
     card.appendChild(grid);
     paint();
+    if(options.previewVoice)setTimeout(()=>preloadVoicePreviews(profiles),0);
 
     const select=make('button','loky-choice-select','SELECCIONAR');
     select.type='button';
