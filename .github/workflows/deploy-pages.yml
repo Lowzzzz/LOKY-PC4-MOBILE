@@ -79,12 +79,12 @@ jobs:
           test "$(git rev-parse HEAD:site/index.html)" = "96cf22a3ab11dea61c3d884ee83c842fccfe3b65"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
-          test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "08bfc73631c0644744b2f127c7dac380b517a640"
+          test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
           test "$(git rev-parse HEAD:site/sw.js)" = "6d35687e7ca347a6082119e7dd23969e616f61cb"
           if test -e site/mobile-continent-detail.js; then exit 1; fi
           grep -F '<script src="./mobile-settings-plus.js?v=0.3.2r4f5"></script>' site/index.html
           grep -F '<script src="./mobile-earth-reference.js?v=0.3.2r4f6"></script>' site/index.html
-          grep -F "const VERSION='0.3.2R4F7R2-instant-voice-preview'" site/mobile-settings-plus.js
+          grep -F "const VERSION='0.3.2R4F7R3-personality-audio-preview'" site/mobile-settings-plus.js
           grep -F "const VERSION='0.3.2R4F4R1-seismic-controller'" site/mobile-seismic.js
           grep -F "const VERSION='0.3.2R4F6R2-earth-coast-persistence'" site/mobile-earth-reference.js
           grep -F "const PRECOMPILED_URL='./earth-geometry-r4f6.json'" site/mobile-earth-reference.js
@@ -121,6 +121,10 @@ jobs:
           grep -F "const VOICE_PREVIEW_STATIC_VERSION='0.3.2r4f7r2'" site/mobile-settings-plus.js
           grep -F 'function preloadVoicePreviews(' site/mobile-settings-plus.js
           grep -F 'function playVoicePreview(' site/mobile-settings-plus.js
+          grep -F 'function preloadPersonalityPreviews(' site/mobile-settings-plus.js
+          grep -F 'async function playPersonalityPreview(' site/mobile-settings-plus.js
+          grep -F "body:JSON.stringify({action:'personality',voiceName,personality})" site/mobile-settings-plus.js
+          grep -F '{previewPersonality:true}' site/mobile-settings-plus.js
           grep -F "const select=make('button','loky-choice-select','SELECCIONAR')" site/mobile-settings-plus.js
           grep -F 'setter(draft)' site/mobile-settings-plus.js
           if grep -Fq 'setter(key)' site/mobile-settings-plus.js; then exit 1; fi
@@ -144,7 +148,7 @@ jobs:
           node --check site/sw.js
           node --check .github/scripts/build-earth-geometry-r4f6.cjs
 
-      - name: Verify R4F7R2 instant voice preview and profile layer
+      - name: Verify R4F7R3 personality audio preview and profile layer
         shell: bash
         run: |
           set -euo pipefail
@@ -198,6 +202,7 @@ jobs:
           node .github/tests/ios032r4f7-voice-personality-profiles.test.cjs
           node .github/tests/ios032r4f7r1-voice-preview-confirm.test.cjs
           node .github/tests/ios032r4f7r2-instant-voice-preview.test.cjs
+          node .github/tests/ios032r4f7r3-personality-audio-preview.test.cjs
 
       - name: Verify Natural Earth USGS and device backends
         shell: bash
@@ -217,7 +222,7 @@ jobs:
           curl -fsS "$TOKEN" -o /tmp/token-health.json
           node -e "const x=require('/tmp/token-health.json'); if(!x.ok||x.auth!=='owner-or-invited-device-capability'||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2)"
           curl -fsS "$PREVIEW" -o /tmp/preview-health.json
-          node -e "const x=require('/tmp/preview-health.json'); if(!x.ok||x.version!==3||x.model!=='gemini-3.1-flash-tts-preview'||x.sampleRate!==24000||x.cache!=='postgres-persistent-v1'||x.staticPreview!=='pcm-get-v1'||!Array.isArray(x.voices)||x.voices.length<8||!x.voices.includes('Kore')||!x.voices.includes('Sulafat')) process.exit(2)"
+          node -e "const x=require('/tmp/preview-health.json'); if(!x.ok||x.version!==3||x.model!=='gemini-3.1-flash-tts-preview'||x.sampleRate!==24000||x.cache!=='postgres-persistent-v1'||x.staticPreview!=='pcm-get-v1'||x.personalityPreview!=='selected-voice-cache-v1'||!Array.isArray(x.voices)||x.voices.length<8||!Array.isArray(x.personalities)||x.personalities.length<8||!x.personalities.includes('natural')||!x.personalities.includes('coach')) process.exit(2)"
           code=$(curl -sS -o /tmp/device-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"status"}' "$DEV")
           test "$code" = '401'
           code=$(curl -sS -o /tmp/token-denied.json -w '%{http_code}' -X POST -H 'x-loky-device: invalid-device-123456789' "$TOKEN")
