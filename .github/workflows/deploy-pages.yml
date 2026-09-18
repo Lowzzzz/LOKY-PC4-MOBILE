@@ -251,7 +251,7 @@ jobs:
           grep -F 'new URL(target,self.registration.scope).href' site/sw.js
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|LOKY_PC4_LIVE|speechSynthesis' site/mobile-background-alarm.js; then exit 1; fi
 
-      - name: Verify R4F10 cloud web search isolated layer
+      - name: Verify R4F10R2 safe local web search layer
         shell: bash
         run: |
           set -euo pipefail
@@ -259,18 +259,20 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
-          test "$(git rev-parse HEAD:site/mobile-web-search.js)" = "fd17c9ead4883e8e5b0ab2d56613382e2528148f"
+          test "$(git rev-parse HEAD:site/mobile-web-search.js)" = "18ced163488b7a833f0cc495cf150e4f8e24d65f"
           test "$(git rev-parse HEAD:site/index.html)" = "412bf7c426f71ca5d555ee62e22f175df5103993"
-          grep -F "const VERSION='0.3.2R4F10R1-verified-contact-live-tool'" site/mobile-web-search.js
+          grep -F "const VERSION='0.3.2R4F10R2-safe-local-search'" site/mobile-web-search.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'" site/mobile-web-search.js
           grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-web-search.js
           grep -F 'window.LOKY_PC4_LIVE' site/mobile-web-search.js
           grep -F 'state?.activeWs' site/mobile-web-search.js
           grep -F 'clientContent:{' site/mobile-web-search.js
           grep -F "role:'user'" site/mobile-web-search.js
-          grep -F 'turnComplete:false' site/mobile-web-search.js
           grep -F 'turnComplete:true' site/mobile-web-search.js
-          grep -F 'function holdLiveSearch(' site/mobile-web-search.js
+          grep -F 'function announceLiveSearch(' site/mobile-web-search.js
+          grep -F 'LOKY WEB sí tiene acceso a búsqueda en Internet' site/mobile-web-search.js
+          if grep -Fq 'turnComplete:false' site/mobile-web-search.js; then exit 1; fi
+          if grep -Fq 'function holdLiveSearch(' site/mobile-web-search.js; then exit 1; fi
           grep -F 'Estado de acceso Web de LOKY: ACTIVO.' site/mobile-web-search.js
           grep -F 'NO digas que no tienes acceso a Internet' site/mobile-web-search.js
           grep -F 'function finishLiveSearchError(' site/mobile-web-search.js
@@ -340,7 +342,7 @@ jobs:
           curl -fsS "$PUSH" -o /tmp/push-health.json
           node -e "const x=require('/tmp/push-health.json'); if(!x.ok||x.version!==1||x.backgroundAlarm!=='web-push-v1'||x.scheduler!=='pg-cron-30s'||typeof x.publicKey!=='string'||x.publicKey.length<50) process.exit(2)"
           curl -fsS "$SEARCH" -o /tmp/search-health.json
-          node -e "const x=require('/tmp/search-health.json'); if(!x.ok||x.version!==9||x.provider!=='bing-rss-v1'||x.synthesis!=='gemini-live-existing-session'||x.auth!=='owner-or-invited-device-capability') process.exit(2)"
+          node -e "const x=require('/tmp/search-health.json'); if(!x.ok||x.version!==11||x.provider!=='hybrid-local-v2'||x.synthesis!=='gemini-live-existing-session'||x.auth!=='owner-or-invited-device-capability') process.exit(2)"
           code=$(curl -sS -o /tmp/device-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"status"}' "$DEV")
           test "$code" = '401'
           code=$(curl -sS -o /tmp/token-denied.json -w '%{http_code}' -X POST -H 'x-loky-device: invalid-device-123456789' "$TOKEN")
