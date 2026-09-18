@@ -1,8 +1,8 @@
-const VERSION='loky-pc4-mobile-ios-0.3.2-r4f6';
+const VERSION='loky-pc4-mobile-ios-0.3.2-r4f9';
 const CACHE=`${VERSION}-shell`;
 const SHELL=[
   './','./index.html','./mobile.css','./sphere-mobile.js','./app.js','./live-mobile.js',
-  './ios-audio-stability.js','./mobile-features.js','./mobile-settings-plus.js',
+  './ios-audio-stability.js','./mobile-features.js','./mobile-settings-plus.js','./mobile-background-alarm.js',
   './mobile-noise-guard.js','./mobile-seismic.js','./mobile-earth-reference.js',
   './earth-geometry-r4f6.json','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-512.png'
 ];
@@ -38,7 +38,7 @@ self.addEventListener('fetch',event=>{
 
   const runtimeAsset=
     event.request.mode==='navigate'||
-    /\/(index\.html|app\.js|live-mobile\.js|ios-audio-stability\.js|sphere-mobile\.js|mobile-features\.js|mobile-settings-plus\.js|mobile-noise-guard\.js|mobile-seismic\.js|mobile-earth-reference\.js|earth-geometry-r4f6\.json|mobile\.css|version\.json|manifest\.webmanifest)$/.test(url.pathname);
+    /\/(index\.html|app\.js|live-mobile\.js|ios-audio-stability\.js|sphere-mobile\.js|mobile-features\.js|mobile-settings-plus\.js|mobile-background-alarm\.js|mobile-noise-guard\.js|mobile-seismic\.js|mobile-earth-reference\.js|earth-geometry-r4f6\.json|mobile\.css|version\.json|manifest\.webmanifest)$/.test(url.pathname);
 
   if(runtimeAsset){
     event.respondWith(networkFirst(event.request));
@@ -51,4 +51,50 @@ self.addEventListener('fetch',event=>{
       return response;
     }))
   );
+});
+
+
+self.addEventListener('push',event=>{
+  let payload={};
+  try{payload=event.data?.json?.()||{}}catch{
+    try{payload={body:event.data?.text?.()||''}}catch{}
+  }
+
+  const isAlarm=payload?.type==='alarm';
+  const title=isAlarm?'LOKY · ALARMA':String(payload?.title||'LOKY');
+  const body=isAlarm
+    ? String(payload?.title||'Alarma programada')
+    : String(payload?.body||'Tienes una notificación de LOKY.');
+  const plannerId=String(payload?.plannerId||'');
+  const url=String(payload?.url||'./');
+  const tag=isAlarm&&plannerId
+    ? `loky-background-alarm-${plannerId}`
+    : `loky-background-${Date.now()}`;
+
+  event.waitUntil(
+    self.registration.showNotification(title,{
+      body,
+      tag,
+      renotify:true,
+      requireInteraction:isAlarm,
+      icon:'./icons/icon-180.png',
+      badge:'./icons/icon-180.png',
+      data:{url,plannerId,type:String(payload?.type||'notification'),fireAt:payload?.fireAt||null},
+    })
+  );
+});
+
+self.addEventListener('notificationclick',event=>{
+  event.notification?.close?.();
+  const target=String(event.notification?.data?.url||'./');
+  event.waitUntil((async()=>{
+    const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    for(const client of clients){
+      try{
+        if('navigate' in client)await client.navigate(target);
+        if('focus' in client)return await client.focus();
+      }catch{}
+    }
+    if(self.clients.openWindow)return await self.clients.openWindow(target);
+  })());
 });
