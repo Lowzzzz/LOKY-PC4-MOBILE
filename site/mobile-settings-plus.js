@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F5R3-settings-dashboard-clean';
+  const VERSION='0.3.2R4F5R4-guest-handoff';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const DEVICE_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices';
   const QR_LIB='https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js';
@@ -173,6 +173,8 @@
       .loky-invite-landing-dot{width:12px;height:12px;border-radius:50%;background:#62dcff;box-shadow:0 0 20px rgba(75,211,255,.72)}
       .loky-invite-landing strong{font-size:14px;letter-spacing:.14em}
       .loky-invite-landing span{font-size:9px;color:#799fb0;line-height:1.55}
+      .loky-guest-code{font-size:22px!important;font-weight:900!important;letter-spacing:.16em!important;color:#dff9ff!important;padding:10px 14px;border-radius:14px;border:1px solid rgba(100,216,250,.24);background:rgba(9,52,70,.72);box-shadow:0 0 22px rgba(72,204,247,.10)}
+      .loky-guest-copy{height:36px;padding:0 15px;border-radius:999px;border:1px solid rgba(105,211,243,.20);background:rgba(8,39,53,.72);color:#b8edff;font-size:8px;font-weight:800;letter-spacing:.08em}
 
       @media(max-height:720px){
         .loky-settings-dashboard{gap:7px}
@@ -186,6 +188,8 @@
   }
 
   function capability(){return localStorage.getItem(DEVICE_KEY)||'';}
+  function normalizeGuestCode(value){return String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+  function isGuestCode(value){return /^G[A-Z2-9]{8}$/.test(normalizeGuestCode(value));}
 
   async function api(action,payload={}){
     const headers={'content-type':'application/json'};
@@ -568,6 +572,41 @@
     features.windows.openSettings();
   },true);
 
+
+  function setupGuestActivation(){
+    if(capability())return;
+    const pair=document.getElementById('pairCode');
+    const activate=document.getElementById('activateButton');
+    const hint=document.getElementById('conversationHint');
+    if(pair)pair.placeholder='CÓDIGO DE ACCESO';
+    if(hint&&String(hint.textContent||'').includes('Owner'))hint.textContent='Introduce tu código de acceso una sola vez';
+    if(!pair||!activate)return;
+
+    activate.addEventListener('click',async event=>{
+      if(!isGuestCode(pair.value))return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      activate.disabled=true;
+      const oldText=activate.textContent;
+      activate.textContent='VINCULANDO…';
+      try{
+        const data=await api('claim_device',{activationCode:normalizeGuestCode(pair.value)});
+        if(String(data?.capability||'').length<16)throw new Error('GUEST_CLAIM_FAILED');
+        localStorage.setItem(DEVICE_KEY,String(data.capability));
+        pair.value='';
+        if(hint)hint.textContent='Dispositivo invitado autorizado';
+        activate.textContent='LISTO';
+        setTimeout(()=>location.reload(),350);
+      }catch(error){
+        if(hint)hint.textContent=String(error?.code||error?.message||'')==='GUEST_CODE_EXPIRED_OR_USED'
+          ?'Código invitado expirado o ya usado'
+          :'Código invitado no válido';
+        activate.textContent=oldText||'ACTIVAR';
+        activate.disabled=false;
+      }
+    },true);
+  }
+
   async function processInviteFromUrl(){
     let url;
     try{url=new URL(location.href);}catch{return;}
@@ -606,13 +645,33 @@
         })
       });
       const data=await response.json().catch(()=>({}));
-      if(!response.ok||!data?.ok||String(data.capability||'').length<16){
+      if(!response.ok||!data?.ok||String(data.capability||'').length<16||!isGuestCode(data.activationCode)){
         throw new Error(data?.error||'INVITE_FAILED');
       }
-      localStorage.setItem(DEVICE_KEY,String(data.capability));
-      text.textContent='Dispositivo autorizado. Abriendo LOKY…';
       url.searchParams.delete('invite');
-      setTimeout(()=>location.replace(url.pathname+(url.search||'')+url.hash),550);
+      history.replaceState({},'',url.pathname+(url.search||'')+url.hash);
+
+      const standalone=window.matchMedia?.('(display-mode: standalone)')?.matches||window.navigator.standalone===true;
+      if(standalone){
+        localStorage.setItem(DEVICE_KEY,String(data.capability));
+        text.textContent='Dispositivo autorizado. Abriendo LOKY…';
+        setTimeout(()=>location.reload(),450);
+        return;
+      }
+
+      text.textContent='Instala o abre LOKY desde la pantalla de inicio y usa este código de invitado. No uses el código Owner.';
+      const code=make('strong','loky-guest-code',String(data.activationCode));
+      const copy=make('button','loky-guest-copy','COPIAR CÓDIGO');
+      copy.type='button';
+      copy.addEventListener('click',async()=>{
+        try{
+          await navigator.clipboard.writeText(String(data.activationCode));
+          copy.textContent='COPIADO';
+          setTimeout(()=>copy.textContent='COPIAR CÓDIGO',1200);
+        }catch{}
+      });
+      card.appendChild(code);
+      card.appendChild(copy);
     }catch(error){
       text.textContent=String(error?.message||error)==='INVITE_EXPIRED_OR_USED'
         ?'Este QR ya fue usado o expiró.'
@@ -623,12 +682,15 @@
   }
 
   injectStyles();
+  setupGuestActivation();
   processInviteFromUrl();
 
   window.LOKY_PC4_SETTINGS_PLUS={
     version:VERSION,
     deviceEndpoint:DEVICE_ENDPOINT,
     enhanceSettingsWindow,
-    processInviteFromUrl
+    processInviteFromUrl,
+    setupGuestActivation,
+    normalizeGuestCode
   };
 })();
