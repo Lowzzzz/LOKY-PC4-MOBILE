@@ -83,7 +83,7 @@ vm.runInContext(src,context,{filename:'mobile-planner.js'});
 
 const api=context.LOKY_PC4_PLANNER;
 assert(api,'planner API missing');
-assert(/0\.3\.2R4F8(?:-planner-v1|R1-alert-sounds|R2-safe-area-device-time)/.test(api.version));
+assert(/0\.3\.2R4F8(?:-planner-v1|R1-alert-sounds|R2-safe-area-device-time|R3-voice-alarm-calendar-manual-stop)/.test(api.version));
 
 const now=new Date(2026,8,17,10,0,0,0).getTime();
 
@@ -123,6 +123,43 @@ p=api.parseVoiceCommand('recuérdame comprar leche',now);
 assert(p);
 assert.equal(p.error,'MISSING_TIME');
 
+p=api.parseVoiceCommand('ponme una alarma en 10 minutos',now);
+assert(p);
+assert.equal(p.type,'alarm');
+assert.equal(p.title,'Alarma');
+assert.equal(p.at,now+10*60*1000);
+
+p=api.parseVoiceCommand('despiértame mañana a las 8 de la mañana',now);
+assert(p);
+assert.equal(p.type,'alarm');
+assert.equal(p.title,'Alarma');
+d=new Date(p.at);
+assert.equal(d.getDate(),18);
+assert.equal(d.getHours(),8);
+
+p=api.parseVoiceCommand('pon una alarma a las 11:45 pm',now);
+assert(p);
+assert.equal(p.type,'alarm');
+d=new Date(p.at);
+assert.equal(d.getHours(),23);
+assert.equal(d.getMinutes(),45);
+
+p=api.parseVoiceCommand('pon en el calendario reunión el viernes a las 2 de la tarde',now);
+assert(p);
+assert.equal(p.type,'calendar');
+assert.equal(p.title,'reunión');
+d=new Date(p.at);
+assert.equal(d.getDay(),5);
+assert.equal(d.getHours(),14);
+
+p=api.parseVoiceCommand('calendario cita mañana a las 9 de la mañana',now);
+assert(p);
+assert.equal(p.type,'calendar');
+assert.equal(p.title,'cita');
+d=new Date(p.at);
+assert.equal(d.getDate(),18);
+assert.equal(d.getHours(),9);
+
 assert.equal(api.parseVoiceCommand('abre google',now),null);
 
 const item=api.add('reminder','Comprar pan',now+3600000,'voice');
@@ -150,6 +187,8 @@ assert.equal(api.sounds.get('alarm'),'urgent');
 assert.equal(api.sounds.set('alarm','silent'),true);
 assert.equal(api.sounds.get('alarm'),'silent');
 assert.equal(api.sounds.set('alarm','not-a-sound'),false);
+assert.equal(typeof api.sounds.stop,'function');
+assert.equal(typeof api.sounds.startDue,'function');
 
 assert(api.time,'time API missing');
 assert.equal(typeof api.time.zone(),'string');
@@ -187,5 +226,15 @@ assert(src.includes("function nextPlannerTime("));
 assert(src.includes("HORA LOCAL DEL DISPOSITIVO"));
 assert(src.includes("when.value=toLocalInput(nextPlannerTime())"));
 assert(!src.includes("Date.now()+60*60*1000"));
+assert(src.includes("const WEEKDAY_INDEX={"));
+assert(src.includes("despiertame"));
+assert(src.includes("ponme"));
+assert(src.includes("function startDueAlertSound("));
+assert(src.includes("DETENER ALARMA"));
+assert(src.includes("DETENER SONIDO"));
+assert(src.includes("Number.POSITIVE_INFINITY"));
+assert(src.includes("type==='reminder'?4:3"));
+assert(src.includes("stopAlertSound();"));
+assert(src.includes("startDueAlertSound(item.type)"));
 
 console.log('R4F8 planner reminders alarms calendar PASS');
