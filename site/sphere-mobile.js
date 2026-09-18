@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F10R3-reactive-sphere';
+  const VERSION='0.3.2R4F10R3R1-stronger-distortion';
   const STATE_VISUALS={
     idle:{code:0,color:[57/255,169/255,255/255],energy:.22,motion:.10},
     listening:{code:1,color:[66/255,215/255,255/255],energy:.36,motion:.34},
@@ -37,11 +37,20 @@
     float speaking=step(2.5,uState);
     float activityRate=mix(2.6,7.4,speaking);
     float activity=uMotion*(
-      sin(uTime*activityRate+phase*.24)*0.010+
-      sin(uTime*(activityRate*1.61)-phase*.37)*0.005
+      sin(uTime*activityRate+phase*.24)*0.018+
+      sin(uTime*(activityRate*1.61)-phase*.37)*0.010
     );
     float ripple=speaking*uMotion*
-      sin(p.y*15.0-p.z*9.0+uTime*8.2+phase*.60)*0.014;
+      sin(p.y*15.0-p.z*9.0+uTime*8.2+phase*.60)*0.028;
+
+    // Stronger visible deformation only during real voice activity.
+    // Listening idle stays calm; user speech deforms noticeably; LOKY speech is strongest.
+    float activeWarp=smoothstep(0.62,0.94,uMotion);
+    float warp=activeWarp*(0.034+speaking*0.020);
+    p.x+=sin(p.y*8.5+uTime*6.4+phase*.31)*warp*(0.72+abs(p.z)*0.28);
+    p.y+=sin(p.z*10.5-uTime*5.6+phase*.43)*warp*0.72;
+    p.z+=sin(p.x*9.2+uTime*7.1-phase*.27)*warp*0.86;
+
     p*=1.0+breath+energy+activity+ripple;
 
     float spin=.20+uMotion*.055+speaking*.075;
