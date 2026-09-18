@@ -83,7 +83,7 @@ vm.runInContext(src,context,{filename:'mobile-planner.js'});
 
 const api=context.LOKY_PC4_PLANNER;
 assert(api,'planner API missing');
-assert(/0\.3\.2R4F8(?:-planner-v1|R1-alert-sounds)/.test(api.version));
+assert(/0\.3\.2R4F8(?:-planner-v1|R1-alert-sounds|R2-safe-area-device-time)/.test(api.version));
 
 const now=new Date(2026,8,17,10,0,0,0).getTime();
 
@@ -151,6 +151,13 @@ assert.equal(api.sounds.set('alarm','silent'),true);
 assert.equal(api.sounds.get('alarm'),'silent');
 assert.equal(api.sounds.set('alarm','not-a-sound'),false);
 
+assert(api.time,'time API missing');
+assert.equal(typeof api.time.zone(),'string');
+assert(api.time.zone().length>0);
+assert.equal(typeof api.time.format(now),'string');
+assert(api.time.format(now).length>0);
+assert.equal(api.time.nextDefault(now),now+5*60*1000);
+
 assert(!/new\s+WebSocket\s*\(/.test(src));
 assert(!/getUserMedia\s*\(/.test(src));
 assert(!/LOKY_PC4_LIVE/.test(src));
@@ -172,5 +179,13 @@ assert(src.includes("alarmTone(item.type)"));
 assert(src.includes("SONIDO DE ALERTA"));
 assert(src.includes("SELECCIONAR"));
 assert(src.includes("SILENCIOSO"));
+assert(src.includes("height:calc(54px + var(--safe-top))"));
+assert(src.includes("padding:var(--safe-top) 12px 0"));
+assert(src.includes("function deviceTimeZone("));
+assert(src.includes("function fmtDeviceClock("));
+assert(src.includes("function nextPlannerTime("));
+assert(src.includes("HORA LOCAL DEL DISPOSITIVO"));
+assert(src.includes("when.value=toLocalInput(nextPlannerTime())"));
+assert(!src.includes("Date.now()+60*60*1000"));
 
 console.log('R4F8 planner reminders alarms calendar PASS');
