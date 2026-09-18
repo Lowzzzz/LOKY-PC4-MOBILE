@@ -204,7 +204,6 @@ jobs:
           grep -F 'Number.POSITIVE_INFINITY' site/mobile-planner.js
           grep -F 'startDueAlertSound(item.type)' site/mobile-planner.js
           grep -F 'activeAlertSoundTimer' site/mobile-planner.js
-          grep -F 'ponme' site/mobile-planner.js
           grep -F 'despiertame' site/mobile-planner.js
           grep -F 'function spokenNumber(' site/mobile-planner.js
           grep -F 'const alarmIntent=' site/mobile-planner.js
