@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F5R4-guest-handoff';
+  const VERSION='0.3.2R4F7-voice-personality-ui';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const DEVICE_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices';
   const QR_LIB='https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js';
@@ -159,6 +159,25 @@
         height:34px;padding:0 13px;border-radius:999px;border:1px solid rgba(105,211,243,.18);
         background:rgba(8,39,53,.65);color:#a9e7f8;font-size:7.5px;font-weight:700
       }
+      .loky-choice-grid{
+        width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px
+      }
+      .loky-choice-btn{
+        min-height:48px;padding:8px 9px;border-radius:11px;border:1px solid rgba(100,194,226,.14);
+        background:rgba(7,34,47,.62);display:grid;gap:3px;text-align:left;align-content:center
+      }
+      .loky-choice-btn strong{
+        font-size:8.5px!important;letter-spacing:.07em!important;color:#c9effa!important;margin:0!important
+      }
+      .loky-choice-btn span{
+        font-size:7px!important;color:#7198aa!important;line-height:1.28!important;text-align:left!important
+      }
+      .loky-choice-btn.is-selected{
+        border-color:rgba(108,223,255,.55);background:rgba(16,74,96,.72);
+        box-shadow:0 0 14px rgba(70,198,239,.08)
+      }
+      .loky-choice-btn.is-selected strong{color:#e3fbff!important}
+      .loky-choice-note{font-size:7.5px!important;color:#7fa7b8!important;line-height:1.45!important}
 
       .loky-invite-landing{
         position:fixed;z-index:1000;inset:0;
@@ -263,6 +282,35 @@
     page.appendChild(modal);
   }
 
+  function showProfileModal(page,host,title,profiles,current,setter,note){
+    const modal=make('div','loky-settings-modal');
+    const card=make('div','loky-settings-modal-card');
+    card.appendChild(make('strong','',title));
+    if(note)card.appendChild(make('span','loky-choice-note',note));
+    const grid=make('div','loky-choice-grid');
+    for(const [key,meta] of Object.entries(profiles||{})){
+      const btn=make('button','loky-choice-btn');
+      btn.type='button';
+      btn.classList.toggle('is-selected',key===current);
+      btn.appendChild(make('strong','',String(meta?.label||key).toUpperCase()));
+      btn.appendChild(make('span','',String(meta?.description||'')));
+      btn.addEventListener('click',()=>{
+        if(setter(key)){
+          modal.remove();
+          renderSettingsDashboard(page,host);
+        }
+      });
+      grid.appendChild(btn);
+    }
+    card.appendChild(grid);
+    const close=make('button','loky-modal-btn','CERRAR');
+    close.type='button';
+    close.addEventListener('click',()=>modal.remove());
+    card.appendChild(close);
+    modal.appendChild(card);
+    page.appendChild(modal);
+  }
+
   function renderSettingsDashboard(page,host){
     clearHost(host);
     host.className='loky-feature-content loky-settings-dashboard';
@@ -292,28 +340,38 @@
     host.appendChild(speech);
     paint();
 
+    const voiceMeta=features.voices?.[features.settings.voice]||features.voices?.kore||{label:'Kore',description:'Firme'};
     const voice=make('section','loky-dash-card loky-dash-action');
     const vh=make('div','loky-dash-head');
     vh.appendChild(make('span','loky-dash-icon','♪'));
     const vc=make('div','loky-dash-copy');
     vc.appendChild(make('strong','','VOZ'));
-    vc.appendChild(make('span','','Kore · Gemini Live · voz actual protegida.'));
+    vc.appendChild(make('span','',`${voiceMeta.label} · Gemini Live nativo · ${voiceMeta.description||''}`));
     vh.appendChild(vc);
-    vh.appendChild(make('span','loky-dash-meta','KORE'));
+    vh.appendChild(make('span','loky-dash-meta',String(voiceMeta.label||'Kore').toUpperCase()));
     voice.appendChild(vh);
-    voice.addEventListener('click',()=>showInfoModal(page,'VOZ','La voz actual permanece protegida. En la siguiente fase agregaremos nuevas voces aquí sin tocar Conversation R4.'));
+    voice.addEventListener('click',()=>showProfileModal(
+      page,host,'VOZ',features.voices||{},features.settings.voice,
+      value=>features.settings.setVoice(value),
+      'Elige la voz de LOKY. Se aplica al iniciar la próxima conversación; una sesión activa no se interrumpe.'
+    ));
     host.appendChild(voice);
 
+    const personalityMeta=features.personalities?.[features.settings.personality]||features.personalities?.natural||{label:'Natural',description:'Perfil actual'};
     const personality=make('section','loky-dash-card loky-dash-action');
     const ph=make('div','loky-dash-head');
     ph.appendChild(make('span','loky-dash-icon','✦'));
     const pc=make('div','loky-dash-copy');
     pc.appendChild(make('strong','','PERSONALIDAD'));
-    pc.appendChild(make('span','','Perfil natural actual · próximos perfiles aquí.'));
+    pc.appendChild(make('span','',`${personalityMeta.label} · ${personalityMeta.description||''}`));
     ph.appendChild(pc);
-    ph.appendChild(make('span','loky-dash-meta','NATURAL'));
+    ph.appendChild(make('span','loky-dash-meta',String(personalityMeta.label||'Natural').toUpperCase()));
     personality.appendChild(ph);
-    personality.addEventListener('click',()=>showInfoModal(page,'PERSONALIDAD','Sección preparada para perfiles de comportamiento y expresión. No modifica el Conversation Core.'));
+    personality.addEventListener('click',()=>showProfileModal(
+      page,host,'PERSONALIDAD',features.personalities||{},features.settings.personality,
+      value=>features.settings.setPersonality(value),
+      'La personalidad cambia cómo responde LOKY sin cambiar el motor de conversación. Se aplica en la próxima conversación.'
+    ));
     host.appendChild(personality);
 
     const devices=make('section','loky-dash-card');
