@@ -216,6 +216,7 @@
       .replace(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/g,' ')
       .replace(/\b(?:a|para)\s+las?\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?(?:\s+de\s+la\s+(?:mañana|tarde|noche))?\b/gi,' ')
       .replace(/\b\d{1,2}:\d{2}\s*(?:am|pm)?(?:\s+de\s+la\s+(?:mañana|tarde|noche))?\b/gi,' ')
+      .replace(/\bde\s+la\s+(?:mañana|tarde|noche)\b/gi,' ')
       .replace(/\b(?:para|a|el)\s*$/i,' ')
       .replace(/\s+/g,' ')
       .trim();
