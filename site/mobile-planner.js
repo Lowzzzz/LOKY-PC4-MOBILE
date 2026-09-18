@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F8R4-robust-voice-planner-intents';
+  const VERSION='0.3.2R4F8R5-instant-alarm-capture';
   const STORE_KEY='loky_pc4_mobile_planner_v1';
   const ALERT_SOUND_KEY='loky_pc4_mobile_alert_sounds_v1';
   const MAX_ITEMS=80;
@@ -19,6 +19,8 @@
   let activeSoundNodes=[];
   let activeAlertSoundTimer=0;
   let activeAlertSoundRepeats=0;
+  let instantAlarmTimer=0;
+  let lastInstantAlarm={text:'',at:0,createdAt:0};
 
   const ALERT_SOUNDS={
     loky:{label:'LOKY',description:'Sonido actual de LOKY'},
@@ -880,18 +882,67 @@
     primeAlertAudio().catch(()=>{});
   }
 
-  function applyVoiceCommand(text){
+  function applyVoiceCommand(text,{quietDuplicate=false}={}){
     const parsed=parseVoiceCommand(text);
     if(!parsed)return false;
     if(parsed.error==='MISSING_TIME'){
       toast('Entendí la orden, pero necesito una hora o fecha.');
       return false;
     }
+
+    const existing=loadItems().find(x=>
+      !x.doneAt&&
+      x.type===parsed.type&&
+      normalize(x.title)===normalize(parsed.title)&&
+      Math.abs(x.at-parsed.at)<60000
+    );
+    if(existing)return true;
+
     const item=addItem(parsed.type,parsed.title,parsed.at,'voice');
     if(!item)return false;
     const meta=TYPE_META[item.type];
-    toast(`${meta.label} guardado · ${fmtDate(item.at)}`);
+    if(!quietDuplicate)toast(`${meta.label} guardado · ${fmtDate(item.at)}`);
     return true;
+  }
+
+  function instantAlarmReady(text,parsed){
+    if(!parsed||parsed.type!=='alarm'||parsed.error)return false;
+    const n=normalize(text);
+
+    const hasRelative=/\b(?:(?:para\s+)?dentro\s+de|de\s+aqui\s+a|en)\s+(?:unos?\s+)?(?:\d{1,4}|un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|veinte|veinticinco|treinta|cuarenta|cincuenta|sesenta)\s+(?:minuto|minutos|hora|horas)\b/.test(n);
+    const hasQualifiedClock=/\b(?:am|pm)\b/.test(n)||/\bde\s+la\s+(?:manana|tarde|noche)\b/.test(n);
+    const hasQualifiedDay=/\b(?:hoy|manana|pasado\s+manana|domingo|lunes|martes|miercoles|jueves|viernes|sabado)\b/.test(n)||/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/.test(n);
+
+    return hasRelative||hasQualifiedClock||hasQualifiedDay;
+  }
+
+  function scheduleInstantAlarmCapture(){
+    clearTimeout(instantAlarmTimer);
+    const text=String(userTranscript?.textContent||'').trim();
+    if(!text||text==='—')return;
+
+    const parsed=parseVoiceCommand(text);
+    if(!instantAlarmReady(text,parsed))return;
+
+    instantAlarmTimer=setTimeout(()=>{
+      instantAlarmTimer=0;
+      const stableText=String(userTranscript?.textContent||'').trim();
+      if(!stableText||stableText==='—')return;
+
+      const stableParsed=parseVoiceCommand(stableText);
+      if(!instantAlarmReady(stableText,stableParsed))return;
+
+      const normalized=normalize(stableText);
+      if(
+        lastInstantAlarm.text===normalized&&
+        Math.abs(lastInstantAlarm.at-stableParsed.at)<60000&&
+        Date.now()-lastInstantAlarm.createdAt<8000
+      )return;
+
+      if(applyVoiceCommand(stableText)){
+        lastInstantAlarm={text:normalized,at:stableParsed.at,createdAt:Date.now()};
+      }
+    },220);
   }
 
   function captureFinishedTurn(){
@@ -921,6 +972,11 @@
   });
   observer.observe(body,{childList:true,subtree:true});
 
+  if(userTranscript){
+    new MutationObserver(scheduleInstantAlarmCapture)
+      .observe(userTranscript,{childList:true,subtree:true,characterData:true});
+  }
+
   if(conversationState){
     new MutationObserver(()=>{
       if(String(conversationState.textContent||'').trim()==='PENSANDO')captureFinishedTurn();
@@ -943,6 +999,10 @@
     remove:removeItem,
     parseVoiceCommand,
     checkDue,
+    instant:{
+      alarmReady:instantAlarmReady,
+      capture:scheduleInstantAlarmCapture,
+    },
     time:{
       zone:deviceTimeZone,
       format:fmtDeviceClock,
