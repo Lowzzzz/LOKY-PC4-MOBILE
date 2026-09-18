@@ -1,6 +1,15 @@
 (() => {
   'use strict';
 
+  const VERSION='0.3.2R4F10R3-reactive-sphere';
+  const STATE_VISUALS={
+    idle:{code:0,color:[57/255,169/255,255/255],energy:.22,motion:.10},
+    listening:{code:1,color:[66/255,215/255,255/255],energy:.36,motion:.34},
+    thinking:{code:2,color:[153/255,108/255,255/255],energy:.42,motion:.52},
+    speaking:{code:3,color:[70/255,230/255,196/255],energy:.72,motion:1.0},
+    action:{code:4,color:[255/255,185/255,74/255],energy:.56,motion:.70},
+  };
+
   const VERTEX = `#version 300 es
   precision highp float;
   uniform float uTime;
@@ -8,6 +17,8 @@
   uniform float uAspect;
   uniform float uPointSize;
   uniform float uEnergy;
+  uniform float uMotion;
+  uniform float uState;
   out float vDepth;
   void main(){
     float id=float(gl_VertexID);
@@ -23,9 +34,18 @@
       sin(p.y*17.0-p.z*8.0-uTime*4.0+phase*1.7)*0.28+
       sin((p.x+p.z)*23.0+uTime*5.2+phase*2.2)*0.12;
     float energy=uEnergy*(0.012+0.018*wave);
-    p*=1.0+breath+energy;
+    float speaking=step(2.5,uState);
+    float activityRate=mix(2.6,7.4,speaking);
+    float activity=uMotion*(
+      sin(uTime*activityRate+phase*.24)*0.010+
+      sin(uTime*(activityRate*1.61)-phase*.37)*0.005
+    );
+    float ripple=speaking*uMotion*
+      sin(p.y*15.0-p.z*9.0+uTime*8.2+phase*.60)*0.014;
+    p*=1.0+breath+energy+activity+ripple;
 
-    float c=cos(uTime*.20),s=sin(uTime*.20);
+    float spin=.20+uMotion*.055+speaking*.075;
+    float c=cos(uTime*spin),s=sin(uTime*spin);
     p.xz=mat2(c,-s,s,c)*p.xz;
     float rx=.11*sin(uTime*.23),rz=.07*sin(uTime*.17);
     p.yz=mat2(cos(rx),-sin(rx),sin(rx),cos(rx))*p.yz;
@@ -72,6 +92,13 @@
       this.slowFrames=0;
       this.energy=0.22;
       this.targetEnergy=0.22;
+      this.motion=0.10;
+      this.targetMotion=0.10;
+      this.visualState='idle';
+      this.stateCode=0;
+      this.color=STATE_VISUALS.idle.color.slice();
+      this.targetColor=STATE_VISUALS.idle.color.slice();
+      this.touchBoost=0;
       this.count=15000;
       this.dprCap=1.75;
       this.pointSize=3.15;
@@ -113,7 +140,7 @@
       }
 
       this.uniforms={};
-      for(const name of ['uTime','uCount','uAspect','uPointSize','uEnergy','uColor','uBrightness']){
+      for(const name of ['uTime','uCount','uAspect','uPointSize','uEnergy','uMotion','uState','uColor','uBrightness']){
         this.uniforms[name]=gl.getUniformLocation(program,name);
       }
       this.vao=gl.createVertexArray();
@@ -125,9 +152,9 @@
       this.resize();
       addEventListener('resize',this.onResize,{passive:true});
       document.addEventListener('visibilitychange',this.onVisibility,{passive:true});
-      this.canvas.addEventListener('pointerdown',()=>{this.targetEnergy=.62},{passive:true});
-      this.canvas.addEventListener('pointerup',()=>{this.targetEnergy=.22},{passive:true});
-      this.canvas.addEventListener('pointercancel',()=>{this.targetEnergy=.22},{passive:true});
+      this.canvas.addEventListener('pointerdown',()=>{this.touchBoost=.24},{passive:true});
+      this.canvas.addEventListener('pointerup',()=>{this.touchBoost=0},{passive:true});
+      this.canvas.addEventListener('pointercancel',()=>{this.touchBoost=0},{passive:true});
       return true;
     }
 
@@ -159,12 +186,39 @@
       this.raf=0;
     }
 
+    resolveVisualState(){
+      const live=window.LOKY_PC4_LIVE?.state;
+      const label=String(document.getElementById('conversationState')?.textContent||'').trim().toUpperCase();
+
+      if(live?.userSpeaking)return {name:'listening',activeUser:true};
+      if((live?.playing?.size||0)>0||label==='LOKY HABLANDO')return {name:'speaking',activeUser:false};
+      if(label==='PENSANDO')return {name:'thinking',activeUser:false};
+      if(live?.desired&&live?.setupReady)return {name:'listening',activeUser:false};
+      return {name:'idle',activeUser:false};
+    }
+
+    syncVisualTargets(){
+      const resolved=this.resolveVisualState();
+      const visual=STATE_VISUALS[resolved.name]||STATE_VISUALS.idle;
+      this.visualState=resolved.name;
+      this.stateCode=visual.code;
+      this.targetColor=visual.color;
+      this.targetEnergy=Math.min(1,visual.energy+(resolved.activeUser?.20:0)+this.touchBoost);
+      this.targetMotion=Math.min(1,visual.motion+(resolved.activeUser?.42:0));
+      this.canvas.dataset.voiceVisualState=this.visualState;
+      this.canvas.dataset.userSpeaking=resolved.activeUser?'1':'0';
+    }
+
     frame(now){
       if(!this.running)return;
       const gl=this.gl;
       const dt=Math.min(80,now-this.lastFrame||16.7);
       this.lastFrame=now;
+      this.syncVisualTargets();
       this.energy+=(this.targetEnergy-this.energy)*(1-Math.exp(-dt/130));
+      this.motion+=(this.targetMotion-this.motion)*(1-Math.exp(-dt/150));
+      const colorEase=1-Math.exp(-dt/180);
+      for(let i=0;i<3;i++)this.color[i]+=(this.targetColor[i]-this.color[i])*colorEase;
 
       // Conservative adaptive guard for iPhone thermals/frame pressure.
       if(dt>29)this.slowFrames++;
@@ -188,8 +242,10 @@
       gl.uniform1f(this.uniforms.uAspect,this.canvas.width/Math.max(1,this.canvas.height));
       gl.uniform1f(this.uniforms.uPointSize,this.pointSize*Math.min(1.65,devicePixelRatio||1));
       gl.uniform1f(this.uniforms.uEnergy,this.energy);
-      gl.uniform3f(this.uniforms.uColor,.18,.69,.96);
-      gl.uniform1f(this.uniforms.uBrightness,1.12);
+      gl.uniform1f(this.uniforms.uMotion,this.motion);
+      gl.uniform1f(this.uniforms.uState,this.stateCode);
+      gl.uniform3f(this.uniforms.uColor,this.color[0],this.color[1],this.color[2]);
+      gl.uniform1f(this.uniforms.uBrightness,this.visualState==='speaking'?1.18:1.12);
       gl.drawArrays(gl.POINTS,0,this.count);
       this.frames++;
       this.raf=requestAnimationFrame(this.boundFrame);
@@ -201,7 +257,9 @@
         particles:this.count,
         frames:this.frames,
         dprCap:this.dprCap,
-        running:this.running
+        running:this.running,
+        voiceVisualState:this.visualState,
+        version:VERSION
       };
     }
   }
