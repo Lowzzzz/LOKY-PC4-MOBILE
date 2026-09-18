@@ -175,14 +175,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/mobile-planner.js)" = "e6cfa9384a4229389830e13b19d334a0fe70c168"
-          grep -F "const VERSION='0.3.2R4F8-planner-v1'" site/mobile-planner.js
+          test "$(git rev-parse HEAD:site/mobile-planner.js)" = "7a87eeabe15ca743c4cedb7ae0ce400f7f6c1509"
+          grep -F "const VERSION='0.3.2R4F8R1-alert-sounds'" site/mobile-planner.js
           grep -F "const STORE_KEY='loky_pc4_mobile_planner_v1'" site/mobile-planner.js
           grep -F 'function parseVoiceCommand(' site/mobile-planner.js
           grep -F 'function openPlannerPanel(' site/mobile-planner.js
           grep -F "String(conversationState.textContent||'').trim()==='PENSANDO'" site/mobile-planner.js
           grep -F 'Notification.requestPermission()' site/mobile-planner.js
           grep -F 'navigator.serviceWorker?.ready' site/mobile-planner.js
+          grep -F "const ALERT_SOUND_KEY='loky_pc4_mobile_alert_sounds_v1'" site/mobile-planner.js
+          grep -F 'const ALERT_SOUNDS={' site/mobile-planner.js
+          grep -F 'function playAlertSoundById(' site/mobile-planner.js
+          grep -F 'function showSoundSelector(' site/mobile-planner.js
+          grep -F 'alarmTone(item.type)' site/mobile-planner.js
+          grep -F 'SONIDO DE ALERTA' site/mobile-planner.js
+          grep -F 'SELECCIONAR' site/mobile-planner.js
           grep -F "['RECORDATORIOS','Avisos y tareas pendientes','R']" site/mobile-features.js
           grep -F "['CALENDARIO','Eventos y agenda','C']" site/mobile-features.js
           grep -F "['ALARMAS','Alarmas y temporizadores','A']" site/mobile-features.js
