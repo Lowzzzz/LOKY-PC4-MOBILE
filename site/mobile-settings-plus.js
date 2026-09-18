@@ -1,14 +1,19 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F7-voice-personality-ui';
+  const VERSION='0.3.2R4F7R1-voice-preview-confirm';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const DEVICE_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices';
+  const VOICE_PREVIEW_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-voice-preview';
   const QR_LIB='https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js';
   const features=window.LOKY_PC4_FEATURES;
   if(!features)return;
 
   let qrPromise=null;
+  let voicePreviewContext=null;
+  let voicePreviewSource=null;
+  const voicePreviewCache=new Map();
+  let voicePreviewRequest=0;
 
   function make(tag,className,text){
     const el=document.createElement(tag);
@@ -178,6 +183,16 @@
       }
       .loky-choice-btn.is-selected strong{color:#e3fbff!important}
       .loky-choice-note{font-size:7.5px!important;color:#7fa7b8!important;line-height:1.45!important}
+      .loky-choice-preview-status{
+        min-height:15px;font-size:7.5px;color:#8fc5d8;letter-spacing:.04em;text-align:center
+      }
+      .loky-choice-preview-status.is-error{color:#ff9f97}
+      .loky-choice-select{
+        min-width:150px;height:38px;padding:0 18px;border-radius:999px;
+        border:1px solid rgba(108,223,255,.34);
+        background:linear-gradient(180deg,rgba(24,92,119,.82),rgba(8,49,68,.88));
+        color:#dcf9ff;font-size:8px;font-weight:900;letter-spacing:.12em
+      }
 
       .loky-invite-landing{
         position:fixed;z-index:1000;inset:0;
@@ -282,31 +297,140 @@
     page.appendChild(modal);
   }
 
-  function showProfileModal(page,host,title,profiles,current,setter,note){
+  function stopVoicePreview(){
+    voicePreviewRequest++;
+    if(voicePreviewSource){
+      try{voicePreviewSource.stop()}catch{}
+      voicePreviewSource=null;
+    }
+  }
+
+  async function primeVoicePreviewAudio(){
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx)throw new Error('AUDIO_PREVIEW_UNAVAILABLE');
+    if(!voicePreviewContext)voicePreviewContext=new AudioCtx();
+    if(voicePreviewContext.state==='suspended')await voicePreviewContext.resume();
+    return voicePreviewContext;
+  }
+
+  function decodePcm16(base64,sampleRate=24000){
+    const binary=atob(String(base64||''));
+    const bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+    const samples=Math.floor(bytes.byteLength/2);
+    const ctx=voicePreviewContext;
+    if(!ctx||samples<1)throw new Error('VOICE_PREVIEW_EMPTY');
+    const buffer=ctx.createBuffer(1,samples,Number(sampleRate)||24000);
+    const channel=buffer.getChannelData(0);
+    const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+    for(let i=0;i<samples;i++)channel[i]=view.getInt16(i*2,true)/32768;
+    return buffer;
+  }
+
+  async function fetchVoicePreview(voiceName){
+    if(voicePreviewCache.has(voiceName))return voicePreviewCache.get(voiceName);
+    const cap=capability();
+    if(!cap)throw new Error('DEVICE_NOT_AUTHORIZED');
+    const response=await fetch(VOICE_PREVIEW_ENDPOINT,{
+      method:'POST',
+      headers:{'content-type':'application/json','x-loky-device':cap},
+      cache:'no-store',
+      body:JSON.stringify({voiceName}),
+    });
+    const data=await response.json().catch(()=>({ok:false,error:`HTTP_${response.status}`}));
+    if(!response.ok||!data?.ok||!data?.audio)throw new Error(data?.error||`HTTP_${response.status}`);
+    const value={audio:String(data.audio),sampleRate:Number(data.sampleRate)||24000};
+    voicePreviewCache.set(voiceName,value);
+    return value;
+  }
+
+  async function playVoicePreview(voiceName,status){
+    const requestId=++voicePreviewRequest;
+    stopVoicePreview();
+    voicePreviewRequest=requestId;
+    if(status){
+      status.classList.remove('is-error');
+      status.textContent='CARGANDO MUESTRA…';
+    }
+    try{
+      const ctx=await primeVoicePreviewAudio();
+      const preview=await fetchVoicePreview(voiceName);
+      if(requestId!==voicePreviewRequest)return false;
+      const source=ctx.createBufferSource();
+      source.buffer=decodePcm16(preview.audio,preview.sampleRate);
+      source.connect(ctx.destination);
+      voicePreviewSource=source;
+      source.onended=()=>{if(voicePreviewSource===source)voicePreviewSource=null;if(status&&requestId===voicePreviewRequest)status.textContent='MUESTRA LISTA · PUEDES PROBAR OTRA VOZ';};
+      source.start();
+      if(status)status.textContent='REPRODUCIENDO MUESTRA…';
+      return true;
+    }catch(error){
+      if(status&&requestId===voicePreviewRequest){
+        status.classList.add('is-error');
+        status.textContent='NO SE PUDO REPRODUCIR LA MUESTRA';
+      }
+      console.warn('[LOKY Voice Preview]',error?.message||error);
+      return false;
+    }
+  }
+
+  function showProfileModal(page,host,title,profiles,current,setter,note,options={}){
     const modal=make('div','loky-settings-modal');
     const card=make('div','loky-settings-modal-card');
     card.appendChild(make('strong','',title));
-    if(note)card.appendChild(make('span','loky-choice-note',note));
+    const noteEl=note?make('span','loky-choice-note',note):null;
+    if(noteEl)card.appendChild(noteEl);
+    const status=make('div','loky-choice-preview-status',options.previewVoice?'TOCA UNA VOZ PARA ESCUCHARLA':'ELIGE UNA OPCIÓN Y CONFIRMA');
+    card.appendChild(status);
     const grid=make('div','loky-choice-grid');
+    let draft=current;
+    const buttons=[];
+
+    const paint=()=>{
+      for(const btn of buttons)btn.classList.toggle('is-selected',btn.dataset.choice===draft);
+    };
+
     for(const [key,meta] of Object.entries(profiles||{})){
       const btn=make('button','loky-choice-btn');
       btn.type='button';
-      btn.classList.toggle('is-selected',key===current);
+      btn.dataset.choice=key;
       btn.appendChild(make('strong','',String(meta?.label||key).toUpperCase()));
       btn.appendChild(make('span','',String(meta?.description||'')));
-      btn.addEventListener('click',()=>{
-        if(setter(key)){
-          modal.remove();
-          renderSettingsDashboard(page,host);
+      btn.addEventListener('click',async()=>{
+        draft=key;
+        paint();
+        if(options.previewVoice){
+          const voiceName=String(meta?.name||meta?.label||'Kore');
+          await primeVoicePreviewAudio().catch(()=>{});
+          await playVoicePreview(voiceName,status);
+        }else{
+          status.classList.remove('is-error');
+          status.textContent=`${String(meta?.label||key).toUpperCase()} · LISTA PARA SELECCIONAR`;
         }
       });
+      buttons.push(btn);
       grid.appendChild(btn);
     }
     card.appendChild(grid);
-    const close=make('button','loky-modal-btn','CERRAR');
-    close.type='button';
-    close.addEventListener('click',()=>modal.remove());
-    card.appendChild(close);
+    paint();
+
+    const select=make('button','loky-choice-select','SELECCIONAR');
+    select.type='button';
+    select.addEventListener('click',()=>{
+      if(setter(draft)){
+        stopVoicePreview();
+        modal.remove();
+        renderSettingsDashboard(page,host);
+      }
+    });
+    card.appendChild(select);
+
+    modal.addEventListener('click',event=>{
+      if(event.target===modal){
+        stopVoicePreview();
+        modal.remove();
+      }
+    });
     modal.appendChild(card);
     page.appendChild(modal);
   }
@@ -353,7 +477,8 @@
     voice.addEventListener('click',()=>showProfileModal(
       page,host,'VOZ',features.voices||{},features.settings.voice,
       value=>features.settings.setVoice(value),
-      'Elige la voz de LOKY. Se aplica al iniciar la próxima conversación; una sesión activa no se interrumpe.'
+      'Toca una voz para escucharla. Solo se guarda cuando pulses SELECCIONAR.',
+      {previewVoice:true}
     ));
     host.appendChild(voice);
 
@@ -370,7 +495,7 @@
     personality.addEventListener('click',()=>showProfileModal(
       page,host,'PERSONALIDAD',features.personalities||{},features.settings.personality,
       value=>features.settings.setPersonality(value),
-      'La personalidad cambia cómo responde LOKY sin cambiar el motor de conversación. Se aplica en la próxima conversación.'
+      'Toca una personalidad para preseleccionarla. Solo se guarda cuando pulses SELECCIONAR.'
     ));
     host.appendChild(personality);
 
