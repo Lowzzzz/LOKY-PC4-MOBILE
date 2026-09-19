@@ -38,13 +38,13 @@ class FakeObserver{constructor(cb){this.cb=cb;}observe(){}disconnect(){}}
 const context={
   console,document,MutationObserver:FakeObserver,
   navigator:{userAgent:'iPhone',platform:'iPhone',maxTouchPoints:5,clipboard:{writeText:async()=>{}}},
-  location:{assign(){}},
-  setTimeout:()=>1,clearTimeout:()=>{},
+  location:{href:'',assign(url){this.href=url;}},
+  setTimeout:()=>1,clearTimeout:()=>{},setInterval:()=>1,clearInterval:()=>{},
   Date,String,Number,JSON,RegExp,Math,Promise,encodeURIComponent,
   window:null,
 };
 context.window=context;
-context.LOKY_PC4_LIVE={state:{userSpeaking:false}};
+context.LOKY_PC4_LIVE={state:{userSpeaking:false,transcriptBuffer:''}};
 context.LOKY_PC4_FEATURES={windows:{openSettings(){context._settingsOpened=true;}}};
 context.LOKY_PC4_PLANNER={add(){return {id:'t'};},checkDue(){},open(){}};
 vm.createContext(context);
@@ -105,5 +105,7 @@ assert(!src.includes('ACCIONES MÓVILES'));
 assert(src.includes("window.LOKY_PC4_PLANNER"));
 assert(src.includes("window.LOKY_PC4_FEATURES"));
 assert(src.includes("location.assign(url)"));
+context.LOKY_PC4_LIVE.state.transcriptBuffer='LOKY abre Maps';
+assert.equal(api.readTranscript(),'LOKY abre Maps');
 
 console.log('R4F11 isolated Mobile Actions tests PASS');
