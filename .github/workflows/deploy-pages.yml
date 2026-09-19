@@ -346,6 +346,8 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
           test "$(git rev-parse HEAD:site/mobile-actions.js)" = "5803be78d341cbeff06a7e45f608bc80c51193c8"
           test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "bd329d5ef48779d2c715be0a62d9f85dccda925e"
+          test "$(git rev-parse HEAD:site/language-avatar.webp)" = "9119b39fcc21891bb95d5f3f95b57444277723f6"
+          test "$(git cat-file -s HEAD:site/language-avatar.webp)" -gt 10000
           test "$(git rev-parse HEAD:site/index.html)" = "27473a56b3797909c4bcd745db0232cd74d0f6f6"
           grep -F "const VERSION='0.3.2R4F12R1-multilingual-avatar-tutor'" site/mobile-language-tutor.js
           grep -F "const STORE_KEY='loky_pc4_language_tutor_v1'" site/mobile-language-tutor.js
