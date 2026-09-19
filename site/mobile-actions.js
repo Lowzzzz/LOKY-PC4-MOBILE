@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F11R3-punctuation-safe-actions';
+  const VERSION='0.3.2R4F11R4-timer-popup';
   const REPEAT_GUARD_MS=10000;
   const TRANSCRIPT_SETTLE_MS=360;
   const USER_END_POLL_MS=80;
@@ -15,6 +15,9 @@
   let lastActionKey='';
   let lastActionAt=0;
   let statusCard=null;
+  let timerPopup=null;
+  let timerPopupInterval=0;
+  let timerPopupTimeout=0;
   let observedText='';
   let observedAt=0;
   let processedText='';
@@ -181,6 +184,10 @@
       .loky-mobile-action-status{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));z-index:160;transform:translateX(-50%);width:min(90vw,390px);padding:11px 13px;border-radius:16px;border:1px solid rgba(82,209,241,.22);background:rgba(4,19,29,.95);box-shadow:0 18px 60px rgba(0,0,0,.36);backdrop-filter:blur(16px);color:#dff8ff}
       .loky-mobile-action-status strong{display:block;font-size:9px;letter-spacing:.12em;color:#66d7ff}.loky-mobile-action-status span{display:block;margin-top:4px;font-size:11px;line-height:1.35;color:#b9dce7}
       .loky-mobile-action-status button{margin-top:8px;min-height:32px;padding:0 11px;border-radius:9px;border:1px solid rgba(91,208,235,.22);background:rgba(14,57,73,.78);color:#c8f4ff;font-size:9px;font-weight:900}
+      .loky-timer-popup{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));z-index:175;transform:translateX(-50%);width:min(82vw,280px);padding:10px 14px 11px;border-radius:16px;border:1px solid rgba(103,220,245,.28);background:rgba(4,20,30,.96);box-shadow:0 12px 34px rgba(0,0,0,.34);backdrop-filter:blur(16px);color:#e7fbff;text-align:center;pointer-events:none}
+      .loky-timer-popup strong{display:block;font-size:9px;letter-spacing:.16em;color:#72dcf6}
+      .loky-timer-popup b{display:block;margin-top:2px;font-size:27px;line-height:1.05;letter-spacing:.05em;color:#f0fdff;font-variant-numeric:tabular-nums}
+      .loky-timer-popup span{display:block;margin-top:3px;font-size:8px;font-weight:900;letter-spacing:.12em;color:#83f0c8}
     `;
     document.head.appendChild(style);
   }
@@ -220,6 +227,55 @@
     },2600);
   }
 
+  function formatTimerRemaining(ms){
+    const total=Math.max(0,Math.ceil(Number(ms||0)/1000));
+    const hours=Math.floor(total/3600);
+    const minutes=Math.floor((total%3600)/60);
+    const seconds=total%60;
+    if(hours>0){
+      return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+    }
+    return `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+  }
+
+  function clearTimerPopup(){
+    clearInterval(timerPopupInterval);
+    clearTimeout(timerPopupTimeout);
+    timerPopupInterval=0;
+    timerPopupTimeout=0;
+    timerPopup?.remove();
+    timerPopup=null;
+  }
+
+  function showTimerPopup(durationMs){
+    ensureStyles();
+    clearTimerPopup();
+
+    const endAt=Date.now()+Math.max(1000,Number(durationMs||0));
+    const card=document.createElement('section');
+    card.className='loky-timer-popup';
+    card.setAttribute('role','status');
+    card.setAttribute('aria-live','polite');
+
+    const title=document.createElement('strong');
+    title.textContent='TEMPORIZADOR';
+    const clock=document.createElement('b');
+    const state=document.createElement('span');
+    state.textContent='ACTIVO';
+
+    const paint=()=>{
+      clock.textContent=formatTimerRemaining(endAt-Date.now());
+    };
+    paint();
+
+    card.append(title,clock,state);
+    body.appendChild(card);
+    timerPopup=card;
+
+    timerPopupInterval=setInterval(paint,250);
+    timerPopupTimeout=setTimeout(clearTimerPopup,5200);
+  }
+
   function navigate(url,label){
     showStatus('ABRIENDO',label||url);
     try{
@@ -256,7 +312,7 @@
     const item=planner.add('alarm',`Temporizador · ${action.label}`,at,'voice-action');
     if(!item)return false;
     planner.checkDue?.();
-    showStatus('TEMPORIZADOR ACTIVO',`${action.label} · sonará como alarma de LOKY.`);
+    showTimerPopup(action.ms);
     return true;
   }
 
@@ -370,6 +426,7 @@
     readTranscript:liveTranscript,
     candidates:commandCandidates,
     duration:parseDuration,
+    timerPopup:{show:showTimerPopup,clear:clearTimerPopup,format:formatTimerRemaining},
     urls:{
       mapsHome:mapsHomeUrl,
       mapsDirections:mapsDirectionsUrl,
