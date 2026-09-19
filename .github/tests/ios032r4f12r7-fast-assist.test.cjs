@@ -166,7 +166,8 @@ vm.createContext(context);
   assert(index.includes('<script src="./mobile-language-tutor.js?v=0.3.2r4f12r7"></script>'));
 
   assert(src.includes("const ASSIST_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-language-assist'"));
-  assert(src.includes('const AUTO_ASSIST_SETTLE_MS=320'));
+  assert(src.includes('const AUTO_ASSIST_SETTLE_MS=90'));
+  assert(src.includes('const AUTO_ASSIST_END_SETTLE_MS=180'));
 
   assert(src.includes('function cleanUserDisplay('));
   assert(src.includes('function dedupeSentences('));
