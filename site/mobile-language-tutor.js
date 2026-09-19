@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F12R4-auto-floating-translation';
+  const VERSION='0.3.2R4F12R5-transcript-pronunciation-polish';
   const STORE_KEY='loky_pc4_language_tutor_v1';
   const STATS_KEY='loky_pc4_language_tutor_stats_v1';
   const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1';
@@ -239,13 +239,38 @@
     return text.replace(/\s+/g,' ').trim();
   }
 
+  function sentenceKey(value){
+    return String(value||'')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+
+  function dedupeSentences(parts){
+    const out=[];
+    let previous='';
+    for(const raw of parts||[]){
+      const item=String(raw||'').replace(/\s+/g,' ').trim();
+      if(!item)continue;
+      const key=sentenceKey(item);
+      if(!key||key===previous)continue;
+      out.push(item);
+      previous=key;
+    }
+    return out;
+  }
+
   function tutorSentences(raw){
     const text=stripTeachingPayloads(raw);
     if(!text||text==='—')return [];
 
-    return (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[])
+    const parts=(text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[])
       .map(x=>x.trim())
       .filter(Boolean);
+
+    return dedupeSentences(parts);
   }
 
   function latestTutorPhrase(raw){
@@ -259,15 +284,43 @@
   function cleanTutorDisplay(raw){
     const parts=tutorSentences(raw);
     if(!parts.length)return '—';
+
     const selected=[];
     let total=0;
-    for(let i=parts.length-1;i>=0&&selected.length<3;i--){
+    for(let i=parts.length-1;i>=0&&selected.length<2;i--){
       const item=parts[i];
-      if(selected.length&&total+item.length>280)break;
+      if(selected.length&&total+item.length>220)break;
       selected.unshift(item);
       total+=item.length+1;
     }
     return selected.join(' ').trim()||'—';
+  }
+
+  function cleanUserDisplay(raw){
+    let text=String(raw||'').replace(/\s+/g,' ').trim();
+    if(!text||text==='—')return '—';
+
+    const parts=(text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[])
+      .map(x=>x.trim())
+      .filter(Boolean);
+    const deduped=dedupeSentences(parts);
+    text=deduped.join(' ').trim();
+
+    // Short user turns sometimes arrive twice from incremental transcription.
+    const words=text.split(/\s+/);
+    if(words.length>=2&&words.length<=10){
+      const out=[];
+      let previous='';
+      for(const word of words){
+        const key=sentenceKey(word);
+        if(key&&key===previous)continue;
+        out.push(word);
+        previous=key;
+      }
+      text=out.join(' ').trim();
+    }
+
+    return text||'—';
   }
 
   function capability(){
@@ -659,7 +712,7 @@
     const tutor=overlay.querySelector?.('[data-lang-tutor]');
     const stat=overlay.querySelector?.('[data-lang-progress]');
     if(me){
-      const text=String(document.getElementById('userTranscript')?.textContent||'—').trim();
+      const text=cleanUserDisplay(String(document.getElementById('userTranscript')?.textContent||'—'));
       me.textContent=text||'—';
     }
     if(tutor){
@@ -691,7 +744,7 @@
 
     const userLine=make('div','loky-language-line user');
     userLine.append(make('span','', 'TÚ'));
-    const userText=make('p','',String(document.getElementById('userTranscript')?.textContent||'—'));
+    const userText=make('p','',cleanUserDisplay(String(document.getElementById('userTranscript')?.textContent||'—')));
     userText.dataset.langUser='1';
     userLine.appendChild(userText);
     dialog.append(tutorLine,userLine);
@@ -814,8 +867,10 @@
     quick:quickAction,
     repeatLatestTutorPhrase,
     cleanTutorDisplay,
+    cleanUserDisplay,
     latestTutorPhrase,
     stripTeachingPayloads,
+    dedupeSentences,
     apiLanguageAssist,
     scheduleAutoAssist,
     paintFloatingAssist,
