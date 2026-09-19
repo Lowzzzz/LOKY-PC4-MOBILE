@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F11R5-persistent-timer-popup';
+  const VERSION='0.3.2R4F11R6-timer-delete';
   const REPEAT_GUARD_MS=10000;
   const TRANSCRIPT_SETTLE_MS=360;
   const USER_END_POLL_MS=80;
@@ -63,7 +63,7 @@
     if(lokyParts.length>1)add(lokyParts[lokyParts.length-1]);
 
     const starts=[];
-    const re=/\b(?:abre|abrir|abreme|muestra|ve a|entra a|llevame|navega|guiame|dame indicaciones|como llego|quiero ir|pon|reproduce|manda|envia|comparte|copia|copiar|inicia|crea|activa)\b/g;
+    const re=/\b(?:abre|abrir|abreme|muestra|ve a|entra a|llevame|navega|guiame|dame indicaciones|como llego|quiero ir|pon|reproduce|manda|envia|comparte|copia|copiar|inicia|crea|activa|elimina|eliminar|borra|borrar|cancela|cancelar|quita|quitar|deten|detener)\b/g;
     let m;
     while((m=re.exec(base)))starts.push(m.index);
     if(starts.length)add(base.slice(starts[starts.length-1]));
@@ -144,6 +144,14 @@
       if(match?.[1]){
         const duration=parseDuration(match[1]);
         if(duration)return {type:'timer',...duration};
+      }
+
+      if(/^(?:elimina|eliminar|borra|borrar|cancela|cancelar|quita|quitar|deten|detener)\s+(?:(?:el|ese|este|un)\s+)?temporizador(?:\s+activo)?(?:\s+por favor)?$/.test(n)){
+        return {type:'timer-delete',all:false};
+      }
+
+      if(/^(?:elimina|eliminar|borra|borrar|cancela|cancelar|quita|quitar|deten|detener)\s+(?:todos\s+(?:los\s+)?)?temporizadores(?:\s+activos)?(?:\s+por favor)?$/.test(n)){
+        return {type:'timer-delete',all:true};
       }
 
       if(/^(?:abre|abrir|abreme|muestra)\s+(?:las\s+)?alarmas(?:\s+ahora)?$/.test(n)){
@@ -322,6 +330,54 @@
     return true;
   }
 
+  function activeTimers(){
+    const planner=window.LOKY_PC4_PLANNER;
+    if(!planner?.snapshot)return [];
+    const now=Date.now();
+    return planner.snapshot()
+      .filter(item=>
+        item&&
+        item.type==='alarm'&&
+        !item.doneAt&&
+        Number(item.at)>now-1000&&
+        normalize(item.title).startsWith('temporizador')
+      )
+      .sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0));
+  }
+
+  function cancelTimer(action={}){
+    const planner=window.LOKY_PC4_PLANNER;
+    if(!planner?.remove)return false;
+
+    const timers=activeTimers();
+    if(!timers.length){
+      clearTimerPopup();
+      showStatus('SIN TEMPORIZADOR','No hay un temporizador activo para eliminar.');
+      return true;
+    }
+
+    const targets=action.all?timers:[timers[0]];
+    let removed=0;
+    for(const timer of targets){
+      if(planner.remove(timer.id))removed++;
+    }
+
+    clearTimerPopup();
+
+    if(removed>0){
+      planner.checkDue?.();
+      Promise.resolve(window.LOKY_PC4_BACKGROUND_ALARM?.sync?.(true)).catch(()=>{});
+      showStatus(
+        removed>1?'TEMPORIZADORES ELIMINADOS':'TEMPORIZADOR ELIMINADO',
+        removed>1?`${removed} temporizadores cancelados.`:'El temporizador activo fue cancelado.'
+      );
+      return true;
+    }
+
+    showStatus('NO SE PUDO ELIMINAR','El temporizador sigue activo.');
+    return false;
+  }
+
   function executeAction(action){
     if(!action)return false;
 
@@ -356,6 +412,8 @@
     }
 
     if(action.type==='timer')return createTimer(action);
+
+    if(action.type==='timer-delete')return cancelTimer(action);
 
     if(action.type==='alarms-open'){
       window.LOKY_PC4_PLANNER?.open?.('alarm');
@@ -433,6 +491,7 @@
     candidates:commandCandidates,
     duration:parseDuration,
     timerPopup:{show:showTimerPopup,clear:clearTimerPopup,format:formatTimerRemaining},
+    timers:{active:activeTimers,cancel:cancelTimer},
     urls:{
       mapsHome:mapsHomeUrl,
       mapsDirections:mapsDirectionsUrl,
