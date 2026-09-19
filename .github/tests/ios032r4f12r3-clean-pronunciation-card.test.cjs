@@ -157,8 +157,8 @@ assert(String(JSON.parse(activeWs.sent.at(-1)).clientContent.turns[0].parts[0].t
 api.quick('translate');
 const translateControl=String(JSON.parse(activeWs.sent.at(-1)).clientContent.turns[0].parts[0].text);
 assert(translateControl.includes('TRANSLATE + PRONUNCIATION'));
-assert(translateControl.includes('TRADUCCIÓN: <significado>'));
-assert(translateControl.includes('PRONUNCIACIÓN: <guía fácil>'));
+assert(translateControl.includes('TRADUCCIÓN: <traducción en el idioma base>'));
+assert(translateControl.includes('PRONUNCIACIÓN: <guía corta y fácil>'));
 
 lokyTranscript.textContent='Welcome to class. What would you like to drink?';
 api.quick('translate');
