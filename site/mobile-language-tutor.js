@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F12R5-transcript-pronunciation-polish';
+  const VERSION='0.3.2R4F12R6-language-visual-clean';
   const STORE_KEY='loky_pc4_language_tutor_v1';
   const STATS_KEY='loky_pc4_language_tutor_stats_v1';
   const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1';
@@ -558,7 +558,7 @@
       body.loky-language-active .future-op-button.feature-language::before{color:#94f0d2;filter:drop-shadow(0 0 8px rgba(67,235,180,.40))}
       .loky-language-overlay{position:fixed;z-index:260;inset:0;background:#030b12;color:#e8f8ff;display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
       .loky-language-hero{position:absolute;inset:0;overflow:hidden;background:radial-gradient(circle at 50% 38%,rgba(22,70,88,.34),rgba(3,11,18,.96) 64%)}
-      .loky-language-avatar{position:absolute;left:11%;top:9%;width:78%;height:72%;object-fit:contain;object-position:center top;filter:saturate(.92) contrast(1.04) brightness(.92);opacity:.96;transition:transform .28s ease,filter .28s ease}
+      .loky-language-avatar{position:absolute;left:4%;top:7%;width:92%;height:86%;object-fit:contain;object-position:center center;filter:saturate(.92) contrast(1.04) brightness(.92);opacity:.96;transition:transform .28s ease,filter .28s ease}
       .loky-language-hero[data-state="listening"] .loky-language-avatar{filter:saturate(.98) contrast(1.04) brightness(.95) drop-shadow(0 0 22px rgba(77,210,236,.12))}
       .loky-language-hero[data-state="thinking"] .loky-language-avatar{filter:saturate(.88) contrast(1.05) brightness(.90) drop-shadow(0 0 22px rgba(153,108,255,.12))}
       .loky-language-hero[data-state="speaking"] .loky-language-avatar{transform:scale(1.018);filter:saturate(1.02) contrast(1.05) brightness(.97) drop-shadow(0 0 26px rgba(70,230,196,.16))}
@@ -567,17 +567,14 @@
       .loky-language-top{position:relative;z-index:4;box-sizing:border-box;min-height:calc(58px + env(safe-area-inset-top));display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:end;gap:9px;padding:env(safe-area-inset-top) 14px 10px;background:linear-gradient(180deg,rgba(2,9,15,.80),rgba(2,9,15,.18));border-bottom:1px solid rgba(127,211,236,.08)}
       .loky-language-back,.loky-language-settings{height:34px;padding:0 11px;border-radius:999px;border:1px solid rgba(112,201,230,.18);background:rgba(4,26,38,.58);color:#c4effb;font-size:8px;font-weight:900;letter-spacing:.08em}
       .loky-language-heading{display:grid;gap:2px;text-align:center;min-width:0}.loky-language-heading strong{font-size:10px;letter-spacing:.14em;color:#e2faff}.loky-language-heading span{font-size:7.5px;color:#79a6b7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .loky-language-main{position:relative;z-index:3;min-height:0;display:grid;align-items:end;padding:0 14px calc(15px + env(safe-area-inset-bottom));overflow:auto;-webkit-overflow-scrolling:touch}
-      .loky-language-live{display:grid;gap:10px;width:100%;max-width:540px;margin:0 auto}
-      .loky-language-status{justify-self:center;padding:6px 10px;border-radius:999px;border:1px solid rgba(90,223,184,.20);background:rgba(5,39,38,.58);backdrop-filter:blur(14px);color:#93ebcf;font-size:7px;font-weight:1000;letter-spacing:.12em}
-      .loky-language-dialog{border:1px solid rgba(116,205,233,.14);background:rgba(4,20,30,.78);backdrop-filter:blur(18px);border-radius:19px;padding:11px 12px;display:grid;gap:8px}
-      .loky-language-line{display:grid;grid-template-columns:42px minmax(0,1fr);gap:8px;align-items:start}.loky-language-line span{font-size:7px;font-weight:1000;letter-spacing:.11em;color:#68bcd4;padding-top:2px}.loky-language-line p{margin:0;font-size:11px;line-height:1.45;color:#d8eff6;min-width:0}.loky-language-line.user p{color:#a8d1dd}
+      .loky-language-main{position:relative;z-index:3;min-height:0;display:grid;align-items:end;padding:0 14px calc(15px + env(safe-area-inset-bottom));overflow:hidden}
+      .loky-language-live{display:grid;gap:9px;width:100%;max-width:540px;margin:0 auto}
       .loky-language-tools{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.loky-language-tool{min-height:40px;border-radius:12px;border:1px solid rgba(100,196,226,.13);background:rgba(6,31,43,.72);color:#a9dce9;font-size:7px;font-weight:900;letter-spacing:.05em}
-      .loky-language-progress{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#729cad;font-size:7px;padding:0 3px}.loky-language-progress strong{color:#aadce8}
+      .loky-language-progress{display:flex;align-items:center;justify-content:flex-end;color:#729cad;font-size:7px;padding:0 3px}.loky-language-progress strong{color:#8fb9c6;font-weight:800}
       .loky-language-state{justify-self:center;padding:5px 9px;border-radius:999px;border:1px solid rgba(106,203,234,.14);background:rgba(4,24,34,.68);font-size:7px;font-weight:1000;letter-spacing:.13em;color:#86c9db}
       .loky-language-state[data-state="speaking"]{color:#8fe6c8;border-color:rgba(73,222,180,.24)}
       .loky-language-state[data-state="thinking"]{color:#c2a9ff;border-color:rgba(156,115,246,.24)}
-      .loky-language-floating{min-height:48px;display:grid;align-content:center;justify-items:center;gap:3px;padding:0 12px;opacity:0;transform:translateY(7px);transition:opacity .22s ease,transform .22s ease;pointer-events:none;text-align:center}
+      .loky-language-floating{min-height:78px;display:grid;align-content:end;justify-items:center;gap:4px;padding:0 16px 4px;opacity:0;transform:translateY(7px);transition:opacity .22s ease,transform .22s ease;pointer-events:none;text-align:center}
       .loky-language-floating.has-value{opacity:1;transform:translateY(0)}
       .loky-language-floating-translation{max-width:92%;font-size:12px;line-height:1.32;font-weight:800;color:#eefcff;text-shadow:0 2px 8px #02080c,0 0 14px rgba(58,190,220,.28)}
       .loky-language-floating-pronunciation{max-width:94%;font-size:11px;line-height:1.28;font-weight:1000;letter-spacing:.025em;color:#99efd1;text-shadow:0 2px 8px #02080c,0 0 15px rgba(58,225,176,.25)}
@@ -708,17 +705,7 @@
 
   function paintLiveCopy(){
     if(!overlay)return;
-    const me=overlay.querySelector?.('[data-lang-user]');
-    const tutor=overlay.querySelector?.('[data-lang-tutor]');
     const stat=overlay.querySelector?.('[data-lang-progress]');
-    if(me){
-      const text=cleanUserDisplay(String(document.getElementById('userTranscript')?.textContent||'—'));
-      me.textContent=text||'—';
-    }
-    if(tutor){
-      const text=cleanTutorDisplay(String(document.getElementById('lokyTranscript')?.textContent||'—'));
-      tutor.textContent=text||'—';
-    }
     if(stat){
       stat.textContent=`${stats.turns} turnos · ${Math.round(stats.minutes)} min`;
     }
@@ -729,25 +716,11 @@
   function renderLive(root){
     root.replaceChildren();
     const live=make('section','loky-language-live');
-    const status=make('span','loky-language-status',`${targetLanguage().native.toUpperCase()} · ${levelMeta().cefr} · ${goalMeta().label}`);
+
     const visual=liveVisualState();
     const stateBadge=make('span','loky-language-state',visual.label);
     stateBadge.dataset.langState='1';
     stateBadge.dataset.state=visual.key;
-
-    const dialog=make('div','loky-language-dialog');
-    const tutorLine=make('div','loky-language-line');
-    tutorLine.append(make('span','', 'TUTORA'));
-    const tutorText=make('p','',cleanTutorDisplay(String(document.getElementById('lokyTranscript')?.textContent||'—')));
-    tutorText.dataset.langTutor='1';
-    tutorLine.appendChild(tutorText);
-
-    const userLine=make('div','loky-language-line user');
-    userLine.append(make('span','', 'TÚ'));
-    const userText=make('p','',cleanUserDisplay(String(document.getElementById('userTranscript')?.textContent||'—')));
-    userText.dataset.langUser='1';
-    userLine.appendChild(userText);
-    dialog.append(tutorLine,userLine);
 
     const floating=make('div','loky-language-floating');
     floating.dataset.langFloatingAssist='1';
@@ -772,12 +745,11 @@
     }
 
     const progress=make('div','loky-language-progress');
-    progress.append(make('span','',`${sourceLanguage().label} → ${targetLanguage().label}`));
     const stat=make('strong','',`${stats.turns} turnos · ${Math.round(stats.minutes)} min`);
     stat.dataset.langProgress='1';
     progress.appendChild(stat);
 
-    live.append(status,stateBadge,floating,dialog,tools,progress);
+    live.append(stateBadge,floating,tools,progress);
     root.appendChild(live);
     paintLiveCopy();
   }
