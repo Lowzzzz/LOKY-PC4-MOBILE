@@ -52,10 +52,14 @@ vm.runInContext(src,context,{filename:'mobile-actions.js'});
 
 const api=context.LOKY_PC4_MOBILE_ACTIONS;
 assert(api,'Mobile Actions API missing');
-assert.equal(api.version,'0.3.2R4F11R2-transcript-buffer-actions');
+assert.equal(api.version,'0.3.2R4F11R3-punctuation-safe-actions');
 
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY abre Maps'))),{type:'maps-open'});
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY abre Maps por favor'))),{type:'maps-open'});
+assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY, abre Maps.'))),{type:'maps-open'});
+assert.deepEqual(JSON.parse(JSON.stringify(api.parse('“LOKY, abre YouTube.”'))),{type:'youtube-open'});
+assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY, abre WhatsApp.'))),{type:'whatsapp-open'});
+assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY, pon un temporizador de cinco minutos.'))),{type:'timer',ms:300000,label:'5 minutos'});
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('sí sí LOKY abre Maps'))),{type:'maps-open'});
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY abre Maps LOKY abre Maps'))),{type:'maps-open'});
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY llévame a Plaza Las Américas'))),{type:'maps-directions',destination:'plaza las americas'});
@@ -77,9 +81,9 @@ assert.equal(timer2.ms,(60+30)*60*1000);
 assert.equal(api.parse('búscame el teléfono de Apple Store'),null,'Web Search intent must remain owned by Web Search');
 assert.equal(api.parse('pon una alarma en cinco minutos'),null,'existing alarm intent must remain owned by Planner');
 
-assert(index.includes('<script src="./mobile-actions.js?v=0.3.2r4f11r2"></script>'));
-assert(index.indexOf('mobile-planner.js?v=0.3.2r4f8') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r2'));
-assert(index.indexOf('mobile-web-search.js?v=0.3.2r4f10r3') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r2'));
+assert(index.includes('<script src="./mobile-actions.js?v=0.3.2r4f11r3"></script>'));
+assert(index.indexOf('mobile-planner.js?v=0.3.2r4f8') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r3'));
+assert(index.indexOf('mobile-web-search.js?v=0.3.2r4f10r3') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r3'));
 
 for(const forbidden of [
   /new\s+WebSocket\s*\(/,
