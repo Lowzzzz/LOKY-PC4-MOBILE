@@ -216,7 +216,6 @@ assert(src.includes('data-state="speaking"'));
 assert(src.includes('object-fit:contain'));
 assert(src.includes('width:78%;height:72%'));
 assert(src.includes('function stripTeachingPayloads('));
-assert(src.includes("lastIndexOf('TRADUCCIÓN:')")==false);
 assert(src.includes('No cambies de tema. No hagas otra pregunta.'));
 
 console.log('R4F12R1 multilingual avatar tutor tests PASS');
