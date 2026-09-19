@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F12R1-multilingual-avatar-tutor';
+  const VERSION='0.3.2R4F12R2-pronunciation-cards';
   const STORE_KEY='loky_pc4_language_tutor_v1';
   const STATS_KEY='loky_pc4_language_tutor_stats_v1';
   const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1';
@@ -43,7 +43,11 @@
   let overlay=null;
   let sessionStartedAt=0;
   let lastTranscript='';
+  let lastTutorTranscript='';
   let turnObserver=null;
+  let pronunciationCard=null;
+  let pronunciationTarget='';
+  let pendingTeachingCard=false;
 
   function normalizeState(raw={}){
     let source=LANGUAGES[raw.source]?raw.source:'es';
@@ -120,6 +124,7 @@
       '4. Nunca interrumpas al estudiante mientras habla.',
       '5. Después de la respuesta, corrige solo los errores que realmente ayuden. No corrijas todo.',
       '6. Para una corrección usa: "Mejor: <frase correcta>" y una explicación muy corta.',
+      '   Cuando corrijas una palabra o frase, añade también: "Pronunciación: <guía sencilla>". La guía debe ser legible para alguien que habla el idioma base; marca el golpe de voz con MAYÚSCULAS cuando ayude. No uses IPA salvo que el usuario lo pida.',
       '7. Si hay un error de pronunciación importante, muestra una guía sencilla y pide repetir una sola vez.',
       '8. Reutiliza vocabulario visto anteriormente dentro de nuevas preguntas.',
       '9. Aumenta o reduce dificultad según el desempeño real, sin anunciar cambios de nivel constantemente.',
@@ -207,16 +212,112 @@
   function quickAction(kind){
     const source=sourceLanguage();
     const target=targetLanguage();
+    const latestTutor=cleanTutorDisplay(String(document.getElementById('lokyTranscript')?.textContent||''));
     const map={
       hint:`[LOKY TUTOR TOOL — HINT] Da una pista breve en ${source.label} sin revelar la respuesta completa. Luego repite la pregunta en ${target.label}.`,
       slower:`[LOKY TUTOR TOOL — SLOWER] Repite tu última frase en ${target.label} claramente y más despacio. No añadas explicación salvo que te la pidan.`,
-      translate:`[LOKY TUTOR TOOL — TRANSLATE] Traduce brevemente tu última frase a ${source.label}, luego vuelve a ${target.label} con una pregunta corta.`,
+      translate:[
+        '[LOKY TUTOR TOOL — TRANSLATE + PRONUNCIATION]',
+        `Expresión a traducir: ${latestTutor||'tu última frase'}`,
+        `Traduce esa expresión a ${source.label}.`,
+        `Después da una guía de pronunciación aproximada de la expresión original en ${target.label}, escrita de forma fácil para una persona que habla ${source.label}.`,
+        'Marca la sílaba o palabra tónica con MAYÚSCULAS cuando ayude.',
+        'No uses IPA salvo que el estudiante lo pida.',
+        'Responde de forma breve usando exactamente estas dos etiquetas, cada una una sola vez:',
+        'TRADUCCIÓN: <significado>',
+        'PRONUNCIACIÓN: <guía fácil>',
+        'Pronuncia además la expresión original lentamente una vez.'
+      ].join('\n'),
       scenario:`[LOKY TUTOR TOOL — NEW SCENARIO] Cambia de forma natural a otro escenario útil para el objetivo ${goalMeta().label}. Presenta la situación en una sola frase y comienza el role-play.`,
     };
     if(kind==='slower'){
       state=saveState({...state,slow:true});
     }
+    if(kind==='translate'){
+      pendingTeachingCard=true;
+      pronunciationTarget=latestTutor;
+      pronunciationCard=null;
+      paintTeachingCard();
+    }
     return sendControl(map[kind]||'');
+  }
+
+  function cleanTutorDisplay(raw){
+    let text=String(raw||'').replace(/\s+/g,' ').trim();
+    if(!text||text==='—')return '—';
+    text=text
+      .replace(/TRADUCCI[ÓO]N\s*:\s*[^·|]+/gi,' ')
+      .replace(/PRONUNCIACI[ÓO]N(?:\s+APROXIMADA)?\s*:\s*[^·|]+/gi,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+    if(text.length<=330)return text;
+    let tail=text.slice(-330);
+    const cut=tail.search(/[.!?]\s+/);
+    if(cut>=0&&cut<120)tail=tail.slice(cut+1).trim();
+    else{
+      const space=tail.indexOf(' ');
+      if(space>0)tail=tail.slice(space+1).trim();
+    }
+    return tail;
+  }
+
+  function extractTeachingCard(raw){
+    const text=String(raw||'').replace(/\s+/g,' ').trim();
+    if(!text)return null;
+    const translation=text.match(/TRADUCCI[ÓO]N\s*:\s*(.+?)(?=\s+PRONUNCIACI[ÓO]N(?:\s+APROXIMADA)?\s*:|$)/i);
+    const pronunciation=text.match(/PRONUNCIACI[ÓO]N(?:\s+APROXIMADA)?\s*:\s*(.+)$/i);
+    if(!translation?.[1]||!pronunciation?.[1])return null;
+    return {
+      target:pronunciationTarget||cleanTutorDisplay(text),
+      meaning:translation[1].trim().replace(/[|·]+$/,'').trim(),
+      pronunciation:pronunciation[1].trim().replace(/[|·]+$/,'').trim(),
+    };
+  }
+
+  function repeatPronunciation(){
+    if(!pronunciationCard?.target)return false;
+    return sendControl([
+      '[LOKY TUTOR TOOL — PRONOUNCE AND REPEAT]',
+      `Pronuncia lentamente esta expresión en ${targetLanguage().label}: ${pronunciationCard.target}`,
+      'No traduzcas. Pronúnciala una vez lentamente y luego pide al estudiante que la repita.'
+    ].join('\n'));
+  }
+
+  function paintTeachingCard(){
+    if(!overlay)return;
+    const host=overlay.querySelector?.('[data-lang-teaching-card]');
+    if(!host)return;
+    host.replaceChildren();
+    if(pendingTeachingCard&&!pronunciationCard){
+      const loading=make('div','loky-pron-card is-loading');
+      loading.append(
+        make('strong','', 'TRADUCCIÓN + PRONUNCIACIÓN'),
+        make('span','', 'Preparando…')
+      );
+      host.appendChild(loading);
+      return;
+    }
+    if(!pronunciationCard)return;
+
+    const card=make('section','loky-pron-card');
+    const title=make('strong','',pronunciationCard.target||targetLanguage().native);
+    const meaning=make('div','loky-pron-row');
+    meaning.append(make('span','', 'SIGNIFICA'),make('p','',pronunciationCard.meaning));
+    const pronunciation=make('div','loky-pron-row is-pron');
+    pronunciation.append(make('span','', 'SE PRONUNCIA'),make('p','',pronunciationCard.pronunciation));
+    const repeat=make('button','loky-pron-repeat','ESCUCHAR Y REPETIR');
+    repeat.type='button';
+    repeat.addEventListener('click',repeatPronunciation);
+    card.append(title,meaning,pronunciation,repeat);
+    host.appendChild(card);
+  }
+
+  function liveVisualState(){
+    const label=String(document.getElementById('conversationState')?.textContent||'').trim();
+    if(label==='LOKY HABLANDO')return {key:'speaking',label:'HABLANDO'};
+    if(label==='PENSANDO')return {key:'thinking',label:'PENSANDO'};
+    if(label==='ESCUCHANDO')return {key:'listening',label:'ESCUCHANDO'};
+    return {key:'ready',label:label||'LISTO'};
   }
 
   // Chain after the protected Mobile Features interceptor.
@@ -247,21 +348,57 @@
 
   function startTurnTracking(){
     stopTurnTracking();
-    const transcript=document.getElementById('userTranscript');
-    if(!transcript)return;
-    lastTranscript=String(transcript.textContent||'').trim();
+    const user=document.getElementById('userTranscript');
+    const tutor=document.getElementById('lokyTranscript');
+    const convo=document.getElementById('conversationState');
+    if(!user)return;
+
+    lastTranscript=String(user.textContent||'').trim();
+    lastTutorTranscript=String(tutor?.textContent||'').trim();
+
     turnObserver=new MutationObserver(()=>{
       if(!state.active)return;
       const live=window.LOKY_PC4_LIVE?.state;
-      const text=String(transcript.textContent||'').trim();
-      if(!text||text==='—'||text===lastTranscript||live?.userSpeaking)return;
-      lastTranscript=text;
-      stats.turns++;
-      stats.lastAt=Date.now();
-      saveStats();
+      const userText=String(user.textContent||'').trim();
+      const tutorText=String(tutor?.textContent||'').trim();
+
+      if(userText&&userText!=='—'&&userText!==lastTranscript&&!live?.userSpeaking){
+        lastTranscript=userText;
+        stats.turns++;
+        stats.lastAt=Date.now();
+        saveStats();
+      }
+
+      if(tutorText&&tutorText!=='—'&&tutorText!==lastTutorTranscript){
+        lastTutorTranscript=tutorText;
+        if(pendingTeachingCard){
+          const parsed=extractTeachingCard(tutorText);
+          if(parsed){
+            pronunciationCard=parsed;
+            pendingTeachingCard=false;
+          }
+        }else{
+          const correction=/\bMejor\s*:\s*(.+?)(?=\s+Pronunciaci[óo]n\s*:|$)/i.exec(tutorText);
+          const pronunciation=/Pronunciaci[óo]n\s*:\s*(.+)$/i.exec(tutorText);
+          if(correction?.[1]&&pronunciation?.[1]){
+            pronunciationCard={
+              target:correction[1].trim(),
+              meaning:'Corrección recomendada',
+              pronunciation:pronunciation[1].trim(),
+            };
+          }
+        }
+      }
+
       paintLiveCopy();
+    paintTeachingCard();
+      paintTeachingCard();
+      paintVisualState();
     });
-    turnObserver.observe(transcript,{childList:true,subtree:true,characterData:true});
+
+    turnObserver.observe(user,{childList:true,subtree:true,characterData:true});
+    if(tutor)turnObserver.observe(tutor,{childList:true,subtree:true,characterData:true});
+    if(convo)turnObserver.observe(convo,{childList:true,subtree:true,characterData:true});
   }
 
   function stopTurnTracking(){
@@ -286,7 +423,10 @@
       body.loky-language-active .future-op-button.feature-language::before{color:#94f0d2;filter:drop-shadow(0 0 8px rgba(67,235,180,.40))}
       .loky-language-overlay{position:fixed;z-index:260;inset:0;background:#030b12;color:#e8f8ff;display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
       .loky-language-hero{position:absolute;inset:0;overflow:hidden;background:radial-gradient(circle at 50% 38%,rgba(22,70,88,.34),rgba(3,11,18,.96) 64%)}
-      .loky-language-avatar{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 23%;filter:saturate(.92) contrast(1.04) brightness(.92);opacity:.96}
+      .loky-language-avatar{position:absolute;left:5%;top:7%;width:90%;height:82%;object-fit:contain;object-position:center top;filter:saturate(.92) contrast(1.04) brightness(.92);opacity:.96;transition:transform .28s ease,filter .28s ease}
+      .loky-language-hero[data-state="listening"] .loky-language-avatar{filter:saturate(.98) contrast(1.04) brightness(.95) drop-shadow(0 0 22px rgba(77,210,236,.12))}
+      .loky-language-hero[data-state="thinking"] .loky-language-avatar{filter:saturate(.88) contrast(1.05) brightness(.90) drop-shadow(0 0 22px rgba(153,108,255,.12))}
+      .loky-language-hero[data-state="speaking"] .loky-language-avatar{transform:scale(1.018);filter:saturate(1.02) contrast(1.05) brightness(.97) drop-shadow(0 0 26px rgba(70,230,196,.16))}
       .loky-language-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(3,11,18,.10) 0%,rgba(3,11,18,.05) 45%,rgba(3,11,18,.82) 76%,#030b12 100%)}
       .loky-language-hero.is-fallback::before{content:"";position:absolute;left:50%;top:18%;width:58%;aspect-ratio:.72;border-radius:48% 48% 42% 42%;transform:translateX(-50%);background:radial-gradient(circle at 50% 32%,rgba(220,238,243,.34),rgba(36,73,85,.22) 38%,rgba(3,10,17,.12) 72%);box-shadow:0 0 90px rgba(55,190,220,.12)}
       .loky-language-top{position:relative;z-index:4;box-sizing:border-box;min-height:calc(58px + env(safe-area-inset-top));display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:end;gap:9px;padding:env(safe-area-inset-top) 14px 10px;background:linear-gradient(180deg,rgba(2,9,15,.80),rgba(2,9,15,.18));border-bottom:1px solid rgba(127,211,236,.08)}
@@ -299,6 +439,12 @@
       .loky-language-line{display:grid;grid-template-columns:42px minmax(0,1fr);gap:8px;align-items:start}.loky-language-line span{font-size:7px;font-weight:1000;letter-spacing:.11em;color:#68bcd4;padding-top:2px}.loky-language-line p{margin:0;font-size:11px;line-height:1.45;color:#d8eff6;min-width:0}.loky-language-line.user p{color:#a8d1dd}
       .loky-language-tools{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.loky-language-tool{min-height:40px;border-radius:12px;border:1px solid rgba(100,196,226,.13);background:rgba(6,31,43,.72);color:#a9dce9;font-size:7px;font-weight:900;letter-spacing:.05em}
       .loky-language-progress{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#729cad;font-size:7px;padding:0 3px}.loky-language-progress strong{color:#aadce8}
+      .loky-language-state{justify-self:center;padding:5px 9px;border-radius:999px;border:1px solid rgba(106,203,234,.14);background:rgba(4,24,34,.68);font-size:7px;font-weight:1000;letter-spacing:.13em;color:#86c9db}
+      .loky-language-state[data-state="speaking"]{color:#8fe6c8;border-color:rgba(73,222,180,.24)}
+      .loky-language-state[data-state="thinking"]{color:#c2a9ff;border-color:rgba(156,115,246,.24)}
+      .loky-pron-host:empty{display:none}.loky-pron-card{border:1px solid rgba(83,222,184,.22);background:rgba(5,42,39,.78);backdrop-filter:blur(18px);border-radius:16px;padding:10px 11px;display:grid;gap:7px}.loky-pron-card>strong{font-size:11px;color:#e5fff6;line-height:1.35}.loky-pron-card.is-loading{color:#86b8c7}
+      .loky-pron-row{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px;align-items:start}.loky-pron-row span{font-size:6.5px;font-weight:1000;letter-spacing:.11em;color:#72a9ba;padding-top:3px}.loky-pron-row p{margin:0;font-size:10px;line-height:1.4;color:#d4edf3}.loky-pron-row.is-pron p{font-size:12px;font-weight:900;color:#a8f0d5;letter-spacing:.03em}
+      .loky-pron-repeat{min-height:36px;border-radius:11px;border:1px solid rgba(92,222,184,.20);background:rgba(8,61,52,.68);color:#cffff0;font-size:8px;font-weight:1000;letter-spacing:.08em}
       .loky-language-config{position:relative;z-index:6;align-self:center;width:min(92vw,520px);max-height:calc(100vh - 100px);overflow:auto;margin:auto;padding:16px;border-radius:24px;border:1px solid rgba(107,204,235,.16);background:rgba(4,18,27,.94);backdrop-filter:blur(22px);box-shadow:0 22px 80px rgba(0,0,0,.44);display:grid;gap:13px}
       .loky-language-config h2{margin:0;font-size:17px;letter-spacing:.04em;color:#e7faff}.loky-language-config>p{margin:-5px 0 0;font-size:9px;line-height:1.5;color:#7fa7b5}
       .loky-language-section{display:grid;gap:7px}.loky-language-section>strong{font-size:8px;letter-spacing:.12em;color:#8ac7d8}
@@ -412,6 +558,18 @@
     root.appendChild(card);
   }
 
+  function paintVisualState(){
+    if(!overlay)return;
+    const visual=liveVisualState();
+    const hero=overlay.querySelector?.('.loky-language-hero');
+    const badge=overlay.querySelector?.('[data-lang-state]');
+    if(hero)hero.dataset.state=visual.key;
+    if(badge){
+      badge.dataset.state=visual.key;
+      badge.textContent=visual.label;
+    }
+  }
+
   function paintLiveCopy(){
     if(!overlay)return;
     const me=overlay.querySelector?.('[data-lang-user]');
@@ -422,23 +580,28 @@
       me.textContent=text||'—';
     }
     if(tutor){
-      const text=String(document.getElementById('lokyTranscript')?.textContent||'—').trim();
+      const text=cleanTutorDisplay(String(document.getElementById('lokyTranscript')?.textContent||'—'));
       tutor.textContent=text||'—';
     }
     if(stat){
       stat.textContent=`${stats.turns} turnos · ${Math.round(stats.minutes)} min`;
     }
+    paintVisualState();
   }
 
   function renderLive(root){
     root.replaceChildren();
     const live=make('section','loky-language-live');
     const status=make('span','loky-language-status',`${targetLanguage().native.toUpperCase()} · ${levelMeta().cefr} · ${goalMeta().label}`);
+    const visual=liveVisualState();
+    const stateBadge=make('span','loky-language-state',visual.label);
+    stateBadge.dataset.langState='1';
+    stateBadge.dataset.state=visual.key;
 
     const dialog=make('div','loky-language-dialog');
     const tutorLine=make('div','loky-language-line');
     tutorLine.append(make('span','', 'TUTORA'));
-    const tutorText=make('p','',String(document.getElementById('lokyTranscript')?.textContent||'—'));
+    const tutorText=make('p','',cleanTutorDisplay(String(document.getElementById('lokyTranscript')?.textContent||'—')));
     tutorText.dataset.langTutor='1';
     tutorLine.appendChild(tutorText);
 
@@ -463,13 +626,16 @@
       tools.appendChild(button);
     }
 
+    const teachingHost=make('div','loky-pron-host');
+    teachingHost.dataset.langTeachingCard='1';
+
     const progress=make('div','loky-language-progress');
     progress.append(make('span','',`${sourceLanguage().label} → ${targetLanguage().label}`));
     const stat=make('strong','',`${stats.turns} turnos · ${Math.round(stats.minutes)} min`);
     stat.dataset.langProgress='1';
     progress.appendChild(stat);
 
-    live.append(status,dialog,tools,progress);
+    live.append(status,stateBadge,dialog,teachingHost,tools,progress);
     root.appendChild(live);
     paintLiveCopy();
   }
@@ -557,6 +723,9 @@
     activate,
     deactivate,
     quick:quickAction,
+    repeatPronunciation,
+    extractTeachingCard,
+    cleanTutorDisplay,
     open:openOverlay,
     close:closeOverlay,
     install:installSlot,
