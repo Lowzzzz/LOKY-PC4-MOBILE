@@ -52,7 +52,7 @@ vm.runInContext(src,context,{filename:'mobile-actions.js'});
 
 const api=context.LOKY_PC4_MOBILE_ACTIONS;
 assert(api,'Mobile Actions API missing');
-assert.equal(api.version,'0.3.2R4F11-mobile-actions');
+assert.equal(api.version,'0.3.2R4F11R1-voice-actions-fix');
 
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY abre Maps'))),{type:'maps-open'});
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY llévame a Plaza Las Américas'))),{type:'maps-directions',destination:'plaza las americas'});
@@ -74,9 +74,9 @@ assert.equal(timer2.ms,(60+30)*60*1000);
 assert.equal(api.parse('búscame el teléfono de Apple Store'),null,'Web Search intent must remain owned by Web Search');
 assert.equal(api.parse('pon una alarma en cinco minutos'),null,'existing alarm intent must remain owned by Planner');
 
-assert(index.includes('<script src="./mobile-actions.js?v=0.3.2r4f11"></script>'));
-assert(index.indexOf('mobile-planner.js?v=0.3.2r4f8') < index.indexOf('mobile-actions.js?v=0.3.2r4f11'));
-assert(index.indexOf('mobile-web-search.js?v=0.3.2r4f10r3') < index.indexOf('mobile-actions.js?v=0.3.2r4f11'));
+assert(index.includes('<script src="./mobile-actions.js?v=0.3.2r4f11r1"></script>'));
+assert(index.indexOf('mobile-planner.js?v=0.3.2r4f8') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r1'));
+assert(index.indexOf('mobile-web-search.js?v=0.3.2r4f10r3') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r1'));
 
 for(const forbidden of [
   /new\s+WebSocket\s*\(/,
@@ -88,8 +88,12 @@ for(const forbidden of [
   /prefs:/i,
 ]) assert(!forbidden.test(src),`forbidden transport/private API: ${forbidden}`);
 
-assert(src.includes("String(conversationState.textContent||'').trim()==='PENSANDO'"));
-assert(src.includes('if(live?.userSpeaking)return;'));
+assert(src.includes('new MutationObserver(scheduleFromTranscript)'));
+assert(src.includes('if(live?.userSpeaking)'));
+assert(src.includes('const TRANSCRIPT_SETTLE_MS=260'));
+assert(!src.includes('future-op-1'));
+assert(!src.includes('openActionsMenu'));
+assert(!src.includes('ACCIONES MÓVILES'));
 assert(src.includes("window.LOKY_PC4_PLANNER"));
 assert(src.includes("window.LOKY_PC4_FEATURES"));
 assert(src.includes("location.assign(url)"));
