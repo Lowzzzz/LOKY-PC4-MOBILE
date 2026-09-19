@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F11R4-timer-popup';
+  const VERSION='0.3.2R4F11R5-persistent-timer-popup';
   const REPEAT_GUARD_MS=10000;
   const TRANSCRIPT_SETTLE_MS=360;
   const USER_END_POLL_MS=80;
@@ -264,7 +264,14 @@
     state.textContent='ACTIVO';
 
     const paint=()=>{
-      clock.textContent=formatTimerRemaining(endAt-Date.now());
+      const remaining=endAt-Date.now();
+      clock.textContent=formatTimerRemaining(remaining);
+      if(remaining<=0){
+        state.textContent='FINALIZADO';
+        clearInterval(timerPopupInterval);
+        timerPopupInterval=0;
+        timerPopupTimeout=setTimeout(clearTimerPopup,1400);
+      }
     };
     paint();
 
@@ -273,7 +280,6 @@
     timerPopup=card;
 
     timerPopupInterval=setInterval(paint,250);
-    timerPopupTimeout=setTimeout(clearTimerPopup,5200);
   }
 
   function navigate(url,label){
