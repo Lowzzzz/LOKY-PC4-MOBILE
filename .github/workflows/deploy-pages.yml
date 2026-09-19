@@ -345,7 +345,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "f7314f4e0dab972697059337b838becd11f8c5f8"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
           test "$(git rev-parse HEAD:site/mobile-actions.js)" = "5803be78d341cbeff06a7e45f608bc80c51193c8"
-          test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "c95ed041d3c2ed51e1bc47abef3123eea0070ac6"
+          test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "d5f9dbec0760493574469dcb36ca21d3c9bfaab1"
           test "$(git rev-parse HEAD:site/language-avatar.webp)" = "9119b39fcc21891bb95d5f3f95b57444277723f6"
           test "$(git cat-file -s HEAD:site/language-avatar.webp)" -gt 10000
           test "$(git rev-parse HEAD:site/index.html)" = "a64fbaa2a16e8063ba9fe4ac40c9276044e2a593"
@@ -395,6 +395,17 @@ jobs:
           grep -F 'const AUTO_ASSIST_SETTLE_MS=90' site/mobile-language-tutor.js
           grep -F 'const AUTO_ASSIST_END_SETTLE_MS=180' site/mobile-language-tutor.js
           grep -F 'function latestCompletedTutorPhrase(' site/mobile-language-tutor.js
+          grep -F "const AVATAR_3D_URL='https://novgwydgcvlboujnmygq.supabase.co/storage/v1/object/public/loky-public-assets/language/avatar-r4f12r7-v1.glb'" site/mobile-language-tutor.js
+          grep -F "const THREE_VERSION='0.180.0'" site/mobile-language-tutor.js
+          grep -F 'new THREE.WebGLRenderer' site/mobile-language-tutor.js
+          grep -F "for(const name of ['AvatarRoot','Pelvis','Chest','Head','Jaw','Eye_L','Eye_R','Lid_L','Lid_R'])" site/mobile-language-tutor.js
+          grep -F "for(const keyName of ['Eye_L','Eye_R'])" site/mobile-language-tutor.js
+          grep -F "for(const keyName of ['Lid_L','Lid_R'])" site/mobile-language-tutor.js
+          grep -F 'const jaw=nodes.Jaw' site/mobile-language-tutor.js
+          grep -F 'transcriptSpeechPulse(t)' site/mobile-language-tutor.js
+          grep -F "fallbackImg.classList.add('is-3d-loaded')" site/mobile-language-tutor.js
+          grep -F 'function disposeAvatar3D(' site/mobile-language-tutor.js
+          grep -F 'initAvatar3D(hero,avatar).catch(()=>{})' site/mobile-language-tutor.js
           if grep -Fq           grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r7"></script>' site/index.html
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|speechSynthesis|navigator\.geolocation' site/mobile-language-tutor.js; then exit 1; fi
 
