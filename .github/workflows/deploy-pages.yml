@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "b510582ca96ade7883be78457ca1bfa8175c0074"
+          test "$(git rev-parse HEAD:site/index.html)" = "d009ccebc44adcc2cc2e597a23c1de43b8efee2d"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
@@ -234,7 +234,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
-          test "$(git rev-parse HEAD:site/index.html)" = "b510582ca96ade7883be78457ca1bfa8175c0074"
+          test "$(git rev-parse HEAD:site/index.html)" = "d009ccebc44adcc2cc2e597a23c1de43b8efee2d"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           grep -F "const VERSION='0.3.2R4F9-cloud-background-alarms'" site/mobile-background-alarm.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'" site/mobile-background-alarm.js
@@ -261,7 +261,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           test "$(git rev-parse HEAD:site/mobile-web-search.js)" = "be2dfce56a7af5e1abbb4f2277a635ac16c03c38"
-          test "$(git rev-parse HEAD:site/index.html)" = "b510582ca96ade7883be78457ca1bfa8175c0074"
+          test "$(git rev-parse HEAD:site/index.html)" = "d009ccebc44adcc2cc2e597a23c1de43b8efee2d"
           grep -F "const VERSION='0.3.2R4F10R3-turn-safe-search'" site/mobile-web-search.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'" site/mobile-web-search.js
           grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-web-search.js
@@ -295,7 +295,7 @@ jobs:
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|speechSynthesis|navigator\.geolocation' site/mobile-web-search.js; then exit 1; fi
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|fetch[[:space:]]*\(' site/sphere-mobile.js; then exit 1; fi
 
-      - name: Verify R4F11R2 transcript-buffer Mobile Actions layer
+      - name: Verify R4F11R3 punctuation-safe Mobile Actions layer
         shell: bash
         run: |
           set -euo pipefail
@@ -303,9 +303,9 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-web-search.js)" = "be2dfce56a7af5e1abbb4f2277a635ac16c03c38"
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "f7314f4e0dab972697059337b838becd11f8c5f8"
-          test "$(git rev-parse HEAD:site/mobile-actions.js)" = "b441c636e3dd98c9b9bcb949ec6258c2be42bd24"
-          test "$(git rev-parse HEAD:site/index.html)" = "b510582ca96ade7883be78457ca1bfa8175c0074"
-          grep -F "const VERSION='0.3.2R4F11R2-transcript-buffer-actions'" site/mobile-actions.js
+          test "$(git rev-parse HEAD:site/mobile-actions.js)" = "4c06e30d7ec3ee4ab8129da746b589fcf1e0c61e"
+          test "$(git rev-parse HEAD:site/index.html)" = "d009ccebc44adcc2cc2e597a23c1de43b8efee2d"
+          grep -F "const VERSION='0.3.2R4F11R3-punctuation-safe-actions'" site/mobile-actions.js
           grep -F 'new MutationObserver(scheduleFromTranscript)' site/mobile-actions.js
           grep -F 'state?.transcriptBuffer' site/mobile-actions.js
           grep -F 'function commandCandidates(' site/mobile-actions.js
@@ -319,7 +319,7 @@ jobs:
           grep -F 'window.LOKY_PC4_PLANNER' site/mobile-actions.js
           grep -F 'window.LOKY_PC4_FEATURES' site/mobile-actions.js
           grep -F 'location.assign(url)' site/mobile-actions.js
-          grep -F '<script src="./mobile-actions.js?v=0.3.2r4f11r2"></script>' site/index.html
+          grep -F '<script src="./mobile-actions.js?v=0.3.2r4f11r3"></script>' site/index.html
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|fetch[[:space:]]*\(|speechSynthesis|navigator\.geolocation|App-Prefs:|prefs:' site/mobile-actions.js; then exit 1; fi
 
       - name: Verify iOS 0.3.2R4F10R3 Mobile conversation turn guard
