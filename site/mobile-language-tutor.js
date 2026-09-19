@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F12R2-pronunciation-cards';
+  const VERSION='0.3.2R4F12R3-clean-pronunciation-card';
   const STORE_KEY='loky_pc4_language_tutor_v1';
   const STATS_KEY='loky_pc4_language_tutor_stats_v1';
   const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1';
@@ -209,24 +209,68 @@
     return true;
   }
 
+  function tutorSentences(raw){
+    let text=String(raw||'').replace(/\s+/g,' ').trim();
+    if(!text||text==='—')return [];
+
+    // Remove completed translation/pronunciation payloads from the visible conversation.
+    const translationIndex=Math.max(
+      text.lastIndexOf('TRADUCCIÓN:'),
+      text.lastIndexOf('TRADUCCION:')
+    );
+    if(translationIndex>=0)text=text.slice(0,translationIndex).trim();
+
+    text=text
+      .replace(/(?:P|p)?RONUNCIACI[ÓO]N(?:\s+APROXIMADA)?\s*:\s*[^.!?]*[.!?]?/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+
+    return (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[])
+      .map(x=>x.trim())
+      .filter(Boolean);
+  }
+
+  function latestTutorPhrase(raw){
+    const parts=tutorSentences(raw);
+    if(!parts.length)return '';
+    let phrase=parts[parts.length-1];
+    if(phrase.length>180)phrase=phrase.slice(0,180).trim();
+    return phrase;
+  }
+
+  function cleanTutorDisplay(raw){
+    const parts=tutorSentences(raw);
+    if(!parts.length)return '—';
+    const selected=[];
+    let total=0;
+    for(let i=parts.length-1;i>=0&&selected.length<3;i--){
+      const item=parts[i];
+      if(selected.length&&total+item.length>280)break;
+      selected.unshift(item);
+      total+=item.length+1;
+    }
+    return selected.join(' ').trim()||'—';
+  }
+
   function quickAction(kind){
     const source=sourceLanguage();
     const target=targetLanguage();
-    const latestTutor=cleanTutorDisplay(String(document.getElementById('lokyTranscript')?.textContent||''));
+    const rawTutor=String(document.getElementById('lokyTranscript')?.textContent||'');
+    const latestTutor=latestTutorPhrase(rawTutor)||cleanTutorDisplay(rawTutor);
     const map={
       hint:`[LOKY TUTOR TOOL — HINT] Da una pista breve en ${source.label} sin revelar la respuesta completa. Luego repite la pregunta en ${target.label}.`,
       slower:`[LOKY TUTOR TOOL — SLOWER] Repite tu última frase en ${target.label} claramente y más despacio. No añadas explicación salvo que te la pidan.`,
       translate:[
         '[LOKY TUTOR TOOL — TRANSLATE + PRONUNCIATION]',
-        `Expresión a traducir: ${latestTutor||'tu última frase'}`,
-        `Traduce esa expresión a ${source.label}.`,
-        `Después da una guía de pronunciación aproximada de la expresión original en ${target.label}, escrita de forma fácil para una persona que habla ${source.label}.`,
-        'Marca la sílaba o palabra tónica con MAYÚSCULAS cuando ayude.',
+        `EXPRESIÓN EXACTA: "${latestTutor||'tu última frase'}"`,
+        `Traduce ÚNICAMENTE esa expresión desde ${target.label} hacia ${source.label}.`,
+        `Después escribe una guía de pronunciación aproximada de ESA MISMA expresión en ${target.label}, fácil para una persona que habla ${source.label}.`,
+        'Marca el golpe de voz con MAYÚSCULAS cuando ayude.',
         'No uses IPA salvo que el estudiante lo pida.',
-        'Responde de forma breve usando exactamente estas dos etiquetas, cada una una sola vez:',
-        'TRADUCCIÓN: <significado>',
-        'PRONUNCIACIÓN: <guía fácil>',
-        'Pronuncia además la expresión original lentamente una vez.'
+        'No cambies de tema. No hagas otra pregunta. No continúes la lección en esta respuesta.',
+        'Responde SOLO con estas dos líneas:',
+        'TRADUCCIÓN: <traducción en el idioma base>',
+        'PRONUNCIACIÓN: <guía corta y fácil>'
       ].join('\n'),
       scenario:`[LOKY TUTOR TOOL — NEW SCENARIO] Cambia de forma natural a otro escenario útil para el objetivo ${goalMeta().label}. Presenta la situación en una sola frase y comienza el role-play.`,
     };
@@ -242,35 +286,43 @@
     return sendControl(map[kind]||'');
   }
 
-  function cleanTutorDisplay(raw){
-    let text=String(raw||'').replace(/\s+/g,' ').trim();
-    if(!text||text==='—')return '—';
-    text=text
-      .replace(/TRADUCCI[ÓO]N\s*:\s*[^·|]+/gi,' ')
-      .replace(/PRONUNCIACI[ÓO]N(?:\s+APROXIMADA)?\s*:\s*[^·|]+/gi,' ')
-      .replace(/\s+/g,' ')
-      .trim();
-    if(text.length<=330)return text;
-    let tail=text.slice(-330);
-    const cut=tail.search(/[.!?]\s+/);
-    if(cut>=0&&cut<120)tail=tail.slice(cut+1).trim();
-    else{
-      const space=tail.indexOf(' ');
-      if(space>0)tail=tail.slice(space+1).trim();
-    }
-    return tail;
+  function firstShortSegment(value,max=140){
+    let text=String(value||'').replace(/\s+/g,' ').trim();
+    if(!text)return '';
+    const boundary=text.search(/[.!?](?:\s|$)/);
+    if(boundary>=0)text=text.slice(0,boundary+1);
+    const nextLabel=text.search(/\b(?:TRADUCCI[ÓO]N|PRONUNCIACI[ÓO]N|MEJOR)\s*:/i);
+    if(nextLabel>0)text=text.slice(0,nextLabel);
+    if(text.length>max)text=text.slice(0,max).trim();
+    return text.replace(/[|·]+$/,'').trim();
   }
 
   function extractTeachingCard(raw){
     const text=String(raw||'').replace(/\s+/g,' ').trim();
     if(!text)return null;
-    const translation=text.match(/TRADUCCI[ÓO]N\s*:\s*(.+?)(?=\s+PRONUNCIACI[ÓO]N(?:\s+APROXIMADA)?\s*:|$)/i);
-    const pronunciation=text.match(/PRONUNCIACI[ÓO]N(?:\s+APROXIMADA)?\s*:\s*(.+)$/i);
-    if(!translation?.[1]||!pronunciation?.[1])return null;
+
+    const upper=text.toUpperCase();
+    const t1=upper.lastIndexOf('TRADUCCIÓN:');
+    const t2=upper.lastIndexOf('TRADUCCION:');
+    const t=Math.max(t1,t2);
+    if(t<0)return null;
+
+    const p1=upper.indexOf('PRONUNCIACIÓN:',t);
+    const p2=upper.indexOf('PRONUNCIACION:',t);
+    const p=[p1,p2].filter(x=>x>=0).sort((a,b)=>a-b)[0];
+    if(p==null)return null;
+
+    const translationLabelLength=text.slice(t).toUpperCase().startsWith('TRADUCCIÓN:')?'TRADUCCIÓN:'.length:'TRADUCCION:'.length;
+    const pronunciationLabelLength=text.slice(p).toUpperCase().startsWith('PRONUNCIACIÓN:')?'PRONUNCIACIÓN:'.length:'PRONUNCIACION:'.length;
+
+    const meaning=firstShortSegment(text.slice(t+translationLabelLength,p),180);
+    const pronunciation=firstShortSegment(text.slice(p+pronunciationLabelLength),140);
+    if(!meaning||!pronunciation)return null;
+
     return {
-      target:pronunciationTarget||cleanTutorDisplay(text),
-      meaning:translation[1].trim().replace(/[|·]+$/,'').trim(),
-      pronunciation:pronunciation[1].trim().replace(/[|·]+$/,'').trim(),
+      target:firstShortSegment(pronunciationTarget||latestTutorPhrase(text),180),
+      meaning,
+      pronunciation,
     };
   }
 
@@ -423,7 +475,7 @@
       body.loky-language-active .future-op-button.feature-language::before{color:#94f0d2;filter:drop-shadow(0 0 8px rgba(67,235,180,.40))}
       .loky-language-overlay{position:fixed;z-index:260;inset:0;background:#030b12;color:#e8f8ff;display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
       .loky-language-hero{position:absolute;inset:0;overflow:hidden;background:radial-gradient(circle at 50% 38%,rgba(22,70,88,.34),rgba(3,11,18,.96) 64%)}
-      .loky-language-avatar{position:absolute;left:5%;top:7%;width:90%;height:82%;object-fit:contain;object-position:center top;filter:saturate(.92) contrast(1.04) brightness(.92);opacity:.96;transition:transform .28s ease,filter .28s ease}
+      .loky-language-avatar{position:absolute;left:11%;top:9%;width:78%;height:72%;object-fit:contain;object-position:center top;filter:saturate(.92) contrast(1.04) brightness(.92);opacity:.96;transition:transform .28s ease,filter .28s ease}
       .loky-language-hero[data-state="listening"] .loky-language-avatar{filter:saturate(.98) contrast(1.04) brightness(.95) drop-shadow(0 0 22px rgba(77,210,236,.12))}
       .loky-language-hero[data-state="thinking"] .loky-language-avatar{filter:saturate(.88) contrast(1.05) brightness(.90) drop-shadow(0 0 22px rgba(153,108,255,.12))}
       .loky-language-hero[data-state="speaking"] .loky-language-avatar{transform:scale(1.018);filter:saturate(1.02) contrast(1.05) brightness(.97) drop-shadow(0 0 26px rgba(70,230,196,.16))}
@@ -726,6 +778,7 @@
     repeatPronunciation,
     extractTeachingCard,
     cleanTutorDisplay,
+    latestTutorPhrase,
     open:openOverlay,
     close:closeOverlay,
     install:installSlot,
