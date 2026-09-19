@@ -1,13 +1,14 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F12R6-language-visual-clean';
+  const VERSION='0.3.2R4F12R7-fast-assist-3d-shell';
   const STORE_KEY='loky_pc4_language_tutor_v1';
   const STATS_KEY='loky_pc4_language_tutor_stats_v1';
   const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1';
   const ASSIST_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-language-assist';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
-  const AUTO_ASSIST_SETTLE_MS=320;
+  const AUTO_ASSIST_SETTLE_MS=90;
+  const AUTO_ASSIST_END_SETTLE_MS=180;
 
   const LANGUAGES={
     es:{label:'Español',native:'Español',code:'es'},
@@ -281,6 +282,17 @@
     return phrase;
   }
 
+  function latestCompletedTutorPhrase(raw){
+    const parts=tutorSentences(raw);
+    for(let i=parts.length-1;i>=0;i--){
+      let phrase=String(parts[i]||'').trim();
+      if(!/[.!?]$/.test(phrase))continue;
+      if(phrase.length>180)phrase=phrase.slice(0,180).trim();
+      return phrase;
+    }
+    return '';
+  }
+
   function cleanTutorDisplay(raw){
     const parts=tutorSentences(raw);
     if(!parts.length)return '—';
@@ -376,25 +388,34 @@
 
   function scheduleAutoAssist(rawTutor){
     if(!state.active)return;
-    const phrase=latestTutorPhrase(rawTutor);
+
+    const visualState=String(document.getElementById('conversationState')?.textContent||'').trim();
+    const speaking=visualState==='LOKY HABLANDO';
+    const completed=latestCompletedTutorPhrase(rawTutor);
+    const phrase=completed||(!speaking?latestTutorPhrase(rawTutor):'');
+
     if(!phrase||phrase==='—'||phrase.length<2)return;
     if(phrase===autoAssistLastPhrase&&floatingAssist)return;
 
     clearTimeout(autoAssistTimer);
     const seq=++autoAssistSeq;
+    const settle=completed?AUTO_ASSIST_SETTLE_MS:AUTO_ASSIST_END_SETTLE_MS;
 
     autoAssistTimer=setTimeout(async()=>{
       if(seq!==autoAssistSeq||!state.active)return;
 
-      const visualState=String(document.getElementById('conversationState')?.textContent||'').trim();
-      if(visualState==='LOKY HABLANDO'){
-        scheduleAutoAssist(String(document.getElementById('lokyTranscript')?.textContent||''));
-        return;
-      }
+      const currentRaw=String(document.getElementById('lokyTranscript')?.textContent||'');
+      const currentState=String(document.getElementById('conversationState')?.textContent||'').trim();
+      const currentCompleted=latestCompletedTutorPhrase(currentRaw);
+      const currentPhrase=currentCompleted||(
+        currentState!=='LOKY HABLANDO'
+          ? latestTutorPhrase(currentRaw)
+          : ''
+      );
 
-      const current=latestTutorPhrase(String(document.getElementById('lokyTranscript')?.textContent||''));
-      if(current!==phrase){
-        scheduleAutoAssist(current);
+      if(!currentPhrase)return;
+      if(currentPhrase!==phrase){
+        scheduleAutoAssist(currentRaw);
         return;
       }
 
@@ -412,10 +433,7 @@
         if(seq!==autoAssistSeq||!state.active)return;
         autoAssistLastPhrase=phrase;
 
-        if(data?.skip===true||!data?.translation||!data?.pronunciation){
-          clearFloatingAssist();
-          return;
-        }
+        if(data?.skip===true||!data?.translation||!data?.pronunciation)return;
 
         const value={
           translation:String(data.translation||'').trim().slice(0,260),
@@ -429,10 +447,8 @@
 
         floatingAssist={phrase,...value};
         paintFloatingAssist();
-      }catch{
-        if(seq===autoAssistSeq)clearFloatingAssist();
-      }
-    },AUTO_ASSIST_SETTLE_MS);
+      }catch{}
+    },settle);
   }
 
   function repeatLatestTutorPhrase(){
@@ -520,7 +536,6 @@
 
       if(tutorText&&tutorText!=='—'&&tutorText!==lastTutorTranscript){
         lastTutorTranscript=tutorText;
-        clearFloatingAssist();
         scheduleAutoAssist(tutorText);
       }
 
@@ -841,6 +856,7 @@
     cleanTutorDisplay,
     cleanUserDisplay,
     latestTutorPhrase,
+    latestCompletedTutorPhrase,
     stripTeachingPayloads,
     dedupeSentences,
     apiLanguageAssist,
