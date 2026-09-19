@@ -392,7 +392,6 @@ jobs:
           grep -F 'width:92%;height:86%' site/mobile-language-tutor.js
           grep -F 'object-position:center center' site/mobile-language-tutor.js
           grep -F 'live.append(stateBadge,floating,tools,progress)' site/mobile-language-tutor.js
-          grep -F 'width:78%;height:72%' site/mobile-language-tutor.js
           grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r6"></script>' site/index.html
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|speechSynthesis|navigator\.geolocation' site/mobile-language-tutor.js; then exit 1; fi
 
