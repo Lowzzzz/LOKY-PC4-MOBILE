@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F11R2-transcript-buffer-actions';
+  const VERSION='0.3.2R4F11R3-punctuation-safe-actions';
   const REPEAT_GUARD_MS=10000;
   const TRANSCRIPT_SETTLE_MS=360;
   const USER_END_POLL_MS=80;
@@ -29,7 +29,8 @@
     return String(text||'')
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
       .toLowerCase()
-      .replace(/[¿?¡!,;:]/g,' ')
+      .replace(/[¿?¡!,.;:"'“”‘’()[\]{}]/g,' ')
+      .replace(/[—–-]+/g,' ')
       .replace(/\s+/g,' ')
       .trim();
   }
