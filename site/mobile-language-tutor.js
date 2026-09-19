@@ -209,21 +209,34 @@
     return true;
   }
 
-  function tutorSentences(raw){
+  function stripTeachingPayloads(raw){
     let text=String(raw||'').replace(/\s+/g,' ').trim();
-    if(!text||text==='—')return [];
+    if(!text)return '';
 
-    // Remove completed translation/pronunciation payloads from the visible conversation.
-    const translationIndex=Math.max(
-      text.lastIndexOf('TRADUCCIÓN:'),
-      text.lastIndexOf('TRADUCCION:')
+    // Remove complete teaching-card payloads but preserve conversation that follows.
+    text=text.replace(
+      /TRADUCCI[ÓO]N\s*:\s*.*?\s+PRONUNCIACI[ÓO]N(?:\s+APROXIMADA)?\s*:\s*.{1,140}?[.!?](?=\s|$)/gi,
+      ' '
     );
-    if(translationIndex>=0)text=text.slice(0,translationIndex).trim();
 
-    text=text
-      .replace(/(?:P|p)?RONUNCIACI[ÓO]N(?:\s+APROXIMADA)?\s*:\s*[^.!?]*[.!?]?/g,' ')
-      .replace(/\s+/g,' ')
-      .trim();
+    // Handle a card that ends at the current transcript boundary with no punctuation.
+    text=text.replace(
+      /TRADUCCI[ÓO]N\s*:\s*.*?\s+PRONUNCIACI[ÓO]N(?:\s+APROXIMADA)?\s*:\s*.{1,140}$/gi,
+      ' '
+    );
+
+    // Remove stray/truncated pronunciation metadata from earlier cumulative transcripts.
+    text=text.replace(
+      /(?:P|p)?RONUNCIACI[ÓO]N(?:\s+APROXIMADA)?\s*:\s*[^.!?]{0,140}[.!?]?/g,
+      ' '
+    );
+
+    return text.replace(/\s+/g,' ').trim();
+  }
+
+  function tutorSentences(raw){
+    const text=stripTeachingPayloads(raw);
+    if(!text||text==='—')return [];
 
     return (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[])
       .map(x=>x.trim())
@@ -289,7 +302,7 @@
   function firstShortSegment(value,max=140){
     let text=String(value||'').replace(/\s+/g,' ').trim();
     if(!text)return '';
-    const boundary=text.search(/[.!?](?:\s|$)/);
+    const boundary=text.search(/[.!?]/);
     if(boundary>=0)text=text.slice(0,boundary+1);
     const nextLabel=text.search(/\b(?:TRADUCCI[ÓO]N|PRONUNCIACI[ÓO]N|MEJOR)\s*:/i);
     if(nextLabel>0)text=text.slice(0,nextLabel);
@@ -779,6 +792,7 @@
     extractTeachingCard,
     cleanTutorDisplay,
     latestTutorPhrase,
+    stripTeachingPayloads,
     open:openOverlay,
     close:closeOverlay,
     install:installSlot,
