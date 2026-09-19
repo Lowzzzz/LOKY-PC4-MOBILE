@@ -52,7 +52,7 @@ vm.runInContext(src,context,{filename:'mobile-actions.js'});
 
 const api=context.LOKY_PC4_MOBILE_ACTIONS;
 assert(api,'Mobile Actions API missing');
-assert.equal(api.version,'0.3.2R4F11R4-timer-popup');
+assert.equal(api.version,'0.3.2R4F11R5-persistent-timer-popup');
 
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY abre Maps'))),{type:'maps-open'});
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY abre Maps por favor'))),{type:'maps-open'});
@@ -89,9 +89,9 @@ assert.equal(timer2.ms,(60+30)*60*1000);
 assert.equal(api.parse('búscame el teléfono de Apple Store'),null,'Web Search intent must remain owned by Web Search');
 assert.equal(api.parse('pon una alarma en cinco minutos'),null,'existing alarm intent must remain owned by Planner');
 
-assert(index.includes('<script src="./mobile-actions.js?v=0.3.2r4f11r4"></script>'));
-assert(index.indexOf('mobile-planner.js?v=0.3.2r4f8') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r4'));
-assert(index.indexOf('mobile-web-search.js?v=0.3.2r4f10r3') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r4'));
+assert(index.includes('<script src="./mobile-actions.js?v=0.3.2r4f11r5"></script>'));
+assert(index.indexOf('mobile-planner.js?v=0.3.2r4f8') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r5'));
+assert(index.indexOf('mobile-web-search.js?v=0.3.2r4f10r3') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r5'));
 
 for(const forbidden of [
   /new\s+WebSocket\s*\(/,
@@ -114,7 +114,10 @@ assert(src.includes('if(live?.userSpeaking)'));
 assert(src.includes('function showTimerPopup('));
 assert(src.includes("card.className='loky-timer-popup'"));
 assert(src.includes("top:calc(10px + env(safe-area-inset-top))"));
-assert(src.includes('timerPopupTimeout=setTimeout(clearTimerPopup,5200)'));
+assert(!src.includes('timerPopupTimeout=setTimeout(clearTimerPopup,5200)'));
+assert(src.includes('if(remaining<=0)'));
+assert(src.includes("state.textContent='FINALIZADO'"));
+assert(src.includes('timerPopupTimeout=setTimeout(clearTimerPopup,1400)'));
 assert(src.includes('showTimerPopup(action.ms)'));
 assert(!src.includes('future-op-1'));
 assert(!src.includes('openActionsMenu'));
