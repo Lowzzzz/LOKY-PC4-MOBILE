@@ -325,7 +325,8 @@ jobs:
           grep -F 'function cancelTimer(' site/mobile-actions.js
           grep -F 'planner.remove(timer.id)' site/mobile-actions.js
           grep -F 'LOKY_PC4_BACKGROUND_ALARM?.sync?.(true)' site/mobile-actions.js
-          grep -F "showStatus('TEMPORIZADOR ELIMINADO'" site/mobile-actions.js
+          grep -F "'TEMPORIZADOR ELIMINADO'" site/mobile-actions.js
+          grep -F "'TEMPORIZADORES ELIMINADOS'" site/mobile-actions.js
           grep -F 'showTimerPopup(action.ms)' site/mobile-actions.js
           if grep -Fq 'future-op-1' site/mobile-actions.js; then exit 1; fi
           if grep -Fq 'openActionsMenu' site/mobile-actions.js; then exit 1; fi
