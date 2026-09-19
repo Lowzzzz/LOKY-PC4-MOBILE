@@ -1,10 +1,13 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F12R3-clean-pronunciation-card';
+  const VERSION='0.3.2R4F12R4-auto-floating-translation';
   const STORE_KEY='loky_pc4_language_tutor_v1';
   const STATS_KEY='loky_pc4_language_tutor_stats_v1';
   const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1';
+  const ASSIST_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-language-assist';
+  const DEVICE_KEY='loky_pc4_device_capability_v1';
+  const AUTO_ASSIST_SETTLE_MS=320;
 
   const LANGUAGES={
     es:{label:'Español',native:'Español',code:'es'},
@@ -45,9 +48,11 @@
   let lastTranscript='';
   let lastTutorTranscript='';
   let turnObserver=null;
-  let pronunciationCard=null;
-  let pronunciationTarget='';
-  let pendingTeachingCard=false;
+  let autoAssistTimer=0;
+  let autoAssistSeq=0;
+  let autoAssistLastPhrase='';
+  let floatingAssist=null;
+  const assistCache=new Map();
 
   function normalizeState(raw={}){
     let source=LANGUAGES[raw.source]?raw.source:'es';
@@ -124,7 +129,7 @@
       '4. Nunca interrumpas al estudiante mientras habla.',
       '5. Después de la respuesta, corrige solo los errores que realmente ayuden. No corrijas todo.',
       '6. Para una corrección usa: "Mejor: <frase correcta>" y una explicación muy corta.',
-      '   Cuando corrijas una palabra o frase, añade también: "Pronunciación: <guía sencilla>". La guía debe ser legible para alguien que habla el idioma base; marca el golpe de voz con MAYÚSCULAS cuando ayude. No uses IPA salvo que el usuario lo pida.',
+      '   La interfaz mostrará traducción y pronunciación aparte de forma silenciosa; no leas etiquetas como "TRADUCCIÓN" o "PRONUNCIACIÓN" salvo que el estudiante lo pida.',
       '7. Si hay un error de pronunciación importante, muestra una guía sencilla y pide repetir una sola vez.',
       '8. Reutiliza vocabulario visto anteriormente dentro de nuevas preguntas.',
       '9. Aumenta o reduce dificultad según el desempeño real, sin anunciar cambios de nivel constantemente.',
@@ -265,116 +270,142 @@
     return selected.join(' ').trim()||'—';
   }
 
-  function quickAction(kind){
-    const source=sourceLanguage();
-    const target=targetLanguage();
-    const rawTutor=String(document.getElementById('lokyTranscript')?.textContent||'');
-    const latestTutor=latestTutorPhrase(rawTutor)||cleanTutorDisplay(rawTutor);
-    const map={
-      hint:`[LOKY TUTOR TOOL — HINT] Da una pista breve en ${source.label} sin revelar la respuesta completa. Luego repite la pregunta en ${target.label}.`,
-      slower:`[LOKY TUTOR TOOL — SLOWER] Repite tu última frase en ${target.label} claramente y más despacio. No añadas explicación salvo que te la pidan.`,
-      translate:[
-        '[LOKY TUTOR TOOL — TRANSLATE + PRONUNCIATION]',
-        `EXPRESIÓN EXACTA: "${latestTutor||'tu última frase'}"`,
-        `Traduce ÚNICAMENTE esa expresión desde ${target.label} hacia ${source.label}.`,
-        `Después escribe una guía de pronunciación aproximada de ESA MISMA expresión en ${target.label}, fácil para una persona que habla ${source.label}.`,
-        'Marca el golpe de voz con MAYÚSCULAS cuando ayude.',
-        'No uses IPA salvo que el estudiante lo pida.',
-        'No cambies de tema. No hagas otra pregunta. No continúes la lección en esta respuesta.',
-        'Responde SOLO con estas dos líneas:',
-        'TRADUCCIÓN: <traducción en el idioma base>',
-        'PRONUNCIACIÓN: <guía corta y fácil>'
-      ].join('\n'),
-      scenario:`[LOKY TUTOR TOOL — NEW SCENARIO] Cambia de forma natural a otro escenario útil para el objetivo ${goalMeta().label}. Presenta la situación en una sola frase y comienza el role-play.`,
-    };
-    if(kind==='slower'){
-      state=saveState({...state,slow:true});
+  function capability(){
+    try{return String(localStorage.getItem(DEVICE_KEY)||'')}catch{return ''}
+  }
+
+  async function apiLanguageAssist(phrase){
+    const cap=capability();
+    if(cap.length<16)throw new Error('DEVICE_NOT_AUTHORIZED');
+
+    const response=await fetch(ASSIST_ENDPOINT,{
+      method:'POST',
+      cache:'no-store',
+      headers:{
+        'content-type':'application/json',
+        'x-loky-device':cap,
+      },
+      body:JSON.stringify({
+        phrase,
+        source:state.source,
+        target:state.target,
+      }),
+    });
+
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||!data?.ok)throw new Error(data?.error||`LANGUAGE_ASSIST_${response.status}`);
+    return data;
+  }
+
+  function paintFloatingAssist(){
+    if(!overlay)return;
+    const host=overlay.querySelector?.('[data-lang-floating-assist]');
+    const meaning=overlay.querySelector?.('[data-lang-floating-translation]');
+    const pronunciation=overlay.querySelector?.('[data-lang-floating-pronunciation]');
+    if(!host||!meaning||!pronunciation)return;
+
+    if(!floatingAssist?.translation||!floatingAssist?.pronunciation){
+      host.classList.remove('has-value');
+      meaning.textContent='';
+      pronunciation.textContent='';
+      return;
     }
-    if(kind==='translate'){
-      pendingTeachingCard=true;
-      pronunciationTarget=latestTutor;
-      pronunciationCard=null;
-      paintTeachingCard();
-    }
-    return sendControl(map[kind]||'');
+
+    meaning.textContent=floatingAssist.translation;
+    pronunciation.textContent=floatingAssist.pronunciation;
+    host.classList.add('has-value');
   }
 
-  function firstShortSegment(value,max=140){
-    let text=String(value||'').replace(/\s+/g,' ').trim();
-    if(!text)return '';
-    const boundary=text.search(/[.!?]/);
-    if(boundary>=0)text=text.slice(0,boundary+1);
-    const nextLabel=text.search(/\b(?:TRADUCCI[ÓO]N|PRONUNCIACI[ÓO]N|MEJOR)\s*:/i);
-    if(nextLabel>0)text=text.slice(0,nextLabel);
-    if(text.length>max)text=text.slice(0,max).trim();
-    return text.replace(/[|·]+$/,'').trim();
+  function clearFloatingAssist(){
+    floatingAssist=null;
+    paintFloatingAssist();
   }
 
-  function extractTeachingCard(raw){
-    const text=String(raw||'').replace(/\s+/g,' ').trim();
-    if(!text)return null;
+  function scheduleAutoAssist(rawTutor){
+    if(!state.active)return;
+    const phrase=latestTutorPhrase(rawTutor);
+    if(!phrase||phrase==='—'||phrase.length<2)return;
+    if(phrase===autoAssistLastPhrase&&floatingAssist)return;
 
-    const upper=text.toUpperCase();
-    const t1=upper.lastIndexOf('TRADUCCIÓN:');
-    const t2=upper.lastIndexOf('TRADUCCION:');
-    const t=Math.max(t1,t2);
-    if(t<0)return null;
+    clearTimeout(autoAssistTimer);
+    const seq=++autoAssistSeq;
 
-    const p1=upper.indexOf('PRONUNCIACIÓN:',t);
-    const p2=upper.indexOf('PRONUNCIACION:',t);
-    const p=[p1,p2].filter(x=>x>=0).sort((a,b)=>a-b)[0];
-    if(p==null)return null;
+    autoAssistTimer=setTimeout(async()=>{
+      if(seq!==autoAssistSeq||!state.active)return;
 
-    const translationLabelLength=text.slice(t).toUpperCase().startsWith('TRADUCCIÓN:')?'TRADUCCIÓN:'.length:'TRADUCCION:'.length;
-    const pronunciationLabelLength=text.slice(p).toUpperCase().startsWith('PRONUNCIACIÓN:')?'PRONUNCIACIÓN:'.length:'PRONUNCIACION:'.length;
+      const visualState=String(document.getElementById('conversationState')?.textContent||'').trim();
+      if(visualState==='LOKY HABLANDO'){
+        scheduleAutoAssist(String(document.getElementById('lokyTranscript')?.textContent||''));
+        return;
+      }
 
-    const meaning=firstShortSegment(text.slice(t+translationLabelLength,p),180);
-    const pronunciation=firstShortSegment(text.slice(p+pronunciationLabelLength),140);
-    if(!meaning||!pronunciation)return null;
+      const current=latestTutorPhrase(String(document.getElementById('lokyTranscript')?.textContent||''));
+      if(current!==phrase){
+        scheduleAutoAssist(current);
+        return;
+      }
 
-    return {
-      target:firstShortSegment(pronunciationTarget||latestTutorPhrase(text),180),
-      meaning,
-      pronunciation,
-    };
+      const cacheKey=`${state.source}|${state.target}|${phrase}`;
+      const cached=assistCache.get(cacheKey);
+      if(cached){
+        autoAssistLastPhrase=phrase;
+        floatingAssist={phrase,translation:cached.translation,pronunciation:cached.pronunciation};
+        paintFloatingAssist();
+        return;
+      }
+
+      try{
+        const data=await apiLanguageAssist(phrase);
+        if(seq!==autoAssistSeq||!state.active)return;
+        autoAssistLastPhrase=phrase;
+
+        if(data?.skip===true||!data?.translation||!data?.pronunciation){
+          clearFloatingAssist();
+          return;
+        }
+
+        const value={
+          translation:String(data.translation||'').trim().slice(0,260),
+          pronunciation:String(data.pronunciation||'').trim().slice(0,260),
+        };
+        assistCache.set(cacheKey,value);
+        if(assistCache.size>80){
+          const first=assistCache.keys().next().value;
+          if(first)assistCache.delete(first);
+        }
+
+        floatingAssist={phrase,...value};
+        paintFloatingAssist();
+      }catch{
+        if(seq===autoAssistSeq)clearFloatingAssist();
+      }
+    },AUTO_ASSIST_SETTLE_MS);
   }
 
-  function repeatPronunciation(){
-    if(!pronunciationCard?.target)return false;
+  function repeatLatestTutorPhrase(){
+    const phrase=floatingAssist?.phrase||latestTutorPhrase(String(document.getElementById('lokyTranscript')?.textContent||''));
+    if(!phrase)return false;
     return sendControl([
-      '[LOKY TUTOR TOOL — PRONOUNCE AND REPEAT]',
-      `Pronuncia lentamente esta expresión en ${targetLanguage().label}: ${pronunciationCard.target}`,
-      'No traduzcas. Pronúnciala una vez lentamente y luego pide al estudiante que la repita.'
+      '[LOKY TUTOR TOOL — REPEAT]',
+      `Repite exactamente esta expresión en ${targetLanguage().label}: ${phrase}`,
+      'Dila una vez clara y lentamente. No traduzcas y no cambies de tema.'
     ].join('\n'));
   }
 
-  function paintTeachingCard(){
-    if(!overlay)return;
-    const host=overlay.querySelector?.('[data-lang-teaching-card]');
-    if(!host)return;
-    host.replaceChildren();
-    if(pendingTeachingCard&&!pronunciationCard){
-      const loading=make('div','loky-pron-card is-loading');
-      loading.append(
-        make('strong','', 'TRADUCCIÓN + PRONUNCIACIÓN'),
-        make('span','', 'Preparando…')
-      );
-      host.appendChild(loading);
-      return;
-    }
-    if(!pronunciationCard)return;
+  function quickAction(kind){
+    const source=sourceLanguage();
+    const target=targetLanguage();
+    const map={
+      hint:`[LOKY TUTOR TOOL — HINT] Da una pista breve en ${source.label} sin revelar la respuesta completa. Luego repite la pregunta en ${target.label}.`,
+      slower:`[LOKY TUTOR TOOL — SLOWER] Repite tu última frase en ${target.label} claramente y más despacio. No añadas explicación salvo que te la pidan.`,
+      scenario:`[LOKY TUTOR TOOL — NEW SCENARIO] Cambia de forma natural a otro escenario útil para el objetivo ${goalMeta().label}. Presenta la situación en una sola frase y comienza el role-play.`,
+    };
 
-    const card=make('section','loky-pron-card');
-    const title=make('strong','',pronunciationCard.target||targetLanguage().native);
-    const meaning=make('div','loky-pron-row');
-    meaning.append(make('span','', 'SIGNIFICA'),make('p','',pronunciationCard.meaning));
-    const pronunciation=make('div','loky-pron-row is-pron');
-    pronunciation.append(make('span','', 'SE PRONUNCIA'),make('p','',pronunciationCard.pronunciation));
-    const repeat=make('button','loky-pron-repeat','ESCUCHAR Y REPETIR');
-    repeat.type='button';
-    repeat.addEventListener('click',repeatPronunciation);
-    card.append(title,meaning,pronunciation,repeat);
-    host.appendChild(card);
+    if(kind==='slower'){
+      state=saveState({...state,slow:true});
+    }
+    if(kind==='repeat')return repeatLatestTutorPhrase();
+    return sendControl(map[kind]||'');
   }
 
   function liveVisualState(){
@@ -436,28 +467,11 @@
 
       if(tutorText&&tutorText!=='—'&&tutorText!==lastTutorTranscript){
         lastTutorTranscript=tutorText;
-        if(pendingTeachingCard){
-          const parsed=extractTeachingCard(tutorText);
-          if(parsed){
-            pronunciationCard=parsed;
-            pendingTeachingCard=false;
-          }
-        }else{
-          const correction=/\bMejor\s*:\s*(.+?)(?=\s+Pronunciaci[óo]n\s*:|$)/i.exec(tutorText);
-          const pronunciation=/Pronunciaci[óo]n\s*:\s*(.+)$/i.exec(tutorText);
-          if(correction?.[1]&&pronunciation?.[1]){
-            pronunciationCard={
-              target:correction[1].trim(),
-              meaning:'Corrección recomendada',
-              pronunciation:pronunciation[1].trim(),
-            };
-          }
-        }
+        clearFloatingAssist();
+        scheduleAutoAssist(tutorText);
       }
 
       paintLiveCopy();
-    paintTeachingCard();
-      paintTeachingCard();
       paintVisualState();
     });
 
@@ -469,6 +483,9 @@
   function stopTurnTracking(){
     try{turnObserver?.disconnect?.()}catch{}
     turnObserver=null;
+    clearTimeout(autoAssistTimer);
+    autoAssistTimer=0;
+    autoAssistSeq++;
   }
 
   function make(tag,className,text){
@@ -507,9 +524,10 @@
       .loky-language-state{justify-self:center;padding:5px 9px;border-radius:999px;border:1px solid rgba(106,203,234,.14);background:rgba(4,24,34,.68);font-size:7px;font-weight:1000;letter-spacing:.13em;color:#86c9db}
       .loky-language-state[data-state="speaking"]{color:#8fe6c8;border-color:rgba(73,222,180,.24)}
       .loky-language-state[data-state="thinking"]{color:#c2a9ff;border-color:rgba(156,115,246,.24)}
-      .loky-pron-host:empty{display:none}.loky-pron-card{border:1px solid rgba(83,222,184,.22);background:rgba(5,42,39,.78);backdrop-filter:blur(18px);border-radius:16px;padding:10px 11px;display:grid;gap:7px}.loky-pron-card>strong{font-size:11px;color:#e5fff6;line-height:1.35}.loky-pron-card.is-loading{color:#86b8c7}
-      .loky-pron-row{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px;align-items:start}.loky-pron-row span{font-size:6.5px;font-weight:1000;letter-spacing:.11em;color:#72a9ba;padding-top:3px}.loky-pron-row p{margin:0;font-size:10px;line-height:1.4;color:#d4edf3}.loky-pron-row.is-pron p{font-size:12px;font-weight:900;color:#a8f0d5;letter-spacing:.03em}
-      .loky-pron-repeat{min-height:36px;border-radius:11px;border:1px solid rgba(92,222,184,.20);background:rgba(8,61,52,.68);color:#cffff0;font-size:8px;font-weight:1000;letter-spacing:.08em}
+      .loky-language-floating{min-height:48px;display:grid;align-content:center;justify-items:center;gap:3px;padding:0 12px;opacity:0;transform:translateY(7px);transition:opacity .22s ease,transform .22s ease;pointer-events:none;text-align:center}
+      .loky-language-floating.has-value{opacity:1;transform:translateY(0)}
+      .loky-language-floating-translation{max-width:92%;font-size:12px;line-height:1.32;font-weight:800;color:#eefcff;text-shadow:0 2px 8px #02080c,0 0 14px rgba(58,190,220,.28)}
+      .loky-language-floating-pronunciation{max-width:94%;font-size:11px;line-height:1.28;font-weight:1000;letter-spacing:.025em;color:#99efd1;text-shadow:0 2px 8px #02080c,0 0 15px rgba(58,225,176,.25)}
       .loky-language-config{position:relative;z-index:6;align-self:center;width:min(92vw,520px);max-height:calc(100vh - 100px);overflow:auto;margin:auto;padding:16px;border-radius:24px;border:1px solid rgba(107,204,235,.16);background:rgba(4,18,27,.94);backdrop-filter:blur(22px);box-shadow:0 22px 80px rgba(0,0,0,.44);display:grid;gap:13px}
       .loky-language-config h2{margin:0;font-size:17px;letter-spacing:.04em;color:#e7faff}.loky-language-config>p{margin:-5px 0 0;font-size:9px;line-height:1.5;color:#7fa7b5}
       .loky-language-section{display:grid;gap:7px}.loky-language-section>strong{font-size:8px;letter-spacing:.12em;color:#8ac7d8}
@@ -652,6 +670,7 @@
       stat.textContent=`${stats.turns} turnos · ${Math.round(stats.minutes)} min`;
     }
     paintVisualState();
+    paintFloatingAssist();
   }
 
   function renderLive(root){
@@ -677,11 +696,19 @@
     userLine.appendChild(userText);
     dialog.append(tutorLine,userLine);
 
+    const floating=make('div','loky-language-floating');
+    floating.dataset.langFloatingAssist='1';
+    const floatingTranslation=make('div','loky-language-floating-translation','');
+    floatingTranslation.dataset.langFloatingTranslation='1';
+    const floatingPronunciation=make('div','loky-language-floating-pronunciation','');
+    floatingPronunciation.dataset.langFloatingPronunciation='1';
+    floating.append(floatingTranslation,floatingPronunciation);
+
     const tools=make('div','loky-language-tools');
     const definitions=[
       ['PISTA','hint'],
       ['MÁS LENTO','slower'],
-      ['TRADUCIR','translate'],
+      ['REPETIR','repeat'],
       ['CAMBIAR TEMA','scenario'],
     ];
     for(const [label,kind] of definitions){
@@ -691,16 +718,13 @@
       tools.appendChild(button);
     }
 
-    const teachingHost=make('div','loky-pron-host');
-    teachingHost.dataset.langTeachingCard='1';
-
     const progress=make('div','loky-language-progress');
     progress.append(make('span','',`${sourceLanguage().label} → ${targetLanguage().label}`));
     const stat=make('strong','',`${stats.turns} turnos · ${Math.round(stats.minutes)} min`);
     stat.dataset.langProgress='1';
     progress.appendChild(stat);
 
-    live.append(status,stateBadge,dialog,teachingHost,tools,progress);
+    live.append(status,stateBadge,floating,dialog,tools,progress);
     root.appendChild(live);
     paintLiveCopy();
   }
@@ -788,11 +812,13 @@
     activate,
     deactivate,
     quick:quickAction,
-    repeatPronunciation,
-    extractTeachingCard,
+    repeatLatestTutorPhrase,
     cleanTutorDisplay,
     latestTutorPhrase,
     stripTeachingPayloads,
+    apiLanguageAssist,
+    scheduleAutoAssist,
+    paintFloatingAssist,
     open:openOverlay,
     close:closeOverlay,
     install:installSlot,
