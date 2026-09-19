@@ -52,7 +52,7 @@ vm.runInContext(src,context,{filename:'mobile-actions.js'});
 
 const api=context.LOKY_PC4_MOBILE_ACTIONS;
 assert(api,'Mobile Actions API missing');
-assert.equal(api.version,'0.3.2R4F11R3-punctuation-safe-actions');
+assert.equal(api.version,'0.3.2R4F11R4-timer-popup');
 
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY abre Maps'))),{type:'maps-open'});
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY abre Maps por favor'))),{type:'maps-open'});
@@ -73,6 +73,14 @@ assert.deepEqual(JSON.parse(JSON.stringify(api.parse('copia el texto hola mundo'
 const timer=api.parse('pon un temporizador de cinco minutos');
 assert(timer&&timer.type==='timer');
 assert.equal(timer.ms,5*60*1000);
+assert.equal(api.timerPopup.format(5*60*1000),'05:00');
+assert.equal(api.timerPopup.format((60*60+5)*1000),'01:00:05');
+assert(api.execute(timer),'timer action must execute');
+const timerPopup=body.children.find(x=>x.className==='loky-timer-popup');
+assert(timerPopup,'timer popup must be rendered');
+assert.equal(timerPopup.children[0].textContent,'TEMPORIZADOR');
+assert.equal(timerPopup.children[1].textContent,'05:00');
+assert.equal(timerPopup.children[2].textContent,'ACTIVO');
 
 const timer2=api.parse('inicia temporizador de una hora y treinta minutos');
 assert(timer2&&timer2.type==='timer');
@@ -81,9 +89,9 @@ assert.equal(timer2.ms,(60+30)*60*1000);
 assert.equal(api.parse('búscame el teléfono de Apple Store'),null,'Web Search intent must remain owned by Web Search');
 assert.equal(api.parse('pon una alarma en cinco minutos'),null,'existing alarm intent must remain owned by Planner');
 
-assert(index.includes('<script src="./mobile-actions.js?v=0.3.2r4f11r3"></script>'));
-assert(index.indexOf('mobile-planner.js?v=0.3.2r4f8') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r3'));
-assert(index.indexOf('mobile-web-search.js?v=0.3.2r4f10r3') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r3'));
+assert(index.includes('<script src="./mobile-actions.js?v=0.3.2r4f11r4"></script>'));
+assert(index.indexOf('mobile-planner.js?v=0.3.2r4f8') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r4'));
+assert(index.indexOf('mobile-web-search.js?v=0.3.2r4f10r3') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r4'));
 
 for(const forbidden of [
   /new\s+WebSocket\s*\(/,
@@ -103,6 +111,11 @@ assert(src.includes('const POLL_MS=90'));
 assert(src.includes('const TRANSCRIPT_SETTLE_MS=360'));
 assert(src.includes('location.href=url'));
 assert(src.includes('if(live?.userSpeaking)'));
+assert(src.includes('function showTimerPopup('));
+assert(src.includes("card.className='loky-timer-popup'"));
+assert(src.includes("top:calc(10px + env(safe-area-inset-top))"));
+assert(src.includes('timerPopupTimeout=setTimeout(clearTimerPopup,5200)'));
+assert(src.includes('showTimerPopup(action.ms)'));
 assert(!src.includes('future-op-1'));
 assert(!src.includes('openActionsMenu'));
 assert(!src.includes('ACCIONES MÓVILES'));
