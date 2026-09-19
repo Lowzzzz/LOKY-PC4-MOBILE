@@ -46,13 +46,30 @@ const context={
 context.window=context;
 context.LOKY_PC4_LIVE={state:{userSpeaking:false,transcriptBuffer:''}};
 context.LOKY_PC4_FEATURES={windows:{openSettings(){context._settingsOpened=true;}}};
-context.LOKY_PC4_PLANNER={add(){return {id:'t'};},checkDue(){},open(){}};
+const plannerItems=[];
+context.LOKY_PC4_PLANNER={
+  add(type,title,at,source){
+    const item={id:'t'+(plannerItems.length+1),type,title,at,source,createdAt:Date.now(),doneAt:0,firedAt:0};
+    plannerItems.push(item);
+    return item;
+  },
+  snapshot(){return plannerItems.map(x=>({...x}));},
+  remove(id){
+    const i=plannerItems.findIndex(x=>x.id===id);
+    if(i<0)return false;
+    plannerItems.splice(i,1);
+    return true;
+  },
+  checkDue(){},
+  open(){}
+};
+context.LOKY_PC4_BACKGROUND_ALARM={sync(){context._backgroundSync=true;return true;}};
 vm.createContext(context);
 vm.runInContext(src,context,{filename:'mobile-actions.js'});
 
 const api=context.LOKY_PC4_MOBILE_ACTIONS;
 assert(api,'Mobile Actions API missing');
-assert.equal(api.version,'0.3.2R4F11R5-persistent-timer-popup');
+assert.equal(api.version,'0.3.2R4F11R6-timer-delete');
 
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY abre Maps'))),{type:'maps-open'});
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY abre Maps por favor'))),{type:'maps-open'});
@@ -60,6 +77,9 @@ assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY, abre Maps.'))),{type
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('“LOKY, abre YouTube.”'))),{type:'youtube-open'});
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY, abre WhatsApp.'))),{type:'whatsapp-open'});
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY, pon un temporizador de cinco minutos.'))),{type:'timer',ms:300000,label:'5 minutos'});
+assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY, elimina el temporizador.'))),{type:'timer-delete',all:false});
+assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY, cancela ese temporizador.'))),{type:'timer-delete',all:false});
+assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY, borra todos los temporizadores.'))),{type:'timer-delete',all:true});
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('sí sí LOKY abre Maps'))),{type:'maps-open'});
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY abre Maps LOKY abre Maps'))),{type:'maps-open'});
 assert.deepEqual(JSON.parse(JSON.stringify(api.parse('LOKY llévame a Plaza Las Américas'))),{type:'maps-directions',destination:'plaza las americas'});
@@ -82,6 +102,13 @@ assert.equal(timerPopup.children[0].textContent,'TEMPORIZADOR');
 assert.equal(timerPopup.children[1].textContent,'05:00');
 assert.equal(timerPopup.children[2].textContent,'ACTIVO');
 
+const deleteTimer=api.parse('LOKY, elimina el temporizador.');
+assert(deleteTimer&&deleteTimer.type==='timer-delete');
+assert(api.execute(deleteTimer),'timer delete must execute');
+assert.equal(plannerItems.length,0,'timer must be removed from Planner');
+assert.equal(timerPopup.removed,true,'timer popup must be removed immediately');
+assert.equal(context._backgroundSync,true,'background alarm sync must be requested');
+
 const timer2=api.parse('inicia temporizador de una hora y treinta minutos');
 assert(timer2&&timer2.type==='timer');
 assert.equal(timer2.ms,(60+30)*60*1000);
@@ -89,9 +116,9 @@ assert.equal(timer2.ms,(60+30)*60*1000);
 assert.equal(api.parse('búscame el teléfono de Apple Store'),null,'Web Search intent must remain owned by Web Search');
 assert.equal(api.parse('pon una alarma en cinco minutos'),null,'existing alarm intent must remain owned by Planner');
 
-assert(index.includes('<script src="./mobile-actions.js?v=0.3.2r4f11r5"></script>'));
-assert(index.indexOf('mobile-planner.js?v=0.3.2r4f8') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r5'));
-assert(index.indexOf('mobile-web-search.js?v=0.3.2r4f10r3') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r5'));
+assert(index.includes('<script src="./mobile-actions.js?v=0.3.2r4f11r6"></script>'));
+assert(index.indexOf('mobile-planner.js?v=0.3.2r4f8') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r6'));
+assert(index.indexOf('mobile-web-search.js?v=0.3.2r4f10r3') < index.indexOf('mobile-actions.js?v=0.3.2r4f11r6'));
 
 for(const forbidden of [
   /new\s+WebSocket\s*\(/,
@@ -119,6 +146,10 @@ assert(src.includes('if(remaining<=0)'));
 assert(src.includes("state.textContent='FINALIZADO'"));
 assert(src.includes('timerPopupTimeout=setTimeout(clearTimerPopup,1400)'));
 assert(src.includes('showTimerPopup(action.ms)'));
+assert(src.includes("type:'timer-delete'"));
+assert(src.includes('function cancelTimer('));
+assert(src.includes('planner.remove(timer.id)'));
+assert(src.includes('LOKY_PC4_BACKGROUND_ALARM?.sync?.(true)'));
 assert(!src.includes('future-op-1'));
 assert(!src.includes('openActionsMenu'));
 assert(!src.includes('ACCIONES MÓVILES'));
