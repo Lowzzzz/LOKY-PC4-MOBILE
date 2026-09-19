@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "ecff390fa1d572bc8c2de8f7ae05eabe276e3e93"
+          test "$(git rev-parse HEAD:site/index.html)" = "7983d194a639149b7fe00bcb442c8da92e8073f9"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
@@ -235,7 +235,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
-          test "$(git rev-parse HEAD:site/index.html)" = "ecff390fa1d572bc8c2de8f7ae05eabe276e3e93"
+          test "$(git rev-parse HEAD:site/index.html)" = "7983d194a639149b7fe00bcb442c8da92e8073f9"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           grep -F "const VERSION='0.3.2R4F9-cloud-background-alarms'" site/mobile-background-alarm.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'" site/mobile-background-alarm.js
@@ -262,7 +262,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           test "$(git rev-parse HEAD:site/mobile-web-search.js)" = "be2dfce56a7af5e1abbb4f2277a635ac16c03c38"
-          test "$(git rev-parse HEAD:site/index.html)" = "ecff390fa1d572bc8c2de8f7ae05eabe276e3e93"
+          test "$(git rev-parse HEAD:site/index.html)" = "7983d194a639149b7fe00bcb442c8da92e8073f9"
           grep -F "const VERSION='0.3.2R4F10R3-turn-safe-search'" site/mobile-web-search.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'" site/mobile-web-search.js
           grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-web-search.js
@@ -305,7 +305,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "f7314f4e0dab972697059337b838becd11f8c5f8"
           test "$(git rev-parse HEAD:site/mobile-actions.js)" = "5803be78d341cbeff06a7e45f608bc80c51193c8"
-          test "$(git rev-parse HEAD:site/index.html)" = "ecff390fa1d572bc8c2de8f7ae05eabe276e3e93"
+          test "$(git rev-parse HEAD:site/index.html)" = "7983d194a639149b7fe00bcb442c8da92e8073f9"
           grep -F "const VERSION='0.3.2R4F11R6-timer-delete'" site/mobile-actions.js
           grep -F 'new MutationObserver(scheduleFromTranscript)' site/mobile-actions.js
           grep -F 'state?.transcriptBuffer' site/mobile-actions.js
@@ -337,7 +337,7 @@ jobs:
           grep -F '<script src="./mobile-actions.js?v=0.3.2r4f11r6"></script>' site/index.html
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|fetch[[:space:]]*\(|speechSynthesis|navigator\.geolocation|App-Prefs:|prefs:' site/mobile-actions.js; then exit 1; fi
 
-      - name: Verify R4F12R4 automatic floating translation
+      - name: Verify R4F12R5 transcript pronunciation polish
         shell: bash
         run: |
           set -euo pipefail
@@ -345,11 +345,11 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "f7314f4e0dab972697059337b838becd11f8c5f8"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
           test "$(git rev-parse HEAD:site/mobile-actions.js)" = "5803be78d341cbeff06a7e45f608bc80c51193c8"
-          test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "de72c3c72dfb68fef2285e2277caef0ebeb4d4d2"
+          test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "ed136f4d71ab57dfe6a56821474e412421cd1326"
           test "$(git rev-parse HEAD:site/language-avatar.webp)" = "9119b39fcc21891bb95d5f3f95b57444277723f6"
           test "$(git cat-file -s HEAD:site/language-avatar.webp)" -gt 10000
-          test "$(git rev-parse HEAD:site/index.html)" = "ecff390fa1d572bc8c2de8f7ae05eabe276e3e93"
-          grep -F "const VERSION='0.3.2R4F12R4-auto-floating-translation'" site/mobile-language-tutor.js
+          test "$(git rev-parse HEAD:site/index.html)" = "7983d194a639149b7fe00bcb442c8da92e8073f9"
+          grep -F "const VERSION='0.3.2R4F12R5-transcript-pronunciation-polish'" site/mobile-language-tutor.js
           grep -F "const STORE_KEY='loky_pc4_language_tutor_v1'" site/mobile-language-tutor.js
           grep -F "const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1'" site/mobile-language-tutor.js
           grep -F 'const previousSend=WebSocket.prototype.send' site/mobile-language-tutor.js
@@ -382,8 +382,11 @@ jobs:
           grep -F 'data-state="speaking"' site/mobile-language-tutor.js
           grep -F 'function stripTeachingPayloads(' site/mobile-language-tutor.js
           grep -F 'function latestTutorPhrase(' site/mobile-language-tutor.js
+          grep -F 'function cleanUserDisplay(' site/mobile-language-tutor.js
+          grep -F 'function dedupeSentences(' site/mobile-language-tutor.js
+          grep -F 'selected.length<2' site/mobile-language-tutor.js
           grep -F 'width:78%;height:72%' site/mobile-language-tutor.js
-          grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r4"></script>' site/index.html
+          grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r5"></script>' site/index.html
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|speechSynthesis|navigator\.geolocation' site/mobile-language-tutor.js; then exit 1; fi
 
       - name: Verify iOS 0.3.2R4F10R3 Mobile conversation turn guard
@@ -425,7 +428,7 @@ jobs:
           node .github/tests/ios032r4f9-cloud-background-alarms.test.cjs
           node .github/tests/ios032r4f10-cloud-web-search.test.cjs
           node .github/tests/ios032r4f11-mobile-actions.test.cjs
-          node .github/tests/ios032r4f12r4-auto-floating-translation.test.cjs
+          node .github/tests/ios032r4f12r5-transcript-pronunciation-polish.test.cjs
 
       - name: Verify Natural Earth USGS and device backends
         shell: bash
