@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "85abb546bc1fdb346dccea5a5fcd5a8684dfb8cc"
+          test "$(git rev-parse HEAD:site/index.html)" = "a64fbaa2a16e8063ba9fe4ac40c9276044e2a593"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
@@ -235,7 +235,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
-          test "$(git rev-parse HEAD:site/index.html)" = "85abb546bc1fdb346dccea5a5fcd5a8684dfb8cc"
+          test "$(git rev-parse HEAD:site/index.html)" = "a64fbaa2a16e8063ba9fe4ac40c9276044e2a593"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           grep -F "const VERSION='0.3.2R4F9-cloud-background-alarms'" site/mobile-background-alarm.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'" site/mobile-background-alarm.js
@@ -262,7 +262,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           test "$(git rev-parse HEAD:site/mobile-web-search.js)" = "be2dfce56a7af5e1abbb4f2277a635ac16c03c38"
-          test "$(git rev-parse HEAD:site/index.html)" = "85abb546bc1fdb346dccea5a5fcd5a8684dfb8cc"
+          test "$(git rev-parse HEAD:site/index.html)" = "a64fbaa2a16e8063ba9fe4ac40c9276044e2a593"
           grep -F "const VERSION='0.3.2R4F10R3-turn-safe-search'" site/mobile-web-search.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'" site/mobile-web-search.js
           grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-web-search.js
@@ -305,7 +305,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "f7314f4e0dab972697059337b838becd11f8c5f8"
           test "$(git rev-parse HEAD:site/mobile-actions.js)" = "5803be78d341cbeff06a7e45f608bc80c51193c8"
-          test "$(git rev-parse HEAD:site/index.html)" = "85abb546bc1fdb346dccea5a5fcd5a8684dfb8cc"
+          test "$(git rev-parse HEAD:site/index.html)" = "a64fbaa2a16e8063ba9fe4ac40c9276044e2a593"
           grep -F "const VERSION='0.3.2R4F11R6-timer-delete'" site/mobile-actions.js
           grep -F 'new MutationObserver(scheduleFromTranscript)' site/mobile-actions.js
           grep -F 'state?.transcriptBuffer' site/mobile-actions.js
@@ -337,7 +337,7 @@ jobs:
           grep -F '<script src="./mobile-actions.js?v=0.3.2r4f11r6"></script>' site/index.html
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|fetch[[:space:]]*\(|speechSynthesis|navigator\.geolocation|App-Prefs:|prefs:' site/mobile-actions.js; then exit 1; fi
 
-      - name: Verify R4F12R6 clean language tutor UI
+      - name: Verify R4F12R7 fast floating assist
         shell: bash
         run: |
           set -euo pipefail
@@ -345,11 +345,11 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "f7314f4e0dab972697059337b838becd11f8c5f8"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
           test "$(git rev-parse HEAD:site/mobile-actions.js)" = "5803be78d341cbeff06a7e45f608bc80c51193c8"
-          test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "980122bcf882130f2f44496af104eb852eff8531"
+          test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "c95ed041d3c2ed51e1bc47abef3123eea0070ac6"
           test "$(git rev-parse HEAD:site/language-avatar.webp)" = "9119b39fcc21891bb95d5f3f95b57444277723f6"
           test "$(git cat-file -s HEAD:site/language-avatar.webp)" -gt 10000
-          test "$(git rev-parse HEAD:site/index.html)" = "85abb546bc1fdb346dccea5a5fcd5a8684dfb8cc"
-          grep -F "const VERSION='0.3.2R4F12R6-language-visual-clean'" site/mobile-language-tutor.js
+          test "$(git rev-parse HEAD:site/index.html)" = "a64fbaa2a16e8063ba9fe4ac40c9276044e2a593"
+          grep -F "const VERSION='0.3.2R4F12R7-fast-assist-3d-shell'" site/mobile-language-tutor.js
           grep -F "const STORE_KEY='loky_pc4_language_tutor_v1'" site/mobile-language-tutor.js
           grep -F "const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1'" site/mobile-language-tutor.js
           grep -F 'const previousSend=WebSocket.prototype.send' site/mobile-language-tutor.js
@@ -392,7 +392,10 @@ jobs:
           grep -F 'width:92%;height:86%' site/mobile-language-tutor.js
           grep -F 'object-position:center center' site/mobile-language-tutor.js
           grep -F 'live.append(stateBadge,floating,tools,progress)' site/mobile-language-tutor.js
-          grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r6"></script>' site/index.html
+          grep -F 'const AUTO_ASSIST_SETTLE_MS=90' site/mobile-language-tutor.js
+          grep -F 'const AUTO_ASSIST_END_SETTLE_MS=180' site/mobile-language-tutor.js
+          grep -F 'function latestCompletedTutorPhrase(' site/mobile-language-tutor.js
+          if grep -Fq           grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r7"></script>' site/index.html
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|speechSynthesis|navigator\.geolocation' site/mobile-language-tutor.js; then exit 1; fi
 
       - name: Verify iOS 0.3.2R4F10R3 Mobile conversation turn guard
@@ -434,7 +437,108 @@ jobs:
           node .github/tests/ios032r4f9-cloud-background-alarms.test.cjs
           node .github/tests/ios032r4f10-cloud-web-search.test.cjs
           node .github/tests/ios032r4f11-mobile-actions.test.cjs
-          node .github/tests/ios032r4f12r6-language-visual-clean.test.cjs
+          node .github/tests/ios032r4f12r7-fast-assist.test.cjs
+
+      - name: Verify Natural Earth USGS and device backends
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson'
+          curl -fsS "$BASE/ne_50m_land.geojson" -o /tmp/land.json
+          curl -fsS "$BASE/ne_110m_admin_0_countries.geojson" -o /tmp/countries.json
+          node -e "for(const p of ['/tmp/land.json','/tmp/countries.json']){const x=require(p);if(x.type!=='FeatureCollection'||!Array.isArray(x.features)||x.features.length<20)process.exit(2)}"
+          curl -fsS 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson' -o /tmp/quakes.json
+          node -e "const x=require('/tmp/quakes.json'); if(x.type!=='FeatureCollection'||!Array.isArray(x.features)||!x.metadata) process.exit(2);"
+          DEV='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices'
+          TOKEN='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-token'
+          PREVIEW='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-voice-preview'
+          PUSH='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'
+          SEARCH='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'
+          curl -fsS "$DEV" -o /tmp/device-health.json
+          node -e "const x=require('/tmp/device-health.json'); if(!x.ok||x.version!==2||x.guestActivation!=='handoff-code-v1') process.exit(2)"
+          curl -fsS "$TOKEN" -o /tmp/token-health.json
+          node -e "const x=require('/tmp/token-health.json'); if(!x.ok||x.auth!=='owner-or-invited-device-capability'||x.model!=='models/gemini-3.8-live'||x.tokenSchema!=='unconstrained-ephemeral-v1beta') process.exit(2)"
+          curl -fsS "$PREVIEW" -o /tmp/preview-health.json
+          node -e "const x=require('/tmp/preview-health.json'); if(!x.ok||x.version!==3||x.model!=='gemini-3.1-flash-tts-preview'||x.sampleRate!==24000||x.cache!=='postgres-persistent-v1'||x.staticPreview!=='pcm-get-v1'||x.personalityPreview!=='selected-voice-cache-v1'||!Array.isArray(x.voices)||x.voices.length<8||!Array.isArray(x.personalities)||x.personalities.length<8||!x.personalities.includes('natural')||!x.personalities.includes('coach')) process.exit(2)"
+          curl -fsS "$PUSH" -o /tmp/push-health.json
+          node -e "const x=require('/tmp/push-health.json'); if(!x.ok||x.version!==1||x.backgroundAlarm!=='web-push-v1'||x.scheduler!=='pg-cron-30s'||typeof x.publicKey!=='string'||x.publicKey.length<50) process.exit(2)"
+          curl -fsS "$SEARCH" -o /tmp/search-health.json
+          node -e "const x=require('/tmp/search-health.json'); if(!x.ok||x.version!==14||x.provider!=='hybrid-local-v2'||x.synthesis!=='gemini-live-existing-session'||x.auth!=='owner-or-invited-device-capability') process.exit(2)"
+          code=$(curl -sS -o /tmp/device-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"status"}' "$DEV")
+          test "$code" = '401'
+          code=$(curl -sS -o /tmp/token-denied.json -w '%{http_code}' -X POST -H 'x-loky-device: invalid-device-123456789' "$TOKEN")
+          test "$code" = '401'
+          code=$(curl -sS -o /tmp/preview-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"voiceName":"Kore"}' "$PREVIEW")
+          test "$code" = '401'
+          code=$(curl -sS -o /tmp/push-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"status"}' "$PUSH")
+          test "$code" = '401'
+          code=$(curl -sS -o /tmp/search-denied.json -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'x-loky-device: invalid-device-123456789' --data '{"action":"search","query":"OpenAI official website"}' "$SEARCH")
+          test "$code" = '401'
+          curl -fsS 'https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js' -o /tmp/qrcode.min.js
+          grep -F 'QRCode' /tmp/qrcode.min.js >/dev/null
+
+      - name: Verify no forbidden fallback or secret material
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then echo 'Secret/API key material must never be present in public Mobile files'; exit 1; fi
+          if grep -R -E -qi 'QWEN|FALLBACK LOCAL|speechSynthesis' site; then echo 'Local robotic voice fallback is forbidden in native Live build'; exit 1; fi
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+clearFloatingAssist();\n        scheduleAutoAssist(tutorText);' site/mobile-language-tutor.js; then exit 1; fi
+          grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r7"></script>' site/index.html
+          if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|speechSynthesis|navigator\.geolocation' site/mobile-language-tutor.js; then exit 1; fi
+
+      - name: Verify iOS 0.3.2R4F10R3 Mobile conversation turn guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F "const BUILD='0.3.2'" site/app.js
+          grep -F "phase:'gemini-live-native'" site/app.js
+          grep -F '"version": "0.3.2"' site/version.json
+          grep -F "const VERSION='0.3.2R4-pc4-conversation-port'" site/live-mobile.js
+          grep -F 'const END_SILENCE_MS=850' site/live-mobile.js
+          grep -F 'automaticActivityDetection:{disabled:true}' site/live-mobile.js
+          grep -F "sendRealtime(ws,{activityStart:{}})" site/live-mobile.js
+          grep -F "sendRealtime(ws,{activityEnd:{}})" site/live-mobile.js
+          grep -F "prebuiltVoiceConfig:{voiceName:'Kore'}" site/live-mobile.js
+          grep -F 'contextWindowCompression:{slidingWindow:{}}' site/live-mobile.js
+          grep -F "navigator.audioSession.type=type" site/ios-audio-stability.js
+          grep -F "await ctx.suspend()" site/ios-audio-stability.js
+          grep -F "await ctx.resume()" site/ios-audio-stability.js
+          if grep -Fq 'interimInputTranscription' site/live-mobile.js; then exit 1; fi
+
+      - name: Run protected conversation, reactive sphere, Earth and Devices tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/tests/ios032r4-pc4-conversation-port.test.cjs
+          node .github/tests/ios032r4f10r3-turn-safe-sphere-reactive.test.cjs
+          node .github/tests/ios032r4f2-settings-memory-windows.test.cjs
+          node .github/tests/ios032r4f2r1-noise-guard.test.cjs
+          node .github/tests/ios032r4f6r2-earth-coast-persistence.test.cjs
+          node .github/tests/ios032r4f5-devices-qr.test.cjs
+          node .github/tests/ios032r4f5r3-settings-dashboard.test.cjs
+          node .github/tests/ios032r4f5r4-guest-handoff.test.cjs
+          node .github/tests/ios032r4f7-voice-personality-profiles.test.cjs
+          node .github/tests/ios032r4f7r1-voice-preview-confirm.test.cjs
+          node .github/tests/ios032r4f7r2-instant-voice-preview.test.cjs
+          node .github/tests/ios032r4f7r3-personality-audio-preview.test.cjs
+          node .github/tests/ios032r4f8-planner.test.cjs
+          node .github/tests/ios032r4f9-cloud-background-alarms.test.cjs
+          node .github/tests/ios032r4f10-cloud-web-search.test.cjs
+          node .github/tests/ios032r4f11-mobile-actions.test.cjs
+          node .github/tests/ios032r4f12r7-fast-assist.test.cjs
 
       - name: Verify Natural Earth USGS and device backends
         shell: bash
