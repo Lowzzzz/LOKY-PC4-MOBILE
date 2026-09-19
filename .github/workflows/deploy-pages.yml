@@ -374,7 +374,8 @@ jobs:
           grep -F 'function firstShortSegment(' site/mobile-language-tutor.js
           grep -F 'No cambies de tema. No hagas otra pregunta.' site/mobile-language-tutor.js
           grep -F 'width:78%;height:72%' site/mobile-language-tutor.js
-          if grep -Fq "lastIndexOf('TRADUCCIÓN:')" site/mobile-language-tutor.js; then exit 1; fi
+          grep -F 'const meaning=firstShortSegment(' site/mobile-language-tutor.js
+          grep -F 'const pronunciation=firstShortSegment(' site/mobile-language-tutor.js
           grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r3"></script>' site/index.html
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|fetch[[:space:]]*\(|speechSynthesis|navigator\.geolocation' site/mobile-language-tutor.js; then exit 1; fi
 
