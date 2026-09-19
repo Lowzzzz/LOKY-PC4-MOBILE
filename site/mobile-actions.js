@@ -1,18 +1,23 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F11R1-voice-actions-fix';
+  const VERSION='0.3.2R4F11R2-transcript-buffer-actions';
   const REPEAT_GUARD_MS=10000;
-  const TRANSCRIPT_SETTLE_MS=260;
+  const TRANSCRIPT_SETTLE_MS=360;
   const USER_END_POLL_MS=80;
+  const POLL_MS=90;
 
   const userTranscript=document.getElementById('userTranscript');
   const body=document.body;
 
   let actionTimer=0;
+  let pollTimer=0;
   let lastActionKey='';
   let lastActionAt=0;
   let statusCard=null;
+  let observedText='';
+  let observedAt=0;
+  let processedText='';
 
   const NUMBER_WORDS={
     un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,
@@ -29,10 +34,38 @@
       .trim();
   }
 
-  function withoutLoky(text){
-    return normalize(text).replace(/^loky\s+/,'').trim();
+  function cleanCommandText(text){
+    return normalize(text)
+      .replace(/\b(?:por favor|porfa|si puedes|si puede|gracias)\b\s*$/g,' ')
+      .replace(/^\s*(?:oye\s+)?loky\s+/,'')
+      .replace(/^\s*(?:puedes|podrias|podrías|quiero que|necesito que|haz el favor de|hazme el favor de)\s+/,'')
+      .replace(/\s+/g,' ')
+      .trim();
   }
 
+  function commandCandidates(raw){
+    const base=normalize(raw);
+    if(!base)return [];
+
+    const out=[];
+    const add=value=>{
+      value=cleanCommandText(value);
+      if(value&&!out.includes(value))out.push(value);
+    };
+
+    add(base);
+
+    const lokyParts=base.split(/\bloky\b/g);
+    if(lokyParts.length>1)add(lokyParts[lokyParts.length-1]);
+
+    const starts=[];
+    const re=/\b(?:abre|abrir|abreme|muestra|ve a|entra a|llevame|navega|guiame|dame indicaciones|como llego|quiero ir|pon|reproduce|manda|envia|comparte|copia|copiar|inicia|crea|activa)\b/g;
+    let m;
+    while((m=re.exec(base)))starts.push(m.index);
+    if(starts.length)add(base.slice(starts[starts.length-1]));
+
+    return out;
+  }
   function spokenNumber(token){
     const clean=String(token||'').trim().toLowerCase();
     if(/^\d{1,4}$/.test(clean))return Number(clean);
@@ -58,63 +91,64 @@
   }
 
   function parseAction(raw){
-    const n=withoutLoky(raw);
-    if(!n)return null;
+    const candidates=commandCandidates(raw);
+    if(!candidates.length)return null;
 
-    if(/^(?:abre|abrir|muestra|ve a|entra a)\s+(?:la\s+)?(?:configuracion|ajustes)(?:\s+de\s+loky)?$/.test(n)){
-      return {type:'loky-settings'};
-    }
+    for(const n of candidates){
+      if(/^(?:abre|abrir|abreme|muestra|ve a|entra a)\s+(?:la\s+)?(?:configuracion|ajustes)(?:\s+de\s+loky)?(?:\s+ahora)?$/.test(n)){
+        return {type:'loky-settings'};
+      }
 
-    if(/\b(?:configuracion|ajustes)\b.*\b(?:iphone|ipad|telefono|sistema)\b/.test(n)){
-      return {type:'system-settings-unavailable'};
-    }
+      if(/\b(?:configuracion|ajustes)\b.*\b(?:iphone|ipad|telefono|sistema)\b/.test(n)){
+        return {type:'system-settings-unavailable'};
+      }
 
-    if(/^(?:abre|abrir|muestra|ve a)\s+(?:apple\s+)?(?:maps|mapas)$/.test(n)){
-      return {type:'maps-open'};
-    }
+      if(/^(?:abre|abrir|abreme|muestra|ve a)\s+(?:la\s+app\s+de\s+)?(?:apple\s+)?(?:maps|mapas)(?:\s+ahora)?$/.test(n)){
+        return {type:'maps-open'};
+      }
 
-    let match=n.match(/^(?:llevame|navega|guiame|dame indicaciones|como llego)\s+(?:a|hasta)\s+(.+)$/);
-    if(match?.[1])return {type:'maps-directions',destination:match[1].trim()};
+      let match=n.match(/^(?:llevame|navega|guiame|dame indicaciones|como llego|quiero ir)\s+(?:a|hasta)\s+(.+?)(?:\s+por favor)?$/);
+      if(match?.[1])return {type:'maps-directions',destination:match[1].trim()};
 
-    match=n.match(/^(?:abre|abrir|muestra)\s+(?:apple\s+)?(?:maps|mapas)\s+(?:en|para|con)\s+(.+)$/);
-    if(match?.[1])return {type:'maps-search',query:match[1].trim()};
+      match=n.match(/^(?:abre|abrir|abreme|muestra)\s+(?:apple\s+)?(?:maps|mapas)\s+(?:en|para|con|y busca)\s+(.+?)(?:\s+por favor)?$/);
+      if(match?.[1])return {type:'maps-search',query:match[1].trim()};
 
-    if(/^(?:abre|abrir|muestra|ve a)\s+youtube$/.test(n)){
-      return {type:'youtube-open'};
-    }
+      if(/^(?:abre|abrir|abreme|muestra|ve a)\s+(?:la\s+app\s+de\s+)?youtube(?:\s+ahora)?$/.test(n)){
+        return {type:'youtube-open'};
+      }
 
-    match=n.match(/^(?:pon|reproduce|busca)\s+(.+?)\s+en\s+youtube$/);
-    if(match?.[1])return {type:'youtube-search',query:match[1].trim()};
+      match=n.match(/^(?:pon|reproduce)\s+(.+?)\s+en\s+youtube(?:\s+por favor)?$/);
+      if(match?.[1])return {type:'youtube-search',query:match[1].trim()};
 
-    match=n.match(/^(?:abre|abrir)\s+youtube\s+(?:con|para)\s+(.+)$/);
-    if(match?.[1])return {type:'youtube-search',query:match[1].trim()};
+      match=n.match(/^(?:abre|abrir|abreme)\s+youtube\s+(?:con|para|y busca)\s+(.+?)(?:\s+por favor)?$/);
+      if(match?.[1])return {type:'youtube-search',query:match[1].trim()};
 
-    if(/^(?:abre|abrir|muestra|ve a)\s+whatsapp$/.test(n)){
-      return {type:'whatsapp-open'};
-    }
+      if(/^(?:abre|abrir|abreme|muestra|ve a)\s+(?:la\s+app\s+de\s+)?whatsapp(?:\s+ahora)?$/.test(n)){
+        return {type:'whatsapp-open'};
+      }
 
-    match=n.match(/^(?:manda|envia|comparte)\s+(.+?)\s+por\s+whatsapp$/);
-    if(match?.[1])return {type:'whatsapp-share',text:match[1].trim()};
+      match=n.match(/^(?:manda|envia|comparte)\s+(.+?)\s+por\s+whatsapp(?:\s+por favor)?$/);
+      if(match?.[1])return {type:'whatsapp-share',text:match[1].trim()};
 
-    match=n.match(/^(?:manda|envia|comparte)\s+por\s+whatsapp\s+(.+)$/);
-    if(match?.[1])return {type:'whatsapp-share',text:match[1].trim()};
+      match=n.match(/^(?:manda|envia|comparte)\s+por\s+whatsapp\s+(.+?)(?:\s+por favor)?$/);
+      if(match?.[1])return {type:'whatsapp-share',text:match[1].trim()};
 
-    match=n.match(/^(?:copia|copiar)\s+(?:el\s+texto\s+|esto\s+)?(.+)$/);
-    if(match?.[1])return {type:'copy',text:match[1].trim()};
+      match=n.match(/^(?:copia|copiar)\s+(?:el\s+texto\s+|esto\s+)?(.+?)(?:\s+por favor)?$/);
+      if(match?.[1])return {type:'copy',text:match[1].trim()};
 
-    match=n.match(/^(?:pon|inicia|crea|activa)\s+(?:un\s+)?temporizador(?:\s+de|\s+por)?\s+(.+)$/);
-    if(match?.[1]){
-      const duration=parseDuration(match[1]);
-      if(duration)return {type:'timer',...duration};
-    }
+      match=n.match(/^(?:pon|inicia|crea|activa)\s+(?:un\s+)?temporizador(?:\s+de|\s+por)?\s+(.+?)(?:\s+por favor)?$/);
+      if(match?.[1]){
+        const duration=parseDuration(match[1]);
+        if(duration)return {type:'timer',...duration};
+      }
 
-    if(/^(?:abre|abrir|muestra)\s+(?:las\s+)?alarmas$/.test(n)){
-      return {type:'alarms-open'};
+      if(/^(?:abre|abrir|abreme|muestra)\s+(?:las\s+)?alarmas(?:\s+ahora)?$/.test(n)){
+        return {type:'alarms-open'};
+      }
     }
 
     return null;
   }
-
   function isIOS(){
     return /iPad|iPhone|iPod/.test(navigator.userAgent||'')||
       (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -186,12 +220,18 @@
   }
 
   function navigate(url,label){
+    showStatus('ABRIENDO',label||url);
     try{
-      location.assign(url);
+      location.href=url;
       return true;
     }catch(error){
-      showStatus('NO SE PUDO ABRIR',label||String(error?.message||error));
-      return false;
+      try{
+        location.assign(url);
+        return true;
+      }catch(secondError){
+        showStatus('NO SE PUDO ABRIR',label||String(secondError?.message||error));
+        return false;
+      }
     }
   }
 
@@ -277,40 +317,39 @@
     return true;
   }
 
+  function liveTranscript(){
+    const liveText=String(window.LOKY_PC4_LIVE?.state?.transcriptBuffer||'').trim();
+    if(liveText&&liveText!=='—')return liveText;
+    return String(userTranscript?.textContent||'').trim();
+  }
+
+  function evaluateTranscript(){
+    const live=window.LOKY_PC4_LIVE?.state;
+    const text=liveTranscript();
+
+    if(!text||text==='—')return;
+    if(text!==observedText){
+      observedText=text;
+      observedAt=Date.now();
+      return;
+    }
+
+    if(live?.userSpeaking)return;
+    if(Date.now()-observedAt<TRANSCRIPT_SETTLE_MS)return;
+    if(text===processedText)return;
+
+    processedText=text;
+    executeStableTranscript(text);
+  }
+
   function scheduleFromTranscript(){
     clearTimeout(actionTimer);
-    const observed=String(userTranscript?.textContent||'').trim();
-    if(!observed||observed==='—')return;
+    actionTimer=setTimeout(evaluateTranscript,USER_END_POLL_MS);
+  }
 
-    const waitForUserEnd=()=>{
-      actionTimer=0;
-      const live=window.LOKY_PC4_LIVE?.state;
-      if(live?.userSpeaking){
-        actionTimer=setTimeout(waitForUserEnd,USER_END_POLL_MS);
-        return;
-      }
-
-      const snapshot=String(userTranscript?.textContent||'').trim();
-      if(!snapshot||snapshot==='—')return;
-
-      actionTimer=setTimeout(()=>{
-        actionTimer=0;
-        const finalText=String(userTranscript?.textContent||'').trim();
-        const currentLive=window.LOKY_PC4_LIVE?.state;
-
-        if(currentLive?.userSpeaking){
-          scheduleFromTranscript();
-          return;
-        }
-        if(finalText!==snapshot){
-          scheduleFromTranscript();
-          return;
-        }
-        executeStableTranscript(finalText);
-      },TRANSCRIPT_SETTLE_MS);
-    };
-
-    actionTimer=setTimeout(waitForUserEnd,USER_END_POLL_MS);
+  function startPoll(){
+    if(pollTimer)return;
+    pollTimer=setInterval(evaluateTranscript,POLL_MS);
   }
 
   if(userTranscript){
@@ -318,12 +357,17 @@
       .observe(userTranscript,{childList:true,subtree:true,characterData:true});
   }
 
+  startPoll();
+
   window.LOKY_PC4_MOBILE_ACTIONS={
     version:VERSION,
     parse:parseAction,
     execute:executeAction,
     executeText:executeStableTranscript,
     schedule:scheduleFromTranscript,
+    poll:evaluateTranscript,
+    readTranscript:liveTranscript,
+    candidates:commandCandidates,
     duration:parseDuration,
     urls:{
       mapsHome:mapsHomeUrl,
