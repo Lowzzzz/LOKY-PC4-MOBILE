@@ -5,6 +5,8 @@
   const STORE_KEY='loky_pc4_language_tutor_v1';
   const STATS_KEY='loky_pc4_language_tutor_stats_v1';
   const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1';
+  const AVATAR_3D_URL='https://novgwydgcvlboujnmygq.supabase.co/storage/v1/object/public/loky-public-assets/language/avatar-r4f12r7-v1.glb';
+  const THREE_VERSION='0.180.0';
   const ASSIST_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-language-assist';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const AUTO_ASSIST_SETTLE_MS=90;
@@ -54,6 +56,8 @@
   let autoAssistLastPhrase='';
   let floatingAssist=null;
   const assistCache=new Map();
+  let avatar3d=null;
+  let avatar3dInit=null;
 
   function normalizeState(raw={}){
     let source=LANGUAGES[raw.source]?raw.source:'es';
@@ -477,6 +481,238 @@
     return sendControl(map[kind]||'');
   }
 
+  function avatarSpeaking(){
+    const label=String(document.getElementById('conversationState')?.textContent||'').trim();
+    const live=window.LOKY_PC4_LIVE?.state;
+    return label==='LOKY HABLANDO'||Boolean(live?.playing?.size);
+  }
+
+  function transcriptSpeechPulse(t){
+    const raw=String(document.getElementById('lokyTranscript')?.textContent||'');
+    const tail=raw.slice(-64).toLowerCase();
+    let weight=0.45;
+    if(/[aeiouáéíóú]/.test(tail))weight+=0.18;
+    if(/[mbp]/.test(tail))weight-=0.08;
+    if(/[.!?]$/.test(tail.trim()))weight-=0.10;
+    const rhythm=0.52+0.28*Math.sin(t*19.0)+0.17*Math.sin(t*31.0+0.8)+0.09*Math.sin(t*47.0+1.7);
+    return Math.max(0.04,Math.min(1,weight*rhythm));
+  }
+
+  async function initAvatar3D(hero,fallbackImg){
+    if(avatar3d?.disposed===false)return avatar3d;
+    if(avatar3dInit)return avatar3dInit;
+
+    avatar3dInit=(async()=>{
+      const canvas=document.createElement('canvas');
+      canvas.className='loky-language-3d';
+      canvas.setAttribute('aria-label','Asistente 3D LOKY');
+      hero.appendChild(canvas);
+
+      try{
+        const [THREE,loaderModule]=await Promise.all([
+          import(`https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}/+esm`),
+          import(`https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}/examples/jsm/loaders/GLTFLoader.js/+esm`),
+        ]);
+        const {GLTFLoader}=loaderModule;
+        const renderer=new THREE.WebGLRenderer({
+          canvas,
+          alpha:true,
+          antialias:true,
+          powerPreference:'high-performance',
+        });
+        renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+        renderer.outputColorSpace=THREE.SRGBColorSpace;
+        renderer.setClearColor(0x000000,0);
+
+        const scene3=new THREE.Scene();
+        const camera=new THREE.PerspectiveCamera(28,1,0.01,20);
+        camera.position.set(0,0.02,4.15);
+
+        const hemi=new THREE.HemisphereLight(0xbfefff,0x07111a,2.4);
+        scene3.add(hemi);
+        const key=new THREE.DirectionalLight(0xffffff,3.3);
+        key.position.set(-2,-2,4);
+        scene3.add(key);
+        const fill=new THREE.DirectionalLight(0x78dfff,1.8);
+        fill.position.set(2,-1,2);
+        scene3.add(fill);
+        const rim=new THREE.DirectionalLight(0x7affe0,1.2);
+        rim.position.set(0,2,3);
+        scene3.add(rim);
+
+        const gltf=await new Promise((resolve,reject)=>{
+          new GLTFLoader().load(AVATAR_3D_URL,resolve,undefined,reject);
+        });
+        const model=gltf.scene;
+        scene3.add(model);
+
+        const box=new THREE.Box3().setFromObject(model);
+        const size=box.getSize(new THREE.Vector3());
+        const center=box.getCenter(new THREE.Vector3());
+        const targetHeight=2.45;
+        const scale=targetHeight/Math.max(0.001,size.y);
+        model.scale.setScalar(scale);
+        model.position.set(-center.x*scale,-center.y*scale-1.18,-center.z*scale);
+
+        const nodes={};
+        for(const name of ['AvatarRoot','Pelvis','Chest','Head','Jaw','Eye_L','Eye_R','Lid_L','Lid_R']){
+          nodes[name]=model.getObjectByName(name)||null;
+        }
+        const base={};
+        for(const [name,node] of Object.entries(nodes)){
+          if(!node)continue;
+          base[name]={
+            pos:node.position.clone(),
+            rot:node.rotation.clone(),
+            scale:node.scale.clone(),
+          };
+        }
+
+        const pointer={x:0,y:0,targetX:0,targetY:0};
+        const onPointer=event=>{
+          const rect=hero.getBoundingClientRect();
+          if(!rect.width||!rect.height)return;
+          pointer.targetX=((event.clientX-rect.left)/rect.width-.5)*2;
+          pointer.targetY=((event.clientY-rect.top)/rect.height-.5)*2;
+        };
+        hero.addEventListener('pointermove',onPointer,{passive:true});
+
+        let nextBlink=performance.now()+1700;
+        let blinkStart=0;
+        let raf=0;
+        let disposed=false;
+        let last=performance.now();
+
+        const resize=()=>{
+          if(disposed)return;
+          const rect=hero.getBoundingClientRect();
+          const w=Math.max(1,Math.round(rect.width));
+          const h=Math.max(1,Math.round(rect.height));
+          renderer.setSize(w,h,false);
+          camera.aspect=w/h;
+          camera.updateProjectionMatrix();
+        };
+        const ro=new ResizeObserver(resize);
+        ro.observe(hero);
+        resize();
+
+        const animate=now=>{
+          if(disposed)return;
+          const dt=Math.min(.05,(now-last)/1000); last=now;
+          const t=now/1000;
+          pointer.x+=(pointer.targetX-pointer.x)*Math.min(1,dt*4);
+          pointer.y+=(pointer.targetY-pointer.y)*Math.min(1,dt*4);
+
+          const stateLabel=String(document.getElementById('conversationState')?.textContent||'').trim();
+          const speaking=avatarSpeaking();
+          const thinking=stateLabel==='PENSANDO';
+          const listening=stateLabel==='ESCUCHANDO';
+
+          const head=nodes.Head,headBase=base.Head;
+          if(head&&headBase){
+            head.rotation.x=headBase.rot.x+(-pointer.y*.035)+Math.sin(t*.8)*.008+(speaking?Math.sin(t*2.6)*.012:0);
+            head.rotation.y=headBase.rot.y+(pointer.x*.065)+Math.sin(t*.55)*.015;
+            head.rotation.z=headBase.rot.z+Math.sin(t*.42)*.008+(thinking?.012:0);
+          }
+
+          for(const keyName of ['Eye_L','Eye_R']){
+            const eye=nodes[keyName],b=base[keyName];
+            if(eye&&b){
+              eye.rotation.x=b.rot.x-pointer.y*.055+Math.sin(t*.7)*.008;
+              eye.rotation.z=b.rot.z-pointer.x*.095+Math.sin(t*.53)*.010;
+            }
+          }
+
+          if(now>=nextBlink&&!blinkStart){
+            blinkStart=now;
+          }
+          let blink=0;
+          if(blinkStart){
+            const p=(now-blinkStart)/180;
+            if(p>=1){
+              blinkStart=0;
+              nextBlink=now+1900+Math.random()*2800;
+            }else{
+              blink=Math.sin(Math.PI*p);
+            }
+          }
+          for(const keyName of ['Lid_L','Lid_R']){
+            const lid=nodes[keyName],b=base[keyName];
+            if(lid&&b){
+              lid.scale.set(b.scale.x,b.scale.y,Math.max(.10,b.scale.z*(1-blink*.90)));
+            }
+          }
+
+          const chest=nodes.Chest,chestBase=base.Chest;
+          if(chest&&chestBase){
+            const breathe=1+Math.sin(t*1.7)*.006+(listening?.002:0);
+            chest.scale.set(chestBase.scale.x,chestBase.scale.y,chestBase.scale.z*breathe);
+          }
+
+          const jaw=nodes.Jaw,jawBase=base.Jaw;
+          if(jaw&&jawBase){
+            const mouth=speaking?transcriptSpeechPulse(t):0;
+            jaw.rotation.x=jawBase.rot.x+mouth*.20;
+            jaw.position.z=jawBase.pos.z-mouth*.006;
+          }
+
+          const pelvis=nodes.Pelvis,pelvisBase=base.Pelvis;
+          if(pelvis&&pelvisBase){
+            pelvis.rotation.z=pelvisBase.rot.z+Math.sin(t*.45)*.006;
+          }
+
+          model.rotation.y=Math.sin(t*.25)*.012;
+          renderer.render(scene3,camera);
+          raf=requestAnimationFrame(animate);
+        };
+
+        const controller={
+          THREE,renderer,scene:scene3,camera,model,nodes,base,canvas,
+          disposed:false,
+          dispose(){
+            if(disposed)return;
+            disposed=true;
+            this.disposed=true;
+            cancelAnimationFrame(raf);
+            ro.disconnect();
+            hero.removeEventListener('pointermove',onPointer);
+            model.traverse(obj=>{
+              obj.geometry?.dispose?.();
+              const mats=Array.isArray(obj.material)?obj.material:[obj.material];
+              for(const m of mats.filter(Boolean)){
+                for(const value of Object.values(m)){
+                  if(value&&value.isTexture)value.dispose?.();
+                }
+                m.dispose?.();
+              }
+            });
+            renderer.dispose();
+            canvas.remove();
+          }
+        };
+        avatar3d=controller;
+        fallbackImg.classList.add('is-3d-loaded');
+        canvas.classList.add('is-loaded');
+        raf=requestAnimationFrame(animate);
+        return controller;
+      }catch(error){
+        canvas.remove();
+        fallbackImg.classList.remove('is-3d-loaded');
+        avatar3d=null;
+        throw error;
+      }finally{
+        avatar3dInit=null;
+      }
+    })();
+    return avatar3dInit;
+  }
+
+  function disposeAvatar3D(){
+    try{avatar3d?.dispose?.()}catch{}
+    avatar3d=null;
+    avatar3dInit=null;
+  }
+
   function liveVisualState(){
     const label=String(document.getElementById('conversationState')?.textContent||'').trim();
     if(label==='LOKY HABLANDO')return {key:'speaking',label:'HABLANDO'};
@@ -573,7 +809,10 @@
       body.loky-language-active .future-op-button.feature-language::before{color:#94f0d2;filter:drop-shadow(0 0 8px rgba(67,235,180,.40))}
       .loky-language-overlay{position:fixed;z-index:260;inset:0;background:#030b12;color:#e8f8ff;display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
       .loky-language-hero{position:absolute;inset:0;overflow:hidden;background:radial-gradient(circle at 50% 38%,rgba(22,70,88,.34),rgba(3,11,18,.96) 64%)}
-      .loky-language-avatar{position:absolute;left:4%;top:7%;width:92%;height:86%;object-fit:contain;object-position:center center;filter:saturate(.92) contrast(1.04) brightness(.92);opacity:.96;transition:transform .28s ease,filter .28s ease}
+      .loky-language-avatar{position:absolute;left:4%;top:7%;width:92%;height:86%;object-fit:contain;object-position:center center;filter:saturate(.92) contrast(1.04) brightness(.92);opacity:.96;transition:opacity .35s ease,transform .28s ease,filter .28s ease}
+      .loky-language-avatar.is-3d-loaded{opacity:0;pointer-events:none}
+      .loky-language-3d{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .35s ease;pointer-events:none;z-index:1}
+      .loky-language-3d.is-loaded{opacity:1}
       .loky-language-hero[data-state="listening"] .loky-language-avatar{filter:saturate(.98) contrast(1.04) brightness(.95) drop-shadow(0 0 22px rgba(77,210,236,.12))}
       .loky-language-hero[data-state="thinking"] .loky-language-avatar{filter:saturate(.88) contrast(1.05) brightness(.90) drop-shadow(0 0 22px rgba(153,108,255,.12))}
       .loky-language-hero[data-state="speaking"] .loky-language-avatar{transform:scale(1.018);filter:saturate(1.02) contrast(1.05) brightness(.97) drop-shadow(0 0 26px rgba(70,230,196,.16))}
@@ -607,6 +846,7 @@
   }
 
   function closeOverlay(){
+    disposeAvatar3D();
     overlay?.remove();
     overlay=null;
   }
@@ -784,6 +1024,7 @@
       hero.classList.add('is-fallback');
     });
     hero.appendChild(avatar);
+    initAvatar3D(hero,avatar).catch(()=>{});
 
     const top=make('header','loky-language-top');
     const back=make('button','loky-language-back','VOLVER');
@@ -865,5 +1106,7 @@
     open:openOverlay,
     close:closeOverlay,
     install:installSlot,
+    initAvatar3D,
+    disposeAvatar3D,
   };
 })();
