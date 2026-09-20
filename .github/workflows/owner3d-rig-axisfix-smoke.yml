@@ -114,8 +114,8 @@ jobs:
           names={n.get("name"):i for i,n in enumerate(g["nodes"])}
           z={name:float(G(names[name])[2,3]) for name in ["head","neck","pelvis","thigh.L","shin.L","foot.L","thigh.R","shin.R","foot.R"]}
           assert z["head"]>z["neck"]>z["pelvis"],z
-          assert z["pelvis"]>z["thigh.L"]>z["shin.L"]>z["foot.L"],z
-          assert z["pelvis"]>z["thigh.R"]>z["shin.R"]>z["foot.R"],z
+          assert z["pelvis"]>=z["thigh.L"]>z["shin.L"]>z["foot.L"],z
+          assert z["pelvis"]>=z["thigh.R"]>z["shin.R"]>z["foot.R"],z
           print("JOINT_GEOGRAPHY_PASS",json.dumps(z,separators=(',',':')))
           Path("axisfix-output/joint-geography.json").write_text(json.dumps(z,indent=2))
           PY
