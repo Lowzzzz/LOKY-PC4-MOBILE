@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: owner3d-rig-lab
+  cancel-in-progress: true
+
 jobs:
   rig:
     runs-on: ubuntu-latest
@@ -36,13 +40,15 @@ jobs:
           print("RECONSTRUCTED",len(raw))
           PY
 
-      - name: Install Blender
+      - name: Install Blender 4.5.14 LTS
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y blender python3-numpy
-          blender --version | head -5
+          URL='https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz'
+          curl --retry 3 --retry-delay 2 -fL "$URL" -o /tmp/blender.tar.xz
+          tar -xf /tmp/blender.tar.xz -C /tmp
+          echo "/tmp/blender-4.5.14-linux-x64" >> "$GITHUB_PATH"
+          /tmp/blender-4.5.14-linux-x64/blender --version | head -5
 
       - name: Build humanoid rig candidate
         shell: bash
