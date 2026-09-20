@@ -64,7 +64,7 @@ chest_z=Z(0.68)
 neck_z=Z(0.80)
 head_mid_z=Z(0.90)
 
-bone("root",(cx,cy,zmin-0.06*h),(cx,cy,hip_z),deform=False)
+bone("root",(cx,cy,zmin-0.06*h),(cx,cy,hip_z),deform=True)
 bone("pelvis",(cx,cy,hip_z),(cx,cy,spine1_z),"root")
 bone("spine",(cx,cy,spine1_z),(cx,cy,chest_z),"pelvis")
 bone("chest",(cx,cy,chest_z),(cx,cy,neck_z),"spine")
@@ -144,7 +144,8 @@ bpy.ops.export_scene.gltf(
     use_selection=True,
     export_apply=False,
     export_animations=True,
-    export_yup=True
+    export_yup=True,
+    export_def_bones=False
 )
 
 # Set up render scene for visual QA.
