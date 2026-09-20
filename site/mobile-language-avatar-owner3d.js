@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const VERSION = '0.3.2R4F12R8R8-owner-3d-only';
+  const VERSION = '0.3.2R4F12R8R9-owner-rig-preview';
 
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
@@ -41,6 +41,122 @@
     ]);
   }
 
+  function identity4(){
+    return new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);
+  }
+  function copy16(src,start=0){
+    const out=new Float32Array(16);
+    for(let i=0;i<16;i++)out[i]=src[start+i];
+    return out;
+  }
+  function fromTRS(t,r,s){
+    const x=r[0]||0,y=r[1]||0,z=r[2]||0,w=r[3]??1;
+    const x2=x+x,y2=y+y,z2=z+z;
+    const xx=x*x2,xy=x*y2,xz=x*z2,yy=y*y2,yz=y*z2,zz=z*z2,wx=w*x2,wy=w*y2,wz=w*z2;
+    const sx=s[0]??1,sy=s[1]??1,sz=s[2]??1;
+    return new Float32Array([
+      (1-(yy+zz))*sx,(xy+wz)*sx,(xz-wy)*sx,0,
+      (xy-wz)*sy,(1-(xx+zz))*sy,(yz+wx)*sy,0,
+      (xz+wy)*sz,(yz-wx)*sz,(1-(xx+yy))*sz,0,
+      t[0]||0,t[1]||0,t[2]||0,1
+    ]);
+  }
+  function invert4(a){
+    const a00=a[0],a01=a[1],a02=a[2],a03=a[3],a10=a[4],a11=a[5],a12=a[6],a13=a[7],a20=a[8],a21=a[9],a22=a[10],a23=a[11],a30=a[12],a31=a[13],a32=a[14],a33=a[15];
+    const b00=a00*a11-a01*a10,b01=a00*a12-a02*a10,b02=a00*a13-a03*a10,b03=a01*a12-a02*a11,b04=a01*a13-a03*a11,b05=a02*a13-a03*a12,b06=a20*a31-a21*a30,b07=a20*a32-a22*a30,b08=a20*a33-a23*a30,b09=a21*a32-a22*a31,b10=a21*a33-a23*a31,b11=a22*a33-a23*a32;
+    let det=b00*b11-b01*b10+b02*b09+b03*b08-b04*b07+b05*b06;
+    if(!det)throw new Error('Matriz singular');
+    det=1/det;
+    return new Float32Array([
+      (a11*b11-a12*b10+a13*b09)*det,(-a01*b11+a02*b10-a03*b09)*det,(a31*b05-a32*b04+a33*b03)*det,(-a21*b05+a22*b04-a23*b03)*det,
+      (-a10*b11+a12*b08-a13*b07)*det,(a00*b11-a02*b08+a03*b07)*det,(-a30*b05+a32*b02-a33*b01)*det,(a20*b05-a22*b02+a23*b01)*det,
+      (a10*b10-a11*b08+a13*b06)*det,(-a00*b10+a01*b08-a03*b06)*det,(a30*b04-a31*b02+a33*b00)*det,(-a20*b04+a21*b02-a23*b00)*det,
+      (-a10*b09+a11*b07-a12*b06)*det,(a00*b09-a01*b07+a02*b06)*det,(-a30*b03+a31*b01-a32*b00)*det,(a20*b03-a21*b01+a22*b00)*det
+    ]);
+  }
+  function quatNlerp(a,b,t){
+    let bx=b[0],by=b[1],bz=b[2],bw=b[3];
+    if(a[0]*bx+a[1]*by+a[2]*bz+a[3]*bw<0){bx=-bx;by=-by;bz=-bz;bw=-bw;}
+    let x=a[0]+(bx-a[0])*t,y=a[1]+(by-a[1])*t,z=a[2]+(bz-a[2])*t,w=a[3]+(bw-a[3])*t;
+    const l=Math.hypot(x,y,z,w)||1;
+    return [x/l,y/l,z/l,w/l];
+  }
+  function sampleQuat(track,t){
+    const times=track.times,values=track.values,count=times.length;
+    if(count<=1||t<=times[0])return [values[0],values[1],values[2],values[3]];
+    if(t>=times[count-1]){const o=(count-1)*4;return [values[o],values[o+1],values[o+2],values[o+3]];}
+    let lo=0,hi=count-1;
+    while(hi-lo>1){const m=(lo+hi)>>1;if(times[m]<=t)lo=m;else hi=m;}
+    const o=lo*4,n=hi*4;
+    if(track.interpolation==='STEP')return [values[o],values[o+1],values[o+2],values[o+3]];
+    const u=(t-times[lo])/Math.max(1e-6,times[hi]-times[lo]);
+    return quatNlerp([values[o],values[o+1],values[o+2],values[o+3]],[values[n],values[n+1],values[n+2],values[n+3]],u);
+  }
+  function buildRig(gltf,bin,meshIndex){
+    const meshNode=gltf.nodes?.findIndex(n=>n.mesh===meshIndex&&Number.isInteger(n.skin));
+    if(meshNode==null||meshNode<0)return null;
+    const skinIndex=gltf.nodes[meshNode].skin,skin=gltf.skins?.[skinIndex];
+    if(!skin?.joints?.length||skin.joints.length>24||skin.inverseBindMatrices==null)return null;
+    const ib=accessorData(gltf,bin,skin.inverseBindMatrices);
+    if(ib.size!==16||ib.count!==skin.joints.length)throw new Error('Rig bind inválido');
+    const parent=new Int16Array(gltf.nodes.length); parent.fill(-1);
+    gltf.nodes.forEach((n,i)=>(n.children||[]).forEach(c=>{parent[c]=i;}));
+    const base=gltf.nodes.map(n=>({
+      matrix:Array.isArray(n.matrix)?new Float32Array(n.matrix):null,
+      t:new Float32Array(n.translation||[0,0,0]),
+      r:new Float32Array(n.rotation||[0,0,0,1]),
+      s:new Float32Array(n.scale||[1,1,1])
+    }));
+    const tracks=new Map();
+    let duration=0;
+    const anim=gltf.animations?.[0];
+    if(anim){
+      for(const ch of anim.channels||[]){
+        if(ch.target?.path!=='rotation')continue;
+        const sm=anim.samplers?.[ch.sampler]; if(!sm)continue;
+        const ti=accessorData(gltf,bin,sm.input),vo=accessorData(gltf,bin,sm.output);
+        if(ti.size!==1||vo.size!==4)continue;
+        duration=Math.max(duration,ti.array[ti.array.length-1]||0);
+        tracks.set(ch.target.node,{times:ti.array,values:vo.array,interpolation:sm.interpolation||'LINEAR'});
+      }
+    }
+    const names=skin.joints.map(i=>gltf.nodes[i]?.name||'');
+    return {
+      meshNode,jointNodes:skin.joints.slice(),jointNames:names,parent,base,tracks,duration:Math.max(duration,2.5),
+      inverseBind:ib.array,locals:new Array(gltf.nodes.length),globals:new Array(gltf.nodes.length),
+      jointMatrices:new Float32Array(skin.joints.length*16)
+    };
+  }
+  function updateRig(rig,sec,state){
+    if(!rig)return null;
+    const amp=state==='speaking'?0.62:state==='listening'?0.42:state==='thinking'?0.26:0.34;
+    const speed=state==='speaking'?0.46:state==='thinking'?0.22:0.30;
+    const t=(sec*speed)%rig.duration;
+    for(let i=0;i<rig.base.length;i++){
+      const b=rig.base[i];
+      if(b.matrix){rig.locals[i]=new Float32Array(b.matrix);continue;}
+      let q=b.r;
+      const tr=rig.tracks.get(i);
+      if(tr)q=quatNlerp(b.r,sampleQuat(tr,t),amp);
+      rig.locals[i]=fromTRS(b.t,q,b.s);
+      rig.globals[i]=null;
+    }
+    const globalAt=i=>{
+      if(rig.globals[i])return rig.globals[i];
+      const p=rig.parent[i];
+      rig.globals[i]=p>=0?mul(globalAt(p),rig.locals[i]):rig.locals[i];
+      return rig.globals[i];
+    };
+    for(let i=0;i<rig.locals.length;i++)globalAt(i);
+    const invMesh=invert4(rig.globals[rig.meshNode]);
+    for(let j=0;j<rig.jointNodes.length;j++){
+      const a=mul(invMesh,rig.globals[rig.jointNodes[j]]);
+      const m=mul(a,copy16(rig.inverseBind,j*16));
+      rig.jointMatrices.set(m,j*16);
+    }
+    return rig.jointMatrices;
+  }
+
   function compile(gl,type,src){
     const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
     if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)||'shader compile');
@@ -67,7 +183,7 @@
     return {json,bin};
   }
   function componentCtor(type){ return type===5126?Float32Array:type===5125?Uint32Array:type===5123?Uint16Array:type===5121?Uint8Array:null; }
-  function components(type){ return type==='SCALAR'?1:type==='VEC2'?2:type==='VEC3'?3:type==='VEC4'?4:1; }
+  function components(type){ return type==='SCALAR'?1:type==='VEC2'?2:type==='VEC3'?3:type==='VEC4'?4:type==='MAT2'?4:type==='MAT3'?9:type==='MAT4'?16:1; }
   function accessorData(gltf,bin,index){
     const a=gltf.accessors[index], bv=gltf.bufferViews[a.bufferView], C=componentCtor(a.componentType); if(!C) throw new Error('componentType '+a.componentType);
     const n=components(a.type), byteOffset=(bv.byteOffset||0)+(a.byteOffset||0), length=a.count*n;
@@ -96,12 +212,16 @@
       this._bindInput();
     }
     async _loadArrayBuffer(ab,t0=performance.now()){
-      const {json,bin}=parseGLB(ab); const prim=json.meshes?.[0]?.primitives?.[0]; if(!prim) throw new Error('Sin malla');
+      const {json,bin}=parseGLB(ab); const meshIndex=0,prim=json.meshes?.[meshIndex]?.primitives?.[0]; if(!prim) throw new Error('Sin malla');
       const P=accessorData(json,bin,prim.attributes.POSITION), N=accessorData(json,bin,prim.attributes.NORMAL), U=accessorData(json,bin,prim.attributes.TEXCOORD_0), I=accessorData(json,bin,prim.indices);
+      const J=prim.attributes.JOINTS_0!=null?accessorData(json,bin,prim.attributes.JOINTS_0):null;
+      const W=prim.attributes.WEIGHTS_0!=null?accessorData(json,bin,prim.attributes.WEIGHTS_0):null;
+      const rig=J&&W?buildRig(json,bin,meshIndex):null;
+      if(!rig||!J||!W)throw new Error('RIG_SKIN_MISSING');
       const mat=json.materials?.[prim.material||0]||{}; const baseTexIndex=mat.pbrMetallicRoughness?.baseColorTexture?.index ?? 0; const imageIndex=json.textures?.[baseTexIndex]?.source ?? 0;
       const image=await imageFromBufferView(json,bin,imageIndex);
-      this._setup(P,N,U,I,image);
-      this.stats={bytes:ab.byteLength,vertices:P.count,triangles:Math.floor(I.count/3),loadMs:performance.now()-t0};
+      this._setup(P,N,U,I,image,J,W,rig);
+      this.stats={bytes:ab.byteLength,vertices:P.count,triangles:Math.floor(I.count/3),joints:rig.jointNodes.length,loadMs:performance.now()-t0};
       this.running=true; this.opts.onReady?.(this.stats); this.opts.onStatus?.('LISTO'); requestAnimationFrame(t=>this._frame(t));
       return this.stats;
     }
@@ -143,15 +263,18 @@
       for(const bytes of pieces){all.set(bytes,off);off+=bytes.byteLength;}
       return this._loadArrayBuffer(all.buffer,t0);
     }
-    _setup(P,N,U,I,image){
+    _setup(P,N,U,I,image,J,W,rig){
       const gl=this.gl;
-      const vs=`#version 300 es\nprecision highp float;\nlayout(location=0) in vec3 aPos;\nlayout(location=1) in vec3 aNormal;\nlayout(location=2) in vec2 aUV;\nuniform mat4 uMVP; uniform mat4 uModel;\nuniform float uBreath; uniform float uSway; uniform float uHead;\nout vec3 vN; out vec2 vUV; out vec3 vWorld;\nvoid main(){\n vec3 p=aPos;\n float chest=smoothstep(0.02,0.16,p.z)*(1.0-smoothstep(0.48,0.62,p.z));\n p.x*=1.0+uBreath*0.0045*chest;\n p.y*=1.0+uBreath*0.0080*chest;\n p.z+=uBreath*0.0020*chest;\n float upper=smoothstep(-0.30,0.65,p.z);\n p.x+=uSway*0.0070*upper;\n float headMask=smoothstep(0.53,0.78,p.z);\n float a=uHead*0.020*headMask;\n float px=p.x,py=p.y; p.x=px+py*a; p.y=py-px*a;\n vec4 w=uModel*vec4(p,1.0); vWorld=w.xyz; vN=normalize(mat3(uModel)*aNormal); vUV=aUV; gl_Position=uMVP*vec4(p,1.0);\n}`;
+      const vs=`#version 300 es\nprecision highp float;\nlayout(location=0) in vec3 aPos;\nlayout(location=1) in vec3 aNormal;\nlayout(location=2) in vec2 aUV;\nlayout(location=3) in uvec4 aJoints;\nlayout(location=4) in vec4 aWeights;\nuniform mat4 uMVP; uniform mat4 uModel; uniform mat4 uJoints[24];\nout vec3 vN; out vec2 vUV; out vec3 vWorld;\nvoid main(){\n mat4 skin=aWeights.x*uJoints[int(aJoints.x)]+aWeights.y*uJoints[int(aJoints.y)]+aWeights.z*uJoints[int(aJoints.z)]+aWeights.w*uJoints[int(aJoints.w)];\n vec3 p=(skin*vec4(aPos,1.0)).xyz;\n vec3 sn=normalize((skin*vec4(aNormal,0.0)).xyz);\n vec4 w=uModel*vec4(p,1.0); vWorld=w.xyz; vN=normalize(mat3(uModel)*sn); vUV=aUV; gl_Position=uMVP*vec4(p,1.0);\n}`;
       const fs=`#version 300 es\nprecision highp float;\nin vec3 vN; in vec2 vUV; in vec3 vWorld;\nuniform sampler2D uBase; uniform float uSpeak; uniform float uThink; uniform vec3 uCamera;\nout vec4 outColor;\nvoid main(){\n vec4 tex=texture(uBase,vUV); if(tex.a<0.05) discard; vec3 c=pow(max(tex.rgb,vec3(0.0)),vec3(2.2));\n vec3 n=normalize(vN); vec3 v=normalize(uCamera-vWorld);\n float facing=max(dot(n,v),0.0);\n vec3 topLight=normalize(vec3(-0.28,0.12,0.95));\n float d=0.24 + facing*0.68 + max(dot(n,topLight),0.0)*0.14;\n float rim=pow(1.0-facing,3.4);\n float cyanSignal=max(min(tex.g,tex.b)-tex.r*1.25,0.0);\n float cyan=smoothstep(0.055,0.24,cyanSignal)*smoothstep(0.14,0.48,max(tex.g,tex.b));\n vec3 lit=c*d + vec3(0.015,0.07,0.10)*rim*(0.12+uThink*0.08) + vec3(0.015,0.20,0.34)*cyan*(0.48+uSpeak*0.25);\n lit=lit/(lit+vec3(1.0)); lit=pow(lit,vec3(1.0/2.2)); outColor=vec4(lit,tex.a);\n}`;
       this.prog=program(gl,vs,fs); gl.useProgram(this.prog);
-      this.loc={mvp:gl.getUniformLocation(this.prog,'uMVP'),model:gl.getUniformLocation(this.prog,'uModel'),base:gl.getUniformLocation(this.prog,'uBase'),speak:gl.getUniformLocation(this.prog,'uSpeak'),think:gl.getUniformLocation(this.prog,'uThink'),camera:gl.getUniformLocation(this.prog,'uCamera'),breath:gl.getUniformLocation(this.prog,'uBreath'),sway:gl.getUniformLocation(this.prog,'uSway'),head:gl.getUniformLocation(this.prog,'uHead')};
+      this.loc={mvp:gl.getUniformLocation(this.prog,'uMVP'),model:gl.getUniformLocation(this.prog,'uModel'),base:gl.getUniformLocation(this.prog,'uBase'),speak:gl.getUniformLocation(this.prog,'uSpeak'),think:gl.getUniformLocation(this.prog,'uThink'),camera:gl.getUniformLocation(this.prog,'uCamera'),joints:gl.getUniformLocation(this.prog,'uJoints[0]')};
       this.vao=gl.createVertexArray(); gl.bindVertexArray(this.vao);
       const bind=(loc,data,size)=>{const b=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,b); gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,size,gl.FLOAT,false,0,0);};
       bind(0,P.array,3); bind(1,N.array,3); bind(2,U.array,2);
+      const jb=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,jb); gl.bufferData(gl.ARRAY_BUFFER,J.array,gl.STATIC_DRAW); gl.enableVertexAttribArray(3); const jt=J.componentType===5121?gl.UNSIGNED_BYTE:J.componentType===5123?gl.UNSIGNED_SHORT:gl.UNSIGNED_INT; gl.vertexAttribIPointer(3,4,jt,0,0);
+      bind(4,W.array,4);
+      this.rig=rig;
       const ib=gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,I.array,gl.STATIC_DRAW); this.indexType=I.componentType===5125?gl.UNSIGNED_INT:I.componentType===5123?gl.UNSIGNED_SHORT:gl.UNSIGNED_BYTE; this.indexCount=I.count;
       this.tex=gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,this.tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,image.width,image.height,0,gl.RGBA,gl.UNSIGNED_BYTE,image); gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE); gl.uniform1i(this.loc.base,0);
       gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
@@ -233,10 +356,10 @@
     }
     _frame(t){
       if(!this.running)return; const gl=this.gl,[w,h]=this._resize(); const sec=t*0.001;
-      const active=!this.drag; const idleYaw=active?Math.sin(sec*0.42)*0.018:0; const breathe=1+Math.sin(sec*1.28)*0.0012; const speaking=this.state==='speaking'?0.5+0.5*Math.sin(sec*7.2):0; const thinking=this.state==='thinking'?0.5+0.5*Math.sin(sec*2.1):0; const motionGain=this.state==='speaking'?1.18:this.state==='thinking'?0.92:1; const bodyBreath=Math.sin(sec*1.22)*motionGain; const bodySway=active?Math.sin(sec*0.52):0; const headIdle=active?Math.sin(sec*0.39+0.8)*(this.state==='speaking'?1.20:1):0;
+      const active=!this.drag; const idleYaw=active?Math.sin(sec*0.42)*0.012:0; const breathe=1+Math.sin(sec*1.28)*0.0009; const speaking=this.state==='speaking'?0.5+0.5*Math.sin(sec*7.2):0; const thinking=this.state==='thinking'?0.5+0.5*Math.sin(sec*2.1):0; const jointMatrices=updateRig(this.rig,sec,this.state);
       const yaw=this.yaw+idleYaw; const dist=this.distance; const pitch=this.pitch; const focusZ=this.focusZ; const eye=[Math.sin(yaw)*dist,-Math.cos(yaw)*dist*Math.cos(pitch),focusZ+Math.sin(pitch)*dist];
       const proj=perspective(31*Math.PI/180,w/h,0.05,20); const view=lookAt(eye,[0,0,focusZ],[0,0,1]); const model=modelMatrix(0,breathe,1+(this.state==='speaking'?Math.sin(sec*5.5)*0.0012:0)); const mvp=mul(proj,mul(view,model));
-      gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); gl.useProgram(this.prog); gl.bindVertexArray(this.vao); gl.uniformMatrix4fv(this.loc.mvp,false,mvp); gl.uniformMatrix4fv(this.loc.model,false,model); gl.uniform1f(this.loc.speak,speaking); gl.uniform1f(this.loc.think,thinking); gl.uniform1f(this.loc.breath,bodyBreath); gl.uniform1f(this.loc.sway,bodySway); gl.uniform1f(this.loc.head,headIdle); gl.uniform3f(this.loc.camera,eye[0],eye[1],eye[2]); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,this.tex); gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);
+      gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); gl.useProgram(this.prog); gl.bindVertexArray(this.vao); gl.uniformMatrix4fv(this.loc.mvp,false,mvp); gl.uniformMatrix4fv(this.loc.model,false,model); gl.uniform1f(this.loc.speak,speaking); gl.uniform1f(this.loc.think,thinking); if(!jointMatrices)throw new Error('RIG_FRAME_MISSING'); gl.uniformMatrix4fv(this.loc.joints,false,jointMatrices); gl.uniform3f(this.loc.camera,eye[0],eye[1],eye[2]); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,this.tex); gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);
       requestAnimationFrame(x=>this._frame(x));
     }
     stop(){ this.running=false; }
@@ -249,10 +372,10 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F12R8R8-owner-3d-only';
+  const VERSION='0.3.2R4F12R8R9-owner-rig-preview';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const DEVICE_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices';
-  const MODEL_CHUNKS=Array.from({length:13},(_,i)=>`./assets/owner3d/chunk_${String(i).padStart(3,'0')}.txt?v=0.3.2r4f12r8r3`);
+  const MODEL_CHUNKS=Array.from({length:18},(_,i)=>`./assets/owner3d-rig-v1/chunk_${String(i).padStart(3,'0')}.txt?v=rigv1-a8c8a628`);
   const ROLE_TRUE_TTL_MS=5*60_000;
   const ROLE_FALSE_TTL_MS=4_000;
   const RETRY_MS=4200;
@@ -386,6 +509,8 @@
             hero.classList.add('loky-owner-3d-ready');
             hero.dataset.ownerMeshy3d='ready';
             hero.dataset.ownerMeshyTris=String(stats?.triangles||'');
+            hero.dataset.ownerMeshyRig='v1';
+            hero.dataset.ownerMeshyJoints=String(stats?.joints||'');
             ownerStatus(hero,'3D OWNER · LISTO',{hideAfter:1600});
           }
         });
