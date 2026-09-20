@@ -44,6 +44,8 @@ lr_i=({0,1,2}-{vert_i,depth_i}).pop()
 centers=[(mins[i]+maxs[i])*0.5 for i in range(3)]
 h=ext[vert_i]; w=ext[lr_i]; d=ext[depth_i]
 vmin=mins[vert_i]
+vmax=maxs[vert_i]
+vertical_sign=-1  # Meshy head is toward min on Blender's detected vertical axis after import bake
 
 def point(lr,dep,vert):
     p=[centers[0],centers[1],centers[2]]
@@ -53,7 +55,8 @@ def point(lr,dep,vert):
     return tuple(p)
 
 def V(frac):
-    return vmin+h*frac
+    # frac=0 feet, frac=1 head
+    return vmax-h*frac
 
 def LR(norm):
     return centers[lr_i]+norm*(w*0.5)
@@ -64,6 +67,7 @@ print("LOKY_RIG_AXES",json.dumps({
     "vertical_axis":vert_i,
     "left_right_axis":lr_i,
     "depth_axis":depth_i,
+    "vertical_sign":vertical_sign,
     "mins":mins,
     "maxs":maxs,
     "extents":ext,
@@ -126,7 +130,7 @@ for v in mesh.data.vertices:
     p=mesh.matrix_world @ v.co
     vert=p[vert_i]
     lr=p[lr_i]
-    zn=(vert-vmin)/h if h else 0.5
+    zn=(vmax-vert)/h if h else 0.5
     xn=(lr-centers[lr_i])/(w*0.5) if w else 0.0
 
     # Head/hair first.
@@ -231,7 +235,7 @@ report={
     "mesh":mesh.name,
     "vertex_count":len(mesh.data.vertices),
     "polygon_count":len(mesh.data.polygons),
-    "axis":{"vertical":vert_i,"left_right":lr_i,"depth":depth_i},
+    "axis":{"vertical":vert_i,"left_right":lr_i,"depth":depth_i,"vertical_sign":vertical_sign},
     "bounds":{"mins":mins,"maxs":maxs,"extents":ext},
     "armature":arm.name,
     "mesh_matrix_world":[list(row) for row in mesh.matrix_world],
