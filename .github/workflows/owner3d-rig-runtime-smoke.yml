@@ -280,6 +280,15 @@ jobs:
             await sleep(1200);
             const shot=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
             fs.writeFileSync('rig-runtime-output/rig-real.png',Buffer.from(shot.result.data,'base64'));
+
+            await call('Runtime.evaluate',{expression:"(()=>{const a=window.__rigAvatar;a.stop();a.running=true;a._frame(1000);a.stop();return 'FRAME_A';})()",returnByValue:true});
+            const frameA=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
+            fs.writeFileSync('rig-runtime-output/rig-frame-a.png',Buffer.from(frameA.result.data,'base64'));
+
+            await call('Runtime.evaluate',{expression:"(()=>{const a=window.__rigAvatar;a.running=true;a._frame(5000);a.stop();return 'FRAME_B';})()",returnByValue:true});
+            const frameB=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
+            fs.writeFileSync('rig-runtime-output/rig-frame-b.png',Buffer.from(frameB.result.data,'base64'));
+
             fs.writeFileSync('rig-runtime-output/rig-real-result.txt',text+'\n');
             console.log(text);
             ws.close();
@@ -287,6 +296,8 @@ jobs:
           main().catch(error=>{console.error(error);process.exit(1);});
           NODE
           test -s rig-runtime-output/rig-real.png
+          test -s rig-runtime-output/rig-frame-a.png
+          test -s rig-runtime-output/rig-frame-b.png
           grep -F 'RIG_REAL_PASS 167772 180000 18 GL_0' rig-runtime-output/rig-real-result.txt
 
       - name: Upload full rig runtime proof
