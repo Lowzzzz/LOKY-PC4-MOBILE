@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const VERSION = '0.3.2R4F12R8R7-owner-idle-breathe';
+  const VERSION = '0.3.2R4F12R8R8-owner-3d-only';
 
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
@@ -249,7 +249,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F12R8R7-owner-idle-breathe';
+  const VERSION='0.3.2R4F12R8R8-owner-3d-only';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const DEVICE_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices';
   const MODEL_CHUNKS=Array.from({length:13},(_,i)=>`./assets/owner3d/chunk_${String(i).padStart(3,'0')}.txt?v=0.3.2r4f12r8r3`);
@@ -301,7 +301,6 @@
     style.textContent=`
       .loky-language-owner3d{position:absolute;left:0;top:3%;width:100%;height:88%;z-index:1;opacity:0;transition:opacity .28s ease;touch-action:none;outline:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
       .loky-language-hero.loky-owner-3d-ready .loky-language-owner3d{opacity:1}\n      .loky-language-hero.loky-owner-3d-ready::after{pointer-events:none}
-      .loky-language-hero.loky-owner-3d-ready .loky-language-avatar{opacity:0!important;pointer-events:none}
       .loky-language-owner3d-status{position:absolute;z-index:7;left:50%;top:15%;transform:translateX(-50%);padding:5px 9px;border-radius:999px;border:1px solid rgba(95,220,245,.22);background:rgba(3,18,27,.78);color:#9eeeff;font:800 7px/1.1 system-ui;letter-spacing:.08em;white-space:nowrap;pointer-events:none}
       .loky-language-owner3d-status.is-error{color:#ffb3ab;border-color:rgba(255,120,110,.28)}
     `;
@@ -325,6 +324,13 @@
     badge.classList.toggle('is-error',error);
     if(hideAfter>0)setTimeout(()=>badge?.remove(),hideAfter);
     return badge;
+  }
+
+  function removeOwner2D(hero){
+    if(!hero)return;
+    hero.querySelectorAll('.loky-language-avatar').forEach(node=>node.remove());
+    hero.classList.remove('is-fallback');
+    hero.dataset.ownerAvatar='3d-only';
   }
 
   async function attach(hero){
@@ -356,6 +362,7 @@
         return false;
       }
       if(!hero.isConnected){record.loading=false;return false;}
+      removeOwner2D(hero);
       if(!window.LOKY_MESHY_AVATAR_3D?.Avatar){
         record.loading=false;
         hero.dataset.ownerMeshy3d='runtime-missing';
@@ -400,9 +407,9 @@
         return true;
       }catch(error){
         const code=String(error?.message||error||'3D_ERROR').slice(0,42);
-        console.warn('LOKY Owner 3D fallback',error);
+        console.warn('LOKY Owner 3D error',error);
         hero.classList.remove('loky-owner-3d-ready');
-        hero.dataset.ownerMeshy3d='fallback-2d';
+        hero.dataset.ownerMeshy3d='error-3d';
         canvas.remove();
         record.avatar?.stop?.();
         record.loading=false;

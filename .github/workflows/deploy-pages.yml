@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "a52f6e72576cd2d2b98b196e2c1417214fa02a94"
+          test "$(git rev-parse HEAD:site/index.html)" = "c07235096a28d38f950393dbff59fa3eaf734919"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
@@ -236,7 +236,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
-          test "$(git rev-parse HEAD:site/index.html)" = "a52f6e72576cd2d2b98b196e2c1417214fa02a94"
+          test "$(git rev-parse HEAD:site/index.html)" = "c07235096a28d38f950393dbff59fa3eaf734919"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           grep -F "const VERSION='0.3.2R4F9-cloud-background-alarms'" site/mobile-background-alarm.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'" site/mobile-background-alarm.js
@@ -263,7 +263,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           test "$(git rev-parse HEAD:site/mobile-web-search.js)" = "be2dfce56a7af5e1abbb4f2277a635ac16c03c38"
-          test "$(git rev-parse HEAD:site/index.html)" = "a52f6e72576cd2d2b98b196e2c1417214fa02a94"
+          test "$(git rev-parse HEAD:site/index.html)" = "c07235096a28d38f950393dbff59fa3eaf734919"
           grep -F "const VERSION='0.3.2R4F10R3-turn-safe-search'" site/mobile-web-search.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'" site/mobile-web-search.js
           grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-web-search.js
@@ -306,7 +306,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "f7314f4e0dab972697059337b838becd11f8c5f8"
           test "$(git rev-parse HEAD:site/mobile-actions.js)" = "5803be78d341cbeff06a7e45f608bc80c51193c8"
-          test "$(git rev-parse HEAD:site/index.html)" = "a52f6e72576cd2d2b98b196e2c1417214fa02a94"
+          test "$(git rev-parse HEAD:site/index.html)" = "c07235096a28d38f950393dbff59fa3eaf734919"
           grep -F "const VERSION='0.3.2R4F11R6-timer-delete'" site/mobile-actions.js
           grep -F 'new MutationObserver(scheduleFromTranscript)' site/mobile-actions.js
           grep -F 'state?.transcriptBuffer' site/mobile-actions.js
@@ -349,7 +349,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "980122bcf882130f2f44496af104eb852eff8531"
           test "$(git rev-parse HEAD:site/language-avatar.webp)" = "9119b39fcc21891bb95d5f3f95b57444277723f6"
           test "$(git cat-file -s HEAD:site/language-avatar.webp)" -gt 10000
-          test "$(git rev-parse HEAD:site/index.html)" = "a52f6e72576cd2d2b98b196e2c1417214fa02a94"
+          test "$(git rev-parse HEAD:site/index.html)" = "c07235096a28d38f950393dbff59fa3eaf734919"
           grep -F "const VERSION='0.3.2R4F12R6-language-visual-clean'" site/mobile-language-tutor.js
           grep -F "const STORE_KEY='loky_pc4_language_tutor_v1'" site/mobile-language-tutor.js
           grep -F "const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1'" site/mobile-language-tutor.js
@@ -396,19 +396,25 @@ jobs:
           grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r6"></script>' site/index.html
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|speechSynthesis|navigator\.geolocation' site/mobile-language-tutor.js; then exit 1; fi
 
-      - name: Verify R4F12R8R7 Owner-only Meshy 3D idle + breathing
+      - name: Verify R4F12R8R8 Owner-only Meshy 3D only
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "a52f6e72576cd2d2b98b196e2c1417214fa02a94"
+          test "$(git rev-parse HEAD:site/index.html)" = "c07235096a28d38f950393dbff59fa3eaf734919"
           test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "980122bcf882130f2f44496af104eb852eff8531"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
-          test "$(git rev-parse HEAD:site/mobile-language-avatar-owner3d.js)" = "9c91b786079b7abc47fbfdfd5d480dbc480023ee"
+          test "$(git rev-parse HEAD:site/mobile-language-avatar-owner3d.js)" = "02191b647519f025292e5b22d687382eadebbaca"
           grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r6"></script>' site/index.html
-          grep -F '<script src="./mobile-language-avatar-owner3d.js?v=0.3.2r4f12r8r7"></script>' site/index.html
-          grep -F "const VERSION='0.3.2R4F12R8R7-owner-idle-breathe'" site/mobile-language-avatar-owner3d.js
+          grep -F '<script src="./mobile-language-avatar-owner3d.js?v=0.3.2r4f12r8r8"></script>' site/index.html
+          grep -F "const VERSION='0.3.2R4F12R8R8-owner-3d-only'" site/mobile-language-avatar-owner3d.js
           grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-language-avatar-owner3d.js
           grep -F "const MODEL_CHUNKS=Array.from({length:13}" site/mobile-language-avatar-owner3d.js
+          grep -F "function removeOwner2D(hero)" site/mobile-language-avatar-owner3d.js
+          grep -F "hero.querySelectorAll('.loky-language-avatar').forEach(node=>node.remove());" site/mobile-language-avatar-owner3d.js
+          grep -F "hero.dataset.ownerAvatar='3d-only';" site/mobile-language-avatar-owner3d.js
+          grep -F "removeOwner2D(hero);" site/mobile-language-avatar-owner3d.js
+          grep -F "hero.dataset.ownerMeshy3d='error-3d';" site/mobile-language-avatar-owner3d.js
+          if grep -Fq "hero.dataset.ownerMeshy3d='fallback-2d';" site/mobile-language-avatar-owner3d.js; then exit 1; fi
           grep -F "uniform float uBreath; uniform float uSway; uniform float uHead;" site/mobile-language-avatar-owner3d.js
           grep -F "float chest=smoothstep(0.02,0.16,p.z)*(1.0-smoothstep(0.48,0.62,p.z));" site/mobile-language-avatar-owner3d.js
           grep -F "p.x+=uSway*0.0070*upper;" site/mobile-language-avatar-owner3d.js
@@ -433,7 +439,6 @@ jobs:
           grep -F "if(!isOwner){" site/mobile-language-avatar-owner3d.js
           grep -F "ownerStatus(hero,'3D OWNER · CARGANDO');" site/mobile-language-avatar-owner3d.js
           grep -F "hero.classList.add('loky-owner-3d-ready');" site/mobile-language-avatar-owner3d.js
-          grep -F "hero.dataset.ownerMeshy3d='fallback-2d';" site/mobile-language-avatar-owner3d.js
           node --check site/mobile-language-avatar-owner3d.js
           python3 - <<'PY'
           from pathlib import Path
