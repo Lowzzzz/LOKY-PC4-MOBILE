@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   axisfix:
@@ -119,6 +119,58 @@ jobs:
           print("JOINT_GEOGRAPHY_PASS",json.dumps(z,separators=(',',':')))
           Path("axisfix-output/joint-geography.json").write_text(json.dumps(z,indent=2))
           PY
+
+      - name: Publish corrected rig v2 chunks
+        if: github.actor != 'github-actions[bot]'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64,hashlib,json,shutil
+          src=Path("axisfix-output/owner3d-rig-axisfix.glb")
+          raw=src.read_bytes()
+          sha=hashlib.sha256(raw).hexdigest()
+          assert len(raw)==11912184
+          assert sha=="ebc82865275bf5ff0cdf7e3a42e6cad50922030f2c29124f6220ed1de66de64e"
+          val=json.loads(Path("axisfix-output/axisfix-validation.json").read_text())
+          geo=json.loads(Path("axisfix-output/joint-geography.json").read_text())
+          out=Path("site/assets/owner3d-rig-v2")
+          if out.exists():shutil.rmtree(out)
+          out.mkdir(parents=True)
+          b64=base64.b64encode(raw).decode("ascii")
+          chunk_size=900000
+          chunks=[]
+          for i in range(0,len(b64),chunk_size):
+              name=f"chunk_{i//chunk_size:03d}.txt"
+              text=b64[i:i+chunk_size]
+              (out/name).write_text(text,encoding="ascii")
+              chunks.append({"name":name,"chars":len(text)})
+          manifest={
+              "version":"owner3d-rig-v2-axisfix",
+              "bytes":len(raw),
+              "sha256":sha,
+              "base64Chars":len(b64),
+              "chunkSize":chunk_size,
+              "chunkCount":len(chunks),
+              "chunks":chunks,
+              "vertices":val["vertices"],
+              "triangles":val["triangles"],
+              "joints":val["joints"],
+              "animationCount":val["animation_count"],
+              "lowerBodyStatic":val["lower_body_static"],
+              "upperBodyMoves":val["upper_body_moves"],
+              "orientationWeightCheck":val["orientation_weight_check"],
+              "jointGeography":geo,
+          }
+          (out/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
+          print("RIG_V2_READY",json.dumps(manifest,separators=(',',':')))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add site/assets/owner3d-rig-v2
+          git commit -m 'Store corrected Owner rig v2 axis fix [skip ci]'
+          git push origin HEAD:work/owner3d-rig-v1
 
       - name: Upload corrected rig candidate
         uses: actions/upload-artifact@v4
