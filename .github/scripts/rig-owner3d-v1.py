@@ -149,7 +149,7 @@ bpy.ops.export_scene.gltf(
 
 # Set up render scene for visual QA.
 scene=bpy.context.scene
-scene.render.engine='BLENDER_EEVEE_NEXT' if hasattr(scene,'eevee') else 'BLENDER_EEVEE'
+scene.render.engine='BLENDER_EEVEE_NEXT' if bpy.app.version >= (4,0,0) else 'BLENDER_EEVEE'
 scene.render.resolution_x=640
 scene.render.resolution_y=960
 scene.render.resolution_percentage=100
