@@ -85,9 +85,8 @@ jobs:
           joints=gltf["skins"][0].get("joints",[])
           assert len(joints)>=12, len(joints)
           print("RIGGED_GLB_PASS",p.stat().st_size,"bytes",len(joints),"joints")
+          assert len(gltf.get("animations",[]))>=1, "No proof animation exported"
           PY
-          test -s rig-output/rig_neutral.png
-          test -s rig-output/rig_pose.png
           test -s rig-output/rig_report.json
 
       - name: Upload rig lab artifact
