@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const VERSION = '0.3.2R4F12R8R10-owner-rig-visible-no2dflash';
+  const VERSION = '0.3.2R4F12R8R12-owner-rig-v2-axisfix';
 
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
@@ -372,10 +372,10 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F12R8R10-owner-rig-visible-no2dflash';
+  const VERSION='0.3.2R4F12R8R12-owner-rig-v2-axisfix';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const DEVICE_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices';
-  const MODEL_CHUNKS=Array.from({length:18},(_,i)=>`./assets/owner3d-rig-v1/chunk_${String(i).padStart(3,'0')}.txt?v=rigv1-a8c8a628`);
+  const MODEL_CHUNKS=Array.from({length:18},(_,i)=>`./assets/owner3d-rig-v2/chunk_${String(i).padStart(3,'0')}.txt?v=rigv2-ebc82865`);
   const ROLE_TRUE_TTL_MS=5*60_000;
   const ROLE_FALSE_TTL_MS=4_000;
   const OWNER_HINT_KEY='loky_pc4_owner3d_hint_v1';
@@ -524,7 +524,7 @@
             hero.classList.add('loky-owner-3d-ready');
             hero.dataset.ownerMeshy3d='ready';
             hero.dataset.ownerMeshyTris=String(stats?.triangles||'');
-            hero.dataset.ownerMeshyRig='v1';
+            hero.dataset.ownerMeshyRig='v2-axisfix';
             hero.dataset.ownerMeshyJoints=String(stats?.joints||'');
             ownerStatus(hero,'3D OWNER · LISTO',{hideAfter:1600});
           }
