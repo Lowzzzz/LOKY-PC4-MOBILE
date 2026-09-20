@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const VERSION = '0.3.2R4F12R8R10-owner-rig-visible-no2dflash';
+  const VERSION = '0.3.2R4F12R8R11-owner-rig-double-sided';
 
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
@@ -219,9 +219,10 @@
       const rig=J&&W?buildRig(json,bin,meshIndex):null;
       if(!rig||!J||!W)throw new Error('RIG_SKIN_MISSING');
       const mat=json.materials?.[prim.material||0]||{}; const baseTexIndex=mat.pbrMetallicRoughness?.baseColorTexture?.index ?? 0; const imageIndex=json.textures?.[baseTexIndex]?.source ?? 0;
+      const doubleSided=mat.doubleSided===true;
       const image=await imageFromBufferView(json,bin,imageIndex);
-      this._setup(P,N,U,I,image,J,W,rig);
-      this.stats={bytes:ab.byteLength,vertices:P.count,triangles:Math.floor(I.count/3),joints:rig.jointNodes.length,loadMs:performance.now()-t0};
+      this._setup(P,N,U,I,image,J,W,rig,doubleSided);
+      this.stats={bytes:ab.byteLength,vertices:P.count,triangles:Math.floor(I.count/3),joints:rig.jointNodes.length,doubleSided,loadMs:performance.now()-t0};
       this.running=true; this.opts.onReady?.(this.stats); this.opts.onStatus?.('LISTO'); requestAnimationFrame(t=>this._frame(t));
       return this.stats;
     }
@@ -263,10 +264,10 @@
       for(const bytes of pieces){all.set(bytes,off);off+=bytes.byteLength;}
       return this._loadArrayBuffer(all.buffer,t0);
     }
-    _setup(P,N,U,I,image,J,W,rig){
+    _setup(P,N,U,I,image,J,W,rig,doubleSided=false){
       const gl=this.gl;
       const vs=`#version 300 es\nprecision highp float;\nlayout(location=0) in vec3 aPos;\nlayout(location=1) in vec3 aNormal;\nlayout(location=2) in vec2 aUV;\nlayout(location=3) in uvec4 aJoints;\nlayout(location=4) in vec4 aWeights;\nuniform mat4 uMVP; uniform mat4 uModel; uniform mat4 uJoints[24];\nout vec3 vN; out vec2 vUV; out vec3 vWorld;\nvoid main(){\n mat4 skin=aWeights.x*uJoints[int(aJoints.x)]+aWeights.y*uJoints[int(aJoints.y)]+aWeights.z*uJoints[int(aJoints.z)]+aWeights.w*uJoints[int(aJoints.w)];\n vec3 p=(skin*vec4(aPos,1.0)).xyz;\n vec3 sn=normalize((skin*vec4(aNormal,0.0)).xyz);\n vec4 w=uModel*vec4(p,1.0); vWorld=w.xyz; vN=normalize(mat3(uModel)*sn); vUV=aUV; gl_Position=uMVP*vec4(p,1.0);\n}`;
-      const fs=`#version 300 es\nprecision highp float;\nin vec3 vN; in vec2 vUV; in vec3 vWorld;\nuniform sampler2D uBase; uniform float uSpeak; uniform float uThink; uniform vec3 uCamera;\nout vec4 outColor;\nvoid main(){\n vec4 tex=texture(uBase,vUV); if(tex.a<0.05) discard; vec3 c=pow(max(tex.rgb,vec3(0.0)),vec3(2.2));\n vec3 n=normalize(vN); vec3 v=normalize(uCamera-vWorld);\n float facing=max(dot(n,v),0.0);\n vec3 topLight=normalize(vec3(-0.28,0.12,0.95));\n float d=0.24 + facing*0.68 + max(dot(n,topLight),0.0)*0.14;\n float rim=pow(1.0-facing,3.4);\n float cyanSignal=max(min(tex.g,tex.b)-tex.r*1.25,0.0);\n float cyan=smoothstep(0.055,0.24,cyanSignal)*smoothstep(0.14,0.48,max(tex.g,tex.b));\n vec3 lit=c*d + vec3(0.015,0.07,0.10)*rim*(0.12+uThink*0.08) + vec3(0.015,0.20,0.34)*cyan*(0.48+uSpeak*0.25);\n lit=lit/(lit+vec3(1.0)); lit=pow(lit,vec3(1.0/2.2)); outColor=vec4(lit,tex.a);\n}`;
+      const fs=`#version 300 es\nprecision highp float;\nin vec3 vN; in vec2 vUV; in vec3 vWorld;\nuniform sampler2D uBase; uniform float uSpeak; uniform float uThink; uniform vec3 uCamera;\nout vec4 outColor;\nvoid main(){\n vec4 tex=texture(uBase,vUV); if(tex.a<0.05) discard; vec3 c=pow(max(tex.rgb,vec3(0.0)),vec3(2.2));\n vec3 n=normalize(vN); if(!gl_FrontFacing)n=-n; vec3 v=normalize(uCamera-vWorld);\n float facing=max(dot(n,v),0.0);\n vec3 topLight=normalize(vec3(-0.28,0.12,0.95));\n float d=0.24 + facing*0.68 + max(dot(n,topLight),0.0)*0.14;\n float rim=pow(1.0-facing,3.4);\n float cyanSignal=max(min(tex.g,tex.b)-tex.r*1.25,0.0);\n float cyan=smoothstep(0.055,0.24,cyanSignal)*smoothstep(0.14,0.48,max(tex.g,tex.b));\n vec3 lit=c*d + vec3(0.015,0.07,0.10)*rim*(0.12+uThink*0.08) + vec3(0.015,0.20,0.34)*cyan*(0.48+uSpeak*0.25);\n lit=lit/(lit+vec3(1.0)); lit=pow(lit,vec3(1.0/2.2)); outColor=vec4(lit,tex.a);\n}`;
       this.prog=program(gl,vs,fs); gl.useProgram(this.prog);
       this.loc={mvp:gl.getUniformLocation(this.prog,'uMVP'),model:gl.getUniformLocation(this.prog,'uModel'),base:gl.getUniformLocation(this.prog,'uBase'),speak:gl.getUniformLocation(this.prog,'uSpeak'),think:gl.getUniformLocation(this.prog,'uThink'),camera:gl.getUniformLocation(this.prog,'uCamera'),joints:gl.getUniformLocation(this.prog,'uJoints[0]')};
       this.vao=gl.createVertexArray(); gl.bindVertexArray(this.vao);
@@ -277,7 +278,7 @@
       this.rig=rig;
       const ib=gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,I.array,gl.STATIC_DRAW); this.indexType=I.componentType===5125?gl.UNSIGNED_INT:I.componentType===5123?gl.UNSIGNED_SHORT:gl.UNSIGNED_BYTE; this.indexCount=I.count;
       this.tex=gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,this.tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,image.width,image.height,0,gl.RGBA,gl.UNSIGNED_BYTE,image); gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE); gl.uniform1i(this.loc.base,0);
-      gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+      gl.enable(gl.DEPTH_TEST); if(doubleSided){gl.disable(gl.CULL_FACE);}else{gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);} gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA); this.doubleSided=doubleSided;
       this.bounds={min:P.min||[-.33,-.2,-.96],max:P.max||[.33,.2,.96]};
     }
     setState(state){ this.state=state||'ready'; }
@@ -372,7 +373,7 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F12R8R10-owner-rig-visible-no2dflash';
+  const VERSION='0.3.2R4F12R8R11-owner-rig-double-sided';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const DEVICE_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-devices';
   const MODEL_CHUNKS=Array.from({length:18},(_,i)=>`./assets/owner3d-rig-v1/chunk_${String(i).padStart(3,'0')}.txt?v=rigv1-a8c8a628`);
