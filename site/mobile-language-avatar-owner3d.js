@@ -113,12 +113,25 @@
     async loadBase64(base64){
       const t0=performance.now(); this.opts.onStatus?.('CARGANDO 3D LOCAL');
       if(!base64) throw new Error('Modelo local no disponible');
-      const raw=atob(base64); const len=raw.length; const bytes=new Uint8Array(len); const chunk=1<<20;
-      for(let start=0;start<len;start+=chunk){
-        const end=Math.min(len,start+chunk);
-        for(let i=start;i<end;i++) bytes[i]=raw.charCodeAt(i);
-      }
+      const raw=atob(base64); const bytes=new Uint8Array(raw.length);
+      for(let i=0;i<raw.length;i++) bytes[i]=raw.charCodeAt(i);
       return this._loadArrayBuffer(bytes.buffer,t0);
+    }
+    async loadBase64ChunkUrls(urls){
+      const t0=performance.now(); this.opts.onStatus?.('CARGANDO 3D OWNER');
+      const pieces=[]; let total=0;
+      for(const url of urls){
+        const r=await fetch(url,{cache:'force-cache'});
+        if(!r.ok) throw new Error('MODEL_CHUNK_'+r.status);
+        const text=(await r.text()).trim();
+        const raw=atob(text);
+        const bytes=new Uint8Array(raw.length);
+        for(let i=0;i<raw.length;i++) bytes[i]=raw.charCodeAt(i);
+        pieces.push(bytes); total+=bytes.byteLength;
+      }
+      const all=new Uint8Array(total); let off=0;
+      for(const bytes of pieces){all.set(bytes,off);off+=bytes.byteLength;}
+      return this._loadArrayBuffer(all.buffer,t0);
     }
     _setup(P,N,U,I,image){
       const gl=this.gl;
@@ -251,8 +264,7 @@
           }
         });
         record.avatar=avatar;
-        const parts=await Promise.all(MODEL_CHUNKS.map(async url=>{const r=await fetch(url,{cache:'force-cache'});if(!r.ok)throw new Error('MODEL_CHUNK_'+r.status);return (await r.text()).trim();}));
-        await avatar.loadBase64(parts.join(''));
+        await avatar.loadBase64ChunkUrls(MODEL_CHUNKS);
         avatar.setState(visualState(hero));
 
         record.observer=new MutationObserver(()=>{
