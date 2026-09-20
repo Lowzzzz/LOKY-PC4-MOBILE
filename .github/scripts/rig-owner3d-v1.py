@@ -122,21 +122,12 @@ for v in mesh.data.vertices:
     zn=(vert-vmin)/h if h else 0.5
     xn=(lr-centers[lr_i])/(w*0.5) if w else 0.0
 
-    # Head/hair before limbs.
+    # Head/hair first.
     if zn>=0.79:
         g="head"
     elif zn>=0.75:
         g="neck"
-    # Arms/hands: outer lateral geometry in the upper/mid body.
-    elif abs(xn)>=0.42 and 0.33<=zn<=0.74:
-        side="R" if xn>0 else "L"
-        if zn>=0.57:
-            g=f"upper_arm.{side}"
-        elif zn>=0.43:
-            g=f"forearm.{side}"
-        else:
-            g=f"hand.{side}"
-    # Legs/feet.
+    # Legs/feet own the complete lower 40% before any arm rule can match.
     elif zn<0.40:
         side="R" if xn>0 else "L"
         if zn>=0.23:
@@ -145,6 +136,15 @@ for v in mesh.data.vertices:
             g=f"shin.{side}"
         else:
             g=f"foot.{side}"
+    # Arms/hands: only outer lateral geometry above the leg boundary.
+    elif abs(xn)>=0.42 and 0.40<=zn<=0.74:
+        side="R" if xn>0 else "L"
+        if zn>=0.57:
+            g=f"upper_arm.{side}"
+        elif zn>=0.47:
+            g=f"forearm.{side}"
+        else:
+            g=f"hand.{side}"
     # Torso.
     elif zn<0.50:
         g="pelvis"
