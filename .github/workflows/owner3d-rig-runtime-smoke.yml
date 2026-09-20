@@ -161,5 +161,5 @@ jobs:
             --dump-dom \
             http://127.0.0.1:8794/rig-runtime-smoke.html > /tmp/rig-dom.txt
           cat /tmp/rig-dom.txt
-          grep -F 'RIG_PASS SYNTHETIC_SKIN GL_0' /tmp/rig-dom.txt
-          if grep -Fq 'RIG_FAIL' /tmp/rig-dom.txt; then exit 1; fi
+          grep -F '<pre id="result">RIG_PASS SYNTHETIC_SKIN GL_0</pre>' /tmp/rig-dom.txt
+          if grep -Fq '<pre id="result">RIG_FAIL ' /tmp/rig-dom.txt; then exit 1; fi
