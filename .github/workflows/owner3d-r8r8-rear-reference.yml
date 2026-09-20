@@ -1,0 +1,118 @@
+name: Owner3D R8R8 Rear Reference
+
+on:
+  push:
+    branches: [work/owner3d-r8r8-rear-reference]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify R8R8 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F "0.3.2R4F12R8R8-owner-3d-only" site/mobile-language-avatar-owner3d.js
+          grep -F "Array.from({length:13}" site/mobile-language-avatar-owner3d.js
+          node --check site/mobile-language-avatar-owner3d.js
+
+      - name: Build rear-view page
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p r8r8-proof
+          cat > site/r8r8-rear.html <<'HTML'
+          <!doctype html><html><body style="margin:0;background:#02070b;color:#bdefff;font:12px monospace">
+          <canvas id="c" width="390" height="720" style="display:block;width:390px;height:720px"></canvas>
+          <pre id="result">PENDING</pre>
+          <script src="./mobile-language-avatar-owner3d.js"></script>
+          <script>
+          (async()=>{
+            const result=document.getElementById('result');
+            try{
+              const canvas=document.getElementById('c');
+              const avatar=new window.LOKY_MESHY_AVATAR_3D.Avatar(canvas,{});
+              window.__a=avatar;
+              const urls=Array.from({length:13},(_,i)=>'./assets/owner3d/chunk_'+String(i).padStart(3,'0')+'.txt');
+              const stats=await avatar.loadBase64ChunkUrls(urls);
+              avatar.yaw=Math.PI;
+              avatar.distance=3.35;
+              avatar.focusZ=-0.08;
+              avatar.setState('listening');
+              const gl=canvas.getContext('webgl2');
+              setTimeout(()=>{
+                gl.finish();
+                const err=gl.getError();
+                if(stats.vertices!==167761||stats.triangles!==180000)throw new Error('BAD_STATS_'+JSON.stringify(stats));
+                if(err!==gl.NO_ERROR)throw new Error('GL_ERROR_'+err);
+                result.textContent='R8R8_PASS '+stats.vertices+' '+stats.triangles+' GL_'+err;
+              },900);
+            }catch(e){result.textContent='R8R8_FAIL '+String(e?.stack||e);}
+          })();
+          </script>
+          </body></html>
+          HTML
+
+      - name: Run Chrome and capture rear
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          cd site
+          python3 -m http.server 8797 --bind 127.0.0.1 >/tmp/r8r8-http.log 2>&1 &
+          SERVER=$!
+          cd ..
+          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --enable-webgl --ignore-gpu-blocklist             --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader             --window-size=390,780 --remote-debugging-port=9225 --user-data-dir=/tmp/r8r8-chrome             http://127.0.0.1:8797/r8r8-rear.html >/tmp/r8r8-chrome.log 2>&1 &
+          CHROME_PID=$!
+          trap 'kill $CHROME_PID $SERVER 2>/dev/null || true' EXIT
+          for i in $(seq 1 80); do curl -fsS http://127.0.0.1:9225/json >/tmp/r8r8-pages.json && break || true; sleep .25; done
+          node <<'NODE'
+          const fs=require('fs');
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          async function main(){
+            let pages;
+            for(let i=0;i<40;i++){
+              try{pages=await (await fetch('http://127.0.0.1:9225/json')).json();if(pages?.length)break;}catch{}
+              await sleep(250);
+            }
+            const page=pages.find(x=>x.type==='page');
+            const ws=new WebSocket(page.webSocketDebuggerUrl);
+            await new Promise((res,rej)=>{ws.onopen=res;ws.onerror=rej;});
+            let id=1; const pending=new Map();
+            ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id&&pending.has(m.id)){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(m.error):p.resolve(m);}};
+            const call=(method,params={})=>new Promise((resolve,reject)=>{const n=id++;pending.set(n,{resolve,reject});ws.send(JSON.stringify({id:n,method,params}));});
+            await call('Runtime.enable'); await call('Page.enable');
+            let text='';
+            for(let i=0;i<160;i++){
+              const r=await call('Runtime.evaluate',{expression:"document.getElementById('result').textContent",returnByValue:true});
+              text=String(r.result.result.value||'');
+              if(text.startsWith('R8R8_PASS'))break;
+              if(text.startsWith('R8R8_FAIL'))throw new Error(text);
+              await sleep(250);
+            }
+            if(!text.startsWith('R8R8_PASS'))throw new Error('TIMEOUT '+text);
+            await sleep(700);
+            const shot=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
+            fs.writeFileSync('r8r8-proof/rear-r8r8.png',Buffer.from(shot.result.data,'base64'));
+            fs.writeFileSync('r8r8-proof/result.txt',text+'\n');
+            ws.close();
+          }
+          main().catch(e=>{console.error(e);process.exit(1);});
+          NODE
+          grep -F 'R8R8_PASS 167761 180000 GL_0' r8r8-proof/result.txt
+          test -s r8r8-proof/rear-r8r8.png
+
+      - name: Upload reference
+        uses: actions/upload-artifact@v4
+        with:
+          name: owner3d-r8r8-rear-reference
+          path: r8r8-proof/
+          if-no-files-found: error
