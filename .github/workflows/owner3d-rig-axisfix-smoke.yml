@@ -1,0 +1,128 @@
+name: Owner3D Rig Axis-Fix Smoke
+
+on:
+  push:
+    branches: [work/owner3d-rig-v1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  axisfix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reconstruct approved Owner GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p axisfix-output
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64,struct
+          parts=[Path(f"site/assets/owner3d/chunk_{i:03d}.txt").read_text().strip() for i in range(13)]
+          raw=base64.b64decode("".join(parts),validate=True)
+          magic,version,total=struct.unpack_from("<4sII",raw,0)
+          assert magic==b"glTF" and version==2 and total==len(raw)==8536252
+          Path("axisfix-output/owner3d-approved.glb").write_bytes(raw)
+          print("SOURCE_PASS",len(raw))
+          PY
+
+      - name: Install Blender 4.5.14 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz'
+          curl --retry 3 --retry-delay 2 -fL "$URL" -o /tmp/blender.tar.xz
+          tar -xf /tmp/blender.tar.xz -C /tmp
+          echo "/tmp/blender-4.5.14-linux-x64" >> "$GITHUB_PATH"
+          /tmp/blender-4.5.14-linux-x64/blender --version | head -5
+
+      - name: Build corrected humanoid rig
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender --background \
+            --python .github/scripts/rig-owner3d-v1.py \
+            -- \
+            "$GITHUB_WORKSPACE/axisfix-output/owner3d-approved.glb" \
+            "$GITHUB_WORKSPACE/axisfix-output/owner3d-rig-axisfix.glb" \
+            "$GITHUB_WORKSPACE/axisfix-output"
+
+      - name: Install numpy
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y python3-numpy
+
+      - name: Validate corrected skin and orientation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/validate-owner3d-rig-v1.py \
+            axisfix-output/owner3d-rig-axisfix.glb \
+            axisfix-output/axisfix-validation.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          r=json.loads(Path("axisfix-output/axisfix-validation.json").read_text())
+          o=r["orientation_weight_check"]
+          assert o["bottom_upper_leaks"]==0,o
+          assert o["top_leg_leaks"]==0,o
+          assert o["bottom_foot_shin_ratio"]>0.90,o
+          assert o["top_head_neck_ratio"]>0.90,o
+          assert r["lower_body_static"] is True
+          assert r["upper_body_moves"] is True
+          print("AXIS_FIX_PASS",json.dumps(o,separators=(',',':')))
+          PY
+
+      - name: Inspect exported joint geography
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,struct,numpy as np
+          raw=Path("axisfix-output/owner3d-rig-axisfix.glb").read_bytes()
+          off=12; g=None; b=None
+          while off<len(raw):
+              ln,tp=struct.unpack_from("<II",raw,off);off+=8
+              data=raw[off:off+ln];off+=ln
+              if tp==0x4E4F534A:g=json.loads(data.rstrip(b"\x00 ").decode())
+              elif tp==0x004E4942:b=data
+          parent={}
+          for i,n in enumerate(g["nodes"]):
+              for c in n.get("children",[]):parent[c]=i
+          def qmat(q):
+              x,y,z,w=q; n=x*x+y*y+z*z+w*w
+              if n==0:return np.eye(4)
+              s=2/n;xx=x*x*s;yy=y*y*s;zz=z*z*s;xy=x*y*s;xz=x*z*s;yz=y*z*s;wx=w*x*s;wy=w*y*s;wz=w*z*s
+              m=np.eye(4);m[:3,:3]=[[1-yy-zz,xy-wz,xz+wy],[xy+wz,1-xx-zz,yz-wx],[xz-wy,yz+wx,1-xx-yy]];return m
+          def local(n):
+              if "matrix" in n:return np.array(n["matrix"],float).reshape(4,4).T
+              t=n.get("translation",[0,0,0]);r=n.get("rotation",[0,0,0,1]);s=n.get("scale",[1,1,1])
+              m=qmat(r);m[:3,:3]=m[:3,:3]@np.diag(s);m[:3,3]=t;return m
+          glob=[None]*len(g["nodes"])
+          def G(i):
+              if glob[i] is not None:return glob[i]
+              m=local(g["nodes"][i]);p=parent.get(i);glob[i]=G(p)@m if p is not None else m;return glob[i]
+          names={n.get("name"):i for i,n in enumerate(g["nodes"])}
+          z={name:float(G(names[name])[2,3]) for name in ["head","neck","pelvis","thigh.L","shin.L","foot.L","thigh.R","shin.R","foot.R"]}
+          assert z["head"]>z["neck"]>z["pelvis"],z
+          assert z["pelvis"]>z["thigh.L"]>z["shin.L"]>z["foot.L"],z
+          assert z["pelvis"]>z["thigh.R"]>z["shin.R"]>z["foot.R"],z
+          print("JOINT_GEOGRAPHY_PASS",json.dumps(z,separators=(',',':')))
+          Path("axisfix-output/joint-geography.json").write_text(json.dumps(z,indent=2))
+          PY
+
+      - name: Upload corrected rig candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: owner3d-rig-axisfix
+          path: axisfix-output/
+          if-no-files-found: error
