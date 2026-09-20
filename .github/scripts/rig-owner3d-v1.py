@@ -26,6 +26,13 @@ if not meshes:
     raise RuntimeError("No mesh imported")
 mesh=max(meshes,key=lambda o: len(o.data.vertices))
 
+# Bake Meshy's glTF import axis conversion into the mesh before skinning.
+# This makes mesh vertices and the armature share one coordinate frame.
+bpy.ops.object.select_all(action='DESELECT')
+mesh.select_set(True)
+bpy.context.view_layer.objects.active=mesh
+bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
 # Detect the anatomical axes from actual world-space extents.
 corners=[mesh.matrix_world @ Vector(c) for c in mesh.bound_box]
 mins=[min(v[i] for v in corners) for i in range(3)]
@@ -165,7 +172,10 @@ if assigned!=len(mesh.data.vertices):
     raise RuntimeError(f"Unassigned vertices: {len(mesh.data.vertices)-assigned}")
 
 # Link skin explicitly; do not depend on heat-weight solver.
+world_before=mesh.matrix_world.copy()
 mesh.parent=arm
+mesh.matrix_parent_inverse=arm.matrix_world.inverted()
+mesh.matrix_world=world_before
 mod=mesh.modifiers.new(name="LOKY_Armature",type='ARMATURE')
 mod.object=arm
 
@@ -224,6 +234,8 @@ report={
     "axis":{"vertical":vert_i,"left_right":lr_i,"depth":depth_i},
     "bounds":{"mins":mins,"maxs":maxs,"extents":ext},
     "armature":arm.name,
+    "mesh_matrix_world":[list(row) for row in mesh.matrix_world],
+    "armature_matrix_world":[list(row) for row in arm.matrix_world],
     "bones":[b.name for b in arm.data.bones],
     "assigned_vertices":assigned,
     "group_counts":{name:len(indices) for name,indices in assign.items()},
