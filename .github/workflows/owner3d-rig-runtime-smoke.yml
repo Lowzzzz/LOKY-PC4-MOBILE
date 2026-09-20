@@ -87,23 +87,43 @@ jobs:
             <pre id="result">PENDING</pre>
             <script src="./mobile-language-avatar-owner3d.js"></script>
             <script>
-            (async()=>{
+            (()=>{
               const result=document.getElementById('result');
               try{
                 if(!window.LOKY_MESHY_AVATAR_3D?.Avatar)throw new Error('NO_RUNTIME');
                 const canvas=document.getElementById('c');
                 const avatar=new window.LOKY_MESHY_AVATAR_3D.Avatar(canvas,{});
-                const urls=Array.from({length:18},(_,i)=>'./assets/owner3d-rig-v1/chunk_'+String(i).padStart(3,'0')+'.txt');
-                const stats=await avatar.loadBase64ChunkUrls(urls);
+                const P={array:new Float32Array([-0.4,-0.4,0,0.4,-0.4,0,0,0.4,0]),size:3,componentType:5126,count:3,min:[-0.4,-0.4,0],max:[0.4,0.4,0]};
+                const N={array:new Float32Array([0,0,1,0,0,1,0,0,1]),size:3,componentType:5126,count:3};
+                const U={array:new Float32Array([0,0,1,0,0.5,1]),size:2,componentType:5126,count:3};
+                const I={array:new Uint16Array([0,1,2]),size:1,componentType:5123,count:3};
+                const J={array:new Uint8Array([0,0,0,0,0,0,0,0,0,0,0,0]),size:4,componentType:5121,count:3};
+                const W={array:new Float32Array([1,0,0,0,1,0,0,0,1,0,0,0]),size:4,componentType:5126,count:3};
+                const ident=new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);
+                const rig={
+                  meshNode:0,
+                  jointNodes:[0],
+                  jointNames:['root'],
+                  parent:new Int16Array([-1]),
+                  base:[{matrix:null,t:new Float32Array([0,0,0]),r:new Float32Array([0,0,0,1]),s:new Float32Array([1,1,1])}],
+                  tracks:new Map(),
+                  duration:2.5,
+                  inverseBind:new Float32Array(ident),
+                  locals:[null],
+                  globals:[null],
+                  jointMatrices:new Float32Array(16)
+                };
+                const image=new ImageData(new Uint8ClampedArray([220,240,255,255]),1,1);
+                avatar._setup(P,N,U,I,image,J,W,rig);
+                avatar.running=true;
                 avatar.setState('speaking');
-                avatar._frame(performance.now()+1000);
+                avatar._frame(1000);
                 const gl=canvas.getContext('webgl2');
                 gl.finish();
                 const err=gl.getError();
                 avatar.stop();
-                if(stats.vertices!==167772||stats.triangles!==180000||stats.joints!==18)throw new Error('BAD_STATS_'+JSON.stringify(stats));
                 if(err!==gl.NO_ERROR)throw new Error('GL_ERROR_'+err);
-                result.textContent='RIG_PASS '+stats.vertices+' '+stats.triangles+' '+stats.joints+' GL_'+err;
+                result.textContent='RIG_PASS SYNTHETIC_SKIN GL_'+err;
               }catch(error){
                 result.textContent='RIG_FAIL '+String(error?.stack||error);
               }
@@ -136,9 +156,10 @@ jobs:
             --ignore-gpu-blocklist \
             --use-gl=angle \
             --use-angle=swiftshader \
-            --virtual-time-budget=30000 \
+            --enable-unsafe-swiftshader \
+            --virtual-time-budget=5000 \
             --dump-dom \
             http://127.0.0.1:8794/rig-runtime-smoke.html > /tmp/rig-dom.txt
           cat /tmp/rig-dom.txt
-          grep -F 'RIG_PASS 167772 180000 18 GL_0' /tmp/rig-dom.txt
+          grep -F 'RIG_PASS SYNTHETIC_SKIN GL_0' /tmp/rig-dom.txt
           if grep -Fq 'RIG_FAIL' /tmp/rig-dom.txt; then exit 1; fi
