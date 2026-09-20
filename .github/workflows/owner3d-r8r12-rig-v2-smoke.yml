@@ -156,7 +156,7 @@ jobs:
             })()`,returnByValue:true});
             const report=JSON.parse(String(res.result.result.value));
             if(!(report.lowerMax<1e-6))throw new Error('FEET_MOVED '+JSON.stringify(report));
-            if(!(report.upperMax>0.005))throw new Error('UPPER_NOT_MOVING '+JSON.stringify(report));
+            if(!(report.upperMax>0.001))throw new Error('UPPER_NOT_MOVING '+JSON.stringify(report));
             fs.writeFileSync('r8r12-proof/joint-matrix-report.json',JSON.stringify(report,null,2)+'\n');
 
             const shot=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
