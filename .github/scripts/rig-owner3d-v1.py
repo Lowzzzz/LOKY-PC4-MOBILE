@@ -173,25 +173,33 @@ mod.object=arm
 scene=bpy.context.scene
 scene.frame_start=1
 scene.frame_end=60
+animated=("head","neck","upper_arm.L","upper_arm.R")
 for pb in arm.pose.bones:
     pb.rotation_mode='XYZ'
 
-def key(frame):
-    scene.frame_set(frame)
-    for name in ("head","neck","upper_arm.L","upper_arm.R"):
-        pb=arm.pose.bones.get(name)
-        if pb:
-            pb.keyframe_insert(data_path="rotation_euler",frame=frame)
+def reset_pose():
+    for name in animated:
+        arm.pose.bones[name].rotation_euler=(0,0,0)
 
-key(1)
-arm.pose.bones["head"].rotation_euler[2]=math.radians(8)
-arm.pose.bones["neck"].rotation_euler[2]=math.radians(-3)
-arm.pose.bones["upper_arm.L"].rotation_euler[1]=math.radians(5)
-arm.pose.bones["upper_arm.R"].rotation_euler[1]=math.radians(-5)
-key(30)
-for name in ("head","neck","upper_arm.L","upper_arm.R"):
-    arm.pose.bones[name].rotation_euler=(0,0,0)
-key(60)
+def insert_pose(frame):
+    for name in animated:
+        arm.pose.bones[name].keyframe_insert(data_path="rotation_euler",frame=frame)
+
+scene.frame_set(1)
+reset_pose()
+insert_pose(1)
+
+scene.frame_set(30)
+reset_pose()
+arm.pose.bones["head"].rotation_euler[2]=math.radians(12)
+arm.pose.bones["neck"].rotation_euler[2]=math.radians(-4)
+arm.pose.bones["upper_arm.L"].rotation_euler[1]=math.radians(9)
+arm.pose.bones["upper_arm.R"].rotation_euler[1]=math.radians(-9)
+insert_pose(30)
+
+scene.frame_set(60)
+reset_pose()
+insert_pose(60)
 scene.frame_set(1)
 
 # Export standard skinned GLB.
