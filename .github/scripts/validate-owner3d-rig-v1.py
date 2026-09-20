@@ -70,6 +70,24 @@ assert np.max(joints)<len(joint_nodes)
 ws=weights.sum(axis=1)
 assert np.max(np.abs(ws-1.0))<1e-5, float(np.max(np.abs(ws-1.0)))
 
+# Anatomical orientation / weight sanity.
+# In exported glTF the character is Z-up: feet at minimum Z, head at maximum Z.
+z=pos[:,2]
+zmin=float(np.min(z)); zmax=float(np.max(z)); zh=zmax-zmin
+dom_slot=np.argmax(weights,axis=1)
+dom_joint=joints[np.arange(len(joints)),dom_slot]
+dom_names=np.array([joint_names[int(i)] for i in dom_joint],dtype=object)
+bottom=z <= zmin + zh*0.12
+top=z >= zmax - zh*0.12
+bad_bottom=np.isin(dom_names[bottom],["head","neck","chest","spine","upper_arm.L","forearm.L","hand.L","upper_arm.R","forearm.R","hand.R"])
+bad_top=np.isin(dom_names[top],["thigh.L","shin.L","foot.L","thigh.R","shin.R","foot.R"])
+assert not np.any(bad_bottom), f"Upper-body weights leaked into feet zone: {int(np.sum(bad_bottom))}"
+assert not np.any(bad_top), f"Leg/foot weights leaked into head zone: {int(np.sum(bad_top))}"
+bottom_names=dom_names[bottom]
+top_names=dom_names[top]
+assert np.mean(np.isin(bottom_names,["foot.L","foot.R","shin.L","shin.R"])) > 0.90
+assert np.mean(np.isin(top_names,["head","neck"])) > 0.90
+
 ibm=accessor(skin["inverseBindMatrices"]).astype(np.float64).reshape(-1,4,4)
 ibm=np.transpose(ibm,(0,2,1))
 
@@ -209,6 +227,14 @@ for name in ("head","upper_arm.L","upper_arm.R"):
     assert group_stats[name]["max_delta"]>0.005,(name,group_stats[name])
 
 result={
+    "orientation_weight_check":{
+        "bottom_vertices":int(np.sum(bottom)),
+        "top_vertices":int(np.sum(top)),
+        "bottom_foot_shin_ratio":float(np.mean(np.isin(bottom_names,["foot.L","foot.R","shin.L","shin.R"]))),
+        "top_head_neck_ratio":float(np.mean(np.isin(top_names,["head","neck"]))),
+        "bottom_upper_leaks":int(np.sum(bad_bottom)),
+        "top_leg_leaks":int(np.sum(bad_top)),
+    },
     "bytes":len(raw),
     "vertices":int(len(pos)),
     "triangles":int(gltf["accessors"][prim["indices"]]["count"]//3),
