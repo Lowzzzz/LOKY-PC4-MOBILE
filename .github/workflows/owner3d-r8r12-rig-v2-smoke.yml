@@ -1,0 +1,179 @@
+name: Owner3D R8R12 Rig V2 Smoke
+
+on:
+  push:
+    branches: [work/owner3d-r8r12-rig-v2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: owner3d-r8r12-rig-v2
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify protected baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "980122bcf882130f2f44496af104eb852eff8531"
+          test "$(git rev-parse HEAD:site/live-mobile.js)" = "f28a58275661f8513e9e3b29911c62f51e04bd28"
+          test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
+          test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
+
+      - name: Verify corrected rig v2 exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64,hashlib,json,struct
+          root=Path("site/assets/owner3d-rig-v2")
+          m=json.loads((root/"manifest.json").read_text())
+          assert m["version"]=="owner3d-rig-v2-axisfix"
+          assert m["bytes"]==11912184
+          assert m["sha256"]=="ebc82865275bf5ff0cdf7e3a42e6cad50922030f2c29124f6220ed1de66de64e"
+          assert m["chunkCount"]==18
+          o=m["orientationWeightCheck"]
+          assert o["bottom_foot_shin_ratio"]==1
+          assert o["top_head_neck_ratio"]==1
+          assert o["bottom_upper_leaks"]==0
+          assert o["top_leg_leaks"]==0
+          parts=[(root/f"chunk_{i:03d}.txt").read_text().strip() for i in range(18)]
+          raw=base64.b64decode("".join(parts),validate=True)
+          assert len(raw)==11912184
+          assert hashlib.sha256(raw).hexdigest()==m["sha256"]
+          magic,version,total=struct.unpack_from("<4sII",raw,0)
+          assert magic==b"glTF" and version==2 and total==len(raw)
+          print("RIG_V2_EXACT_PASS",json.dumps(o,separators=(',',':')))
+          PY
+
+      - name: Verify R8R12 runtime contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check site/mobile-language-avatar-owner3d.js
+          grep -F "0.3.2R4F12R8R12-owner-rig-v2-axisfix" site/mobile-language-avatar-owner3d.js
+          grep -F "assets/owner3d-rig-v2/chunk_" site/mobile-language-avatar-owner3d.js
+          grep -F "rigv2-ebc82865" site/mobile-language-avatar-owner3d.js
+          grep -F "ownerMeshyRig='v2-axisfix'" site/mobile-language-avatar-owner3d.js
+          grep -F "uniform mat4 uJoints[24];" site/mobile-language-avatar-owner3d.js
+          grep -F "state==='speaking'?1.00" site/mobile-language-avatar-owner3d.js
+          grep -F ".loky-owner3d-hint .loky-language-avatar{display:none!important}" site/mobile-language-avatar-owner3d.js
+          grep -F '<script src="./mobile-language-avatar-owner3d.js?v=0.3.2r4f12r8r12"></script>' site/index.html
+
+      - name: Build real runtime test page
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p r8r12-proof
+          cat > site/r8r12-rig-v2.html <<'HTML'
+          <!doctype html><html><body style="margin:0;background:#02070b;color:#bdefff;font:12px monospace">
+          <canvas id="c" width="390" height="720" style="display:block;width:390px;height:720px"></canvas>
+          <pre id="result">PENDING</pre>
+          <script src="./mobile-language-avatar-owner3d.js"></script>
+          <script>
+          (async()=>{
+            const result=document.getElementById('result');
+            try{
+              const canvas=document.getElementById('c');
+              const avatar=new window.LOKY_MESHY_AVATAR_3D.Avatar(canvas,{});
+              window.__a=avatar;
+              const urls=Array.from({length:18},(_,i)=>'./assets/owner3d-rig-v2/chunk_'+String(i).padStart(3,'0')+'.txt');
+              const stats=await avatar.loadBase64ChunkUrls(urls);
+              avatar.setState('speaking');
+              const gl=canvas.getContext('webgl2');
+              setTimeout(()=>{
+                gl.finish();
+                const err=gl.getError();
+                if(stats.vertices!==167772||stats.triangles!==180000||stats.joints!==18)throw new Error('BAD_STATS_'+JSON.stringify(stats));
+                if(err!==gl.NO_ERROR)throw new Error('GL_ERROR_'+err);
+                result.textContent='R8R12_READY '+stats.vertices+' '+stats.triangles+' '+stats.joints+' GL_'+err;
+              },700);
+            }catch(e){result.textContent='R8R12_FAIL '+String(e?.stack||e);}
+          })();
+          </script>
+          </body></html>
+          HTML
+
+      - name: Prove feet static while upper body animates
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          cd site
+          python3 -m http.server 8798 --bind 127.0.0.1 >/tmp/r8r12-http.log 2>&1 &
+          SERVER=$!
+          cd ..
+          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --enable-webgl --ignore-gpu-blocklist             --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader             --window-size=390,780 --remote-debugging-port=9226 --user-data-dir=/tmp/r8r12-chrome             http://127.0.0.1:8798/r8r12-rig-v2.html >/tmp/r8r12-chrome.log 2>&1 &
+          CHROME_PID=$!
+          trap 'kill $CHROME_PID $SERVER 2>/dev/null || true' EXIT
+          for i in $(seq 1 80); do curl -fsS http://127.0.0.1:9226/json >/tmp/r8r12-pages.json && break || true; sleep .25; done
+          node <<'NODE'
+          const fs=require('fs');
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          async function main(){
+            let pages;
+            for(let i=0;i<40;i++){try{pages=await (await fetch('http://127.0.0.1:9226/json')).json();if(pages?.length)break;}catch{}await sleep(250);}
+            const page=pages.find(x=>x.type==='page');
+            const ws=new WebSocket(page.webSocketDebuggerUrl);
+            await new Promise((res,rej)=>{ws.onopen=res;ws.onerror=rej;});
+            let id=1;const pending=new Map();
+            ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id&&pending.has(m.id)){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(m.error):p.resolve(m);}};
+            const call=(method,params={})=>new Promise((resolve,reject)=>{const n=id++;pending.set(n,{resolve,reject});ws.send(JSON.stringify({id:n,method,params}));});
+            await call('Runtime.enable');await call('Page.enable');
+            let text='';
+            for(let i=0;i<180;i++){
+              const r=await call('Runtime.evaluate',{expression:"document.getElementById('result').textContent",returnByValue:true});
+              text=String(r.result.result.value||'');
+              if(text.startsWith('R8R12_READY'))break;
+              if(text.startsWith('R8R12_FAIL'))throw new Error(text);
+              await sleep(250);
+            }
+            if(!text.startsWith('R8R12_READY'))throw new Error('TIMEOUT '+text);
+
+            const res=await call('Runtime.evaluate',{expression:`(()=>{
+              const a=window.__a;a.stop();a.drag={test:true};a.setState('speaking');
+              a.running=true;a._frame(100);a.stop();
+              const A=Array.from(a.rig.jointMatrices),names=a.rig.jointNames.slice();
+              a.running=true;a._frame(3200);a.stop();
+              const B=Array.from(a.rig.jointMatrices);
+              const diffs={};
+              for(let j=0;j<names.length;j++){let m=0;for(let k=0;k<16;k++)m=Math.max(m,Math.abs(A[j*16+k]-B[j*16+k]));diffs[names[j]]=m;}
+              const lower=['thigh.L','shin.L','foot.L','thigh.R','shin.R','foot.R'];
+              const lowerMax=Math.max(...lower.map(n=>diffs[n]||0));
+              const upperMax=Math.max(diffs['head']||0,diffs['upper_arm.L']||0,diffs['upper_arm.R']||0);
+              a.drag=null;
+              return JSON.stringify({lowerMax,upperMax,diffs});
+            })()`,returnByValue:true});
+            const report=JSON.parse(String(res.result.result.value));
+            if(!(report.lowerMax<1e-6))throw new Error('FEET_MOVED '+JSON.stringify(report));
+            if(!(report.upperMax>0.005))throw new Error('UPPER_NOT_MOVING '+JSON.stringify(report));
+            fs.writeFileSync('r8r12-proof/joint-matrix-report.json',JSON.stringify(report,null,2)+'\n');
+
+            const shot=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
+            fs.writeFileSync('r8r12-proof/runtime.png',Buffer.from(shot.result.data,'base64'));
+            fs.writeFileSync('r8r12-proof/result.txt',text+'\n');
+            console.log('R8R12_FEET_STATIC_PASS',report.lowerMax,report.upperMax);
+            ws.close();
+          }
+          main().catch(e=>{console.error(e);process.exit(1);});
+          NODE
+          grep -F 'R8R12_READY 167772 180000 18 GL_0' r8r12-proof/result.txt
+          test -s r8r12-proof/joint-matrix-report.json
+          test -s r8r12-proof/runtime.png
+
+      - name: Upload proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: owner3d-r8r12-rig-v2-proof
+          path: r8r12-proof/
+          if-no-files-found: error
