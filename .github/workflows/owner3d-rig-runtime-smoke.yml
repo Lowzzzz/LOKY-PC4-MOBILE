@@ -281,11 +281,11 @@ jobs:
             const shot=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
             fs.writeFileSync('rig-runtime-output/rig-real.png',Buffer.from(shot.result.data,'base64'));
 
-            await call('Runtime.evaluate',{expression:"(()=>{const a=window.__rigAvatar;a.stop();a.running=true;a._frame(1000);a.stop();return 'FRAME_A';})()",returnByValue:true});
+            await call('Runtime.evaluate',{expression:"(()=>{const a=window.__rigAvatar;a.stop();a.running=true;a._frame(100);a.stop();return 'FRAME_A';})()",returnByValue:true});
             const frameA=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
             fs.writeFileSync('rig-runtime-output/rig-frame-a.png',Buffer.from(frameA.result.data,'base64'));
 
-            await call('Runtime.evaluate',{expression:"(()=>{const a=window.__rigAvatar;a.running=true;a._frame(5000);a.stop();return 'FRAME_B';})()",returnByValue:true});
+            await call('Runtime.evaluate',{expression:"(()=>{const a=window.__rigAvatar;a.running=true;a._frame(2700);a.stop();return 'FRAME_B';})()",returnByValue:true});
             const frameB=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
             fs.writeFileSync('rig-runtime-output/rig-frame-b.png',Buffer.from(frameB.result.data,'base64'));
 
