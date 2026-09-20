@@ -163,3 +163,135 @@ jobs:
           cat /tmp/rig-dom.txt
           grep -F '<pre id="result">RIG_PASS SYNTHETIC_SKIN GL_0</pre>' /tmp/rig-dom.txt
           if grep -Fq '<pre id="result">RIG_FAIL ' /tmp/rig-dom.txt; then exit 1; fi
+      - name: Build full rig runtime page
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p rig-runtime-output
+          cat > site/rig-runtime-real.html <<'HTML'
+          <!doctype html>
+          <html>
+          <body style="margin:0;background:#02070b;color:#bdefff;font:12px monospace">
+            <canvas id="c" width="390" height="720" style="display:block;width:390px;height:720px"></canvas>
+            <pre id="result">RIG_REAL_PENDING</pre>
+            <script src="./mobile-language-avatar-owner3d.js"></script>
+            <script>
+            (async()=>{
+              const result=document.getElementById('result');
+              try{
+                const canvas=document.getElementById('c');
+                const avatar=new window.LOKY_MESHY_AVATAR_3D.Avatar(canvas,{});
+                window.__rigAvatar=avatar;
+                const urls=Array.from({length:18},(_,i)=>'./assets/owner3d-rig-v1/chunk_'+String(i).padStart(3,'0')+'.txt');
+                const stats=await avatar.loadBase64ChunkUrls(urls);
+                window.__rigStats=stats;
+                avatar.setState('speaking');
+                const gl=canvas.getContext('webgl2');
+                setTimeout(()=>{
+                  gl.finish();
+                  const err=gl.getError();
+                  if(stats.vertices!==167772||stats.triangles!==180000||stats.joints!==18)throw new Error('BAD_STATS_'+JSON.stringify(stats));
+                  if(err!==gl.NO_ERROR)throw new Error('GL_ERROR_'+err);
+                  result.textContent='RIG_REAL_PASS '+stats.vertices+' '+stats.triangles+' '+stats.joints+' GL_'+err;
+                },800);
+              }catch(error){
+                result.textContent='RIG_REAL_FAIL '+String(error?.stack||error);
+              }
+            })();
+            </script>
+          </body>
+          </html>
+          HTML
+
+      - name: Run full rig asset in Chrome and capture
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$CHROME"
+          cd site
+          python3 -m http.server 8795 --bind 127.0.0.1 >/tmp/rig-real-http.log 2>&1 &
+          SERVER=$!
+          cd ..
+          "$CHROME" \
+            --headless=new \
+            --no-sandbox \
+            --disable-dev-shm-usage \
+            --enable-webgl \
+            --ignore-gpu-blocklist \
+            --use-gl=angle \
+            --use-angle=swiftshader \
+            --enable-unsafe-swiftshader \
+            --window-size=390,780 \
+            --remote-debugging-port=9223 \
+            --user-data-dir=/tmp/rig-real-chrome \
+            http://127.0.0.1:8795/rig-runtime-real.html >/tmp/rig-real-chrome.log 2>&1 &
+          CHROME_PID=$!
+          trap 'kill $CHROME_PID $SERVER 2>/dev/null || true' EXIT
+          for i in $(seq 1 80); do
+            curl -fsS http://127.0.0.1:9223/json >/tmp/rig-pages.json && break
+            sleep 0.25
+          done
+          node <<'NODE'
+          const fs=require('fs');
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          async function main(){
+            let pages=null;
+            for(let i=0;i<40;i++){
+              try{
+                pages=await (await fetch('http://127.0.0.1:9223/json')).json();
+                if(Array.isArray(pages)&&pages.length)break;
+              }catch{}
+              await sleep(250);
+            }
+            const page=pages?.find(x=>x.type==='page');
+            if(!page?.webSocketDebuggerUrl)throw new Error('NO_CDP_PAGE');
+            const ws=new WebSocket(page.webSocketDebuggerUrl);
+            await new Promise((resolve,reject)=>{
+              ws.onopen=resolve;
+              ws.onerror=()=>reject(new Error('CDP_WS_OPEN'));
+            });
+            let next=1;
+            const pending=new Map();
+            ws.onmessage=event=>{
+              const msg=JSON.parse(event.data);
+              if(msg.id&&pending.has(msg.id)){
+                const {resolve,reject}=pending.get(msg.id);
+                pending.delete(msg.id);
+                if(msg.error)reject(new Error(JSON.stringify(msg.error))); else resolve(msg);
+              }
+            };
+            const call=(method,params={})=>new Promise((resolve,reject)=>{
+              const id=next++;
+              pending.set(id,{resolve,reject});
+              ws.send(JSON.stringify({id,method,params}));
+            });
+            await call('Runtime.enable');
+            await call('Page.enable');
+            let text='';
+            for(let i=0;i<240;i++){
+              const res=await call('Runtime.evaluate',{expression:"document.getElementById('result')?.textContent||''",returnByValue:true});
+              text=String(res.result?.result?.value||'');
+              if(text.startsWith('RIG_REAL_PASS'))break;
+              if(text.startsWith('RIG_REAL_FAIL'))throw new Error(text);
+              await sleep(250);
+            }
+            if(!text.startsWith('RIG_REAL_PASS'))throw new Error('RIG_REAL_TIMEOUT '+text);
+            await sleep(1200);
+            const shot=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
+            fs.writeFileSync('rig-runtime-output/rig-real.png',Buffer.from(shot.result.data,'base64'));
+            fs.writeFileSync('rig-runtime-output/rig-real-result.txt',text+'\n');
+            console.log(text);
+            ws.close();
+          }
+          main().catch(error=>{console.error(error);process.exit(1);});
+          NODE
+          test -s rig-runtime-output/rig-real.png
+          grep -F 'RIG_REAL_PASS 167772 180000 18 GL_0' rig-runtime-output/rig-real-result.txt
+
+      - name: Upload full rig runtime proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: owner3d-rig-runtime-v1-proof
+          path: rig-runtime-output/
+          if-no-files-found: error
