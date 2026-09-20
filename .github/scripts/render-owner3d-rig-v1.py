@@ -61,6 +61,7 @@ cam.data.lens=62
 target=center.copy()
 target[vert_i]=mins[vert_i]+0.52*h
 look_at(cam,Vector(target))
+cam.rotation_euler.rotate_axis('Z',3.141592653589793)
 
 # Three-point lighting in detected anatomical basis.
 lights=[
@@ -87,6 +88,7 @@ scene.render.filepath=os.path.join(out_dir,'rig_neutral.png')
 bpy.ops.render.render(write_still=True)
 
 scene.frame_set(30)
+bpy.context.view_layer.update()
 scene.render.filepath=os.path.join(out_dir,'rig_pose.png')
 bpy.ops.render.render(write_still=True)
 
