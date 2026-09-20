@@ -281,11 +281,17 @@ jobs:
             const shot=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
             fs.writeFileSync('rig-runtime-output/rig-real.png',Buffer.from(shot.result.data,'base64'));
 
-            await call('Runtime.evaluate',{expression:"(()=>{const a=window.__rigAvatar;a.stop();a.running=true;a._frame(100);a.stop();return 'FRAME_A';})()",returnByValue:true});
+            const aRes=await call('Runtime.evaluate',{expression:"(()=>{const a=window.__rigAvatar;a.stop();a.drag={test:true};a.setState('ready');a.running=true;a._frame(139);a.stop();window.__rigJointsA=Array.from(a.rig.jointMatrices);return 'FRAME_A';})()",returnByValue:true});
             const frameA=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
             fs.writeFileSync('rig-runtime-output/rig-frame-a.png',Buffer.from(frameA.result.data,'base64'));
 
-            await call('Runtime.evaluate',{expression:"(()=>{const a=window.__rigAvatar;a.running=true;a._frame(2700);a.stop();return 'FRAME_B';})()",returnByValue:true});
+            const matrixRes=await call('Runtime.evaluate',{expression:"(()=>{const a=window.__rigAvatar;a.running=true;a._frame(4167);a.stop();const b=Array.from(a.rig.jointMatrices),aa=window.__rigJointsA,n=a.rig.jointNames;const diffs={};for(let j=0;j<n.length;j++){let m=0;for(let k=0;k<16;k++)m=Math.max(m,Math.abs(aa[j*16+k]-b[j*16+k]));diffs[n[j]]=m;}const legs=['pelvis','spine','chest','thigh.L','shin.L','foot.L','thigh.R','shin.R','foot.R'];const lower=Math.max(...legs.map(x=>diffs[x]||0));const upper=Math.max(diffs['head']||0,diffs['upper_arm.L']||0,diffs['upper_arm.R']||0);const report={lowerMax:lower,upperMax:upper,diffs};window.__rigMatrixReport=report;a.drag=null;return JSON.stringify(report);})()",returnByValue:true});
+            const matrixText=String(matrixRes.result?.result?.value||'{}');
+            const matrixReport=JSON.parse(matrixText);
+            if(!(matrixReport.lowerMax<1e-6))throw new Error('LOWER_BODY_MOVED '+matrixText);
+            if(!(matrixReport.upperMax>0.005))throw new Error('UPPER_BODY_STATIC '+matrixText);
+            fs.writeFileSync('rig-runtime-output/rig-matrix-report.json',JSON.stringify(matrixReport,null,2)+'\n');
+
             const frameB=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
             fs.writeFileSync('rig-runtime-output/rig-frame-b.png',Buffer.from(frameB.result.data,'base64'));
 
@@ -298,6 +304,7 @@ jobs:
           test -s rig-runtime-output/rig-real.png
           test -s rig-runtime-output/rig-frame-a.png
           test -s rig-runtime-output/rig-frame-b.png
+          test -s rig-runtime-output/rig-matrix-report.json
           grep -F 'RIG_REAL_PASS 167772 180000 18 GL_0' rig-runtime-output/rig-real-result.txt
 
       - name: Upload full rig runtime proof
