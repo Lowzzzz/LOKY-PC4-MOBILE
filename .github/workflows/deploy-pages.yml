@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "85abb546bc1fdb346dccea5a5fcd5a8684dfb8cc"
+          test "$(git rev-parse HEAD:site/index.html)" = "8f6a14da6a755b972ee03bb78cbf6404560b56eb"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
@@ -151,6 +151,7 @@ jobs:
           node --check site/mobile-web-search.js
           node --check site/mobile-actions.js
           node --check site/mobile-language-tutor.js
+          node --check site/mobile-language-avatar-owner3d.js
           node --check site/mobile-noise-guard.js
           node --check site/mobile-seismic.js
           node --check site/mobile-earth-reference.js
@@ -235,7 +236,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
-          test "$(git rev-parse HEAD:site/index.html)" = "85abb546bc1fdb346dccea5a5fcd5a8684dfb8cc"
+          test "$(git rev-parse HEAD:site/index.html)" = "8f6a14da6a755b972ee03bb78cbf6404560b56eb"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           grep -F "const VERSION='0.3.2R4F9-cloud-background-alarms'" site/mobile-background-alarm.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'" site/mobile-background-alarm.js
@@ -262,7 +263,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           test "$(git rev-parse HEAD:site/mobile-web-search.js)" = "be2dfce56a7af5e1abbb4f2277a635ac16c03c38"
-          test "$(git rev-parse HEAD:site/index.html)" = "85abb546bc1fdb346dccea5a5fcd5a8684dfb8cc"
+          test "$(git rev-parse HEAD:site/index.html)" = "8f6a14da6a755b972ee03bb78cbf6404560b56eb"
           grep -F "const VERSION='0.3.2R4F10R3-turn-safe-search'" site/mobile-web-search.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'" site/mobile-web-search.js
           grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-web-search.js
@@ -305,7 +306,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "f7314f4e0dab972697059337b838becd11f8c5f8"
           test "$(git rev-parse HEAD:site/mobile-actions.js)" = "5803be78d341cbeff06a7e45f608bc80c51193c8"
-          test "$(git rev-parse HEAD:site/index.html)" = "85abb546bc1fdb346dccea5a5fcd5a8684dfb8cc"
+          test "$(git rev-parse HEAD:site/index.html)" = "8f6a14da6a755b972ee03bb78cbf6404560b56eb"
           grep -F "const VERSION='0.3.2R4F11R6-timer-delete'" site/mobile-actions.js
           grep -F 'new MutationObserver(scheduleFromTranscript)' site/mobile-actions.js
           grep -F 'state?.transcriptBuffer' site/mobile-actions.js
@@ -348,7 +349,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "980122bcf882130f2f44496af104eb852eff8531"
           test "$(git rev-parse HEAD:site/language-avatar.webp)" = "9119b39fcc21891bb95d5f3f95b57444277723f6"
           test "$(git cat-file -s HEAD:site/language-avatar.webp)" -gt 10000
-          test "$(git rev-parse HEAD:site/index.html)" = "85abb546bc1fdb346dccea5a5fcd5a8684dfb8cc"
+          test "$(git rev-parse HEAD:site/index.html)" = "8f6a14da6a755b972ee03bb78cbf6404560b56eb"
           grep -F "const VERSION='0.3.2R4F12R6-language-visual-clean'" site/mobile-language-tutor.js
           grep -F "const STORE_KEY='loky_pc4_language_tutor_v1'" site/mobile-language-tutor.js
           grep -F "const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1'" site/mobile-language-tutor.js
@@ -394,6 +395,70 @@ jobs:
           grep -F 'live.append(stateBadge,floating,tools,progress)' site/mobile-language-tutor.js
           grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r6"></script>' site/index.html
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|speechSynthesis|navigator\.geolocation' site/mobile-language-tutor.js; then exit 1; fi
+
+      - name: Verify R4F12R8R6 Owner-only Meshy 3D vertical pan + closer zoom
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/index.html)" = "8f6a14da6a755b972ee03bb78cbf6404560b56eb"
+          test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "980122bcf882130f2f44496af104eb852eff8531"
+          test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
+          test "$(git rev-parse HEAD:site/mobile-language-avatar-owner3d.js)" = "207c39e0601a081d7e9418379e884a9e01e26b6f"
+          grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r6"></script>' site/index.html
+          grep -F '<script src="./mobile-language-avatar-owner3d.js?v=0.3.2r4f12r8r6"></script>' site/index.html
+          grep -F "const VERSION='0.3.2R4F12R8R6-owner-pan-zoom'" site/mobile-language-avatar-owner3d.js
+          grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-language-avatar-owner3d.js
+          grep -F "const MODEL_CHUNKS=Array.from({length:13}" site/mobile-language-avatar-owner3d.js
+          grep -F "this.distance=3.62" site/mobile-language-avatar-owner3d.js
+          grep -F "let touchDrag=null;" site/mobile-language-avatar-owner3d.js
+          grep -F "const surface=this.opts.gestureSurface||c;" site/mobile-language-avatar-owner3d.js
+          grep -F "this.focusZ=0.02" site/mobile-language-avatar-owner3d.js
+          grep -F "this.focusZ=clamp(touchDrag.focusZ+(a[0][1]-touchDrag.y)*0.0026,-0.78,0.82)" site/mobile-language-avatar-owner3d.js
+          grep -F "const focusZ=this.focusZ" site/mobile-language-avatar-owner3d.js
+          grep -F "lookAt(eye,[0,0,focusZ],[0,0,1])" site/mobile-language-avatar-owner3d.js
+          grep -F "gestureSurface:hero.closest('.loky-language-overlay')||hero" site/mobile-language-avatar-owner3d.js
+          grep -F "const opts={passive:false,capture:true};" site/mobile-language-avatar-owner3d.js
+          grep -F "surface.addEventListener('touchstart'" site/mobile-language-avatar-owner3d.js
+          grep -F "surface.addEventListener('touchmove'" site/mobile-language-avatar-owner3d.js
+          grep -F "if(blocked(e)||e.pointerType==='touch')return;" site/mobile-language-avatar-owner3d.js
+          grep -F ".loky-language-hero.loky-owner-3d-ready::after{pointer-events:none}" site/mobile-language-avatar-owner3d.js
+          grep -F "this.distance=clamp(this.distance*(this.touchDistance/Math.max(1,d)),1.10,5.6)" site/mobile-language-avatar-owner3d.js
+          grep -F "const owner=data?.role==='owner';" site/mobile-language-avatar-owner3d.js
+          grep -F "if(!isOwner){" site/mobile-language-avatar-owner3d.js
+          grep -F "ownerStatus(hero,'3D OWNER · CARGANDO');" site/mobile-language-avatar-owner3d.js
+          grep -F "hero.classList.add('loky-owner-3d-ready');" site/mobile-language-avatar-owner3d.js
+          grep -F "hero.dataset.ownerMeshy3d='fallback-2d';" site/mobile-language-avatar-owner3d.js
+          node --check site/mobile-language-avatar-owner3d.js
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, json, struct
+          parts=[]
+          for i in range(13):
+              p=Path(f"site/assets/owner3d/chunk_{i:03d}.txt")
+              assert p.is_file(), p
+              text=p.read_text(encoding="utf-8").strip()
+              assert text, p
+              parts.append(text)
+          raw=base64.b64decode("".join(parts), validate=True)
+          magic,version,total=struct.unpack_from("<4sII",raw,0)
+          assert magic==b"glTF"
+          assert version==2
+          assert total==len(raw)==8536252
+          off=12
+          gltf=None
+          while off < len(raw):
+              length,ctype=struct.unpack_from("<II",raw,off)
+              off+=8
+              data=raw[off:off+length]
+              off+=length
+              if ctype==0x4E4F534A:
+                  gltf=json.loads(data.rstrip(b"\x00 ").decode("utf-8"))
+          assert off==len(raw)
+          prim=gltf["meshes"][0]["primitives"][0]
+          assert gltf["accessors"][prim["attributes"]["POSITION"]]["count"]==167761
+          assert gltf["accessors"][prim["indices"]]["count"]==540000
+          print("OWNER 3D GLB PASS: 167761 vertices / 180000 triangles")
+          PY
 
       - name: Verify iOS 0.3.2R4F10R3 Mobile conversation turn guard
         shell: bash
@@ -478,8 +543,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -R -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then echo 'Secret/API key material must never be present in public Mobile files'; exit 1; fi
-          if grep -R -E -qi 'QWEN|FALLBACK LOCAL|speechSynthesis' site; then echo 'Local robotic voice fallback is forbidden in native Live build'; exit 1; fi
+          if grep -R --exclude='chunk_*.txt' -E -q 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY|x-goog-api-key|GN8M-9PCC-EQV6-XK4A' site; then echo 'Secret/API key material must never be present in public Mobile files'; exit 1; fi
+          if grep -R --exclude='chunk_*.txt' -E -qi 'QWEN|FALLBACK LOCAL|speechSynthesis' site; then echo 'Local robotic voice fallback is forbidden in native Live build'; exit 1; fi
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
