@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: owner3d-rig-lab
@@ -89,12 +89,21 @@ jobs:
           PY
           test -s rig-output/rig_report.json
 
-      - name: Install headless render libraries
+      - name: Install rig QA dependencies
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y libegl1 libgl1
+          sudo apt-get install -y libegl1 libgl1 python3-numpy
+
+      - name: Validate skin matrices directly
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/validate-owner3d-rig-v1.py \
+            rig-output/owner3d-rig-v1.glb \
+            rig-output/rig_skin_validation.json
+          test -s rig-output/rig_skin_validation.json
 
       - name: Render rig visual QA
         shell: bash
@@ -107,6 +116,59 @@ jobs:
             "$GITHUB_WORKSPACE/rig-output"
           test -s rig-output/rig_neutral.png
           test -s rig-output/rig_pose.png
+
+      - name: Publish rig candidate chunks to lab branch
+        if: github.actor != 'github-actions[bot]'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, hashlib, json, shutil
+          src=Path("rig-output/owner3d-rig-v1.glb")
+          raw=src.read_bytes()
+          b64=base64.b64encode(raw).decode("ascii")
+          out=Path("site/assets/owner3d-rig-v1")
+          if out.exists():
+              shutil.rmtree(out)
+          out.mkdir(parents=True)
+          chunk_size=900000
+          chunks=[]
+          for i in range(0,len(b64),chunk_size):
+              name=f"chunk_{i//chunk_size:03d}.txt"
+              text=b64[i:i+chunk_size]
+              (out/name).write_text(text,encoding="ascii")
+              chunks.append({"name":name,"chars":len(text)})
+          report=json.loads(Path("rig-output/rig_report.json").read_text(encoding="utf-8"))
+          skin=json.loads(Path("rig-output/rig_skin_validation.json").read_text(encoding="utf-8"))
+          manifest={
+              "version":"owner3d-rig-v1",
+              "bytes":len(raw),
+              "sha256":hashlib.sha256(raw).hexdigest(),
+              "base64Chars":len(b64),
+              "chunkSize":chunk_size,
+              "chunkCount":len(chunks),
+              "chunks":chunks,
+              "vertices":skin["vertices"],
+              "triangles":skin["triangles"],
+              "joints":skin["joints"],
+              "animationCount":skin["animation_count"],
+              "lowerBodyStatic":skin["lower_body_static"],
+              "upperBodyMoves":skin["upper_body_moves"],
+              "axis":report["axis"],
+          }
+          (out/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
+          print("RIG_CHUNKS_READY",json.dumps(manifest,separators=(',',':')))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add site/assets/owner3d-rig-v1
+          if git diff --cached --quiet; then
+            echo 'Rig chunks unchanged'
+          else
+            git commit -m 'Store Owner rig v1 candidate chunks [skip ci]'
+            git push origin HEAD:work/owner3d-rig-v1
+          fi
 
       - name: Upload rig lab artifact
         uses: actions/upload-artifact@v4
