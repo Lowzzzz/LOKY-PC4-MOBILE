@@ -1,0 +1,112 @@
+{
+  "version": "owner3d-rig-v1",
+  "bytes": 11911980,
+  "sha256": "a8c8a62813afb329f53d3de3d87623ac90352750c39f0f445f8e3c84b000c2ab",
+  "base64Chars": 15882640,
+  "chunkSize": 900000,
+  "chunkCount": 18,
+  "chunks": [
+    {
+      "name": "chunk_000.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_001.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_002.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_003.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_004.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_005.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_006.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_007.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_008.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_009.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_010.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_011.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_012.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_013.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_014.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_015.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_016.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_017.txt",
+      "chars": 582640
+    }
+  ],
+  "vertices": 167772,
+  "triangles": 180000,
+  "joints": [
+    "root",
+    "pelvis",
+    "spine",
+    "chest",
+    "neck",
+    "head",
+    "upper_arm.L",
+    "forearm.L",
+    "hand.L",
+    "upper_arm.R",
+    "forearm.R",
+    "hand.R",
+    "thigh.L",
+    "shin.L",
+    "foot.L",
+    "thigh.R",
+    "shin.R",
+    "foot.R"
+  ],
+  "animationCount": 1,
+  "lowerBodyStatic": true,
+  "upperBodyMoves": true,
+  "axis": {
+    "vertical": 1,
+    "left_right": 0,
+    "depth": 2
+  }
+}
