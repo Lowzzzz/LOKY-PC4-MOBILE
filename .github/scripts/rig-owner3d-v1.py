@@ -5,41 +5,64 @@ import json
 import math
 from mathutils import Vector
 
-def arg_after_ddash():
+def args_after_ddash():
     argv=sys.argv
     if "--" not in argv:
         raise RuntimeError("Expected -- input output out_dir")
     return argv[argv.index("--")+1:]
 
-args=arg_after_ddash()
+args=args_after_ddash()
 if len(args)<3:
     raise RuntimeError("Usage: blender --background --python rig-owner3d-v1.py -- input.glb output.glb out_dir")
-input_glb, output_glb, out_dir=args[:3]
+input_glb,output_glb,out_dir=args[:3]
 os.makedirs(out_dir,exist_ok=True)
 
-# Clean scene.
+# Clean and import the exact approved Meshy realtime GLB.
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
-
-# Import the exact approved 180K GLB.
 bpy.ops.import_scene.gltf(filepath=input_glb)
-mesh_objects=[o for o in bpy.context.scene.objects if o.type=='MESH']
-if not mesh_objects:
+meshes=[o for o in bpy.context.scene.objects if o.type=='MESH']
+if not meshes:
     raise RuntimeError("No mesh imported")
-mesh=max(mesh_objects,key=lambda o: len(o.data.vertices))
+mesh=max(meshes,key=lambda o: len(o.data.vertices))
 
-# World-space bounds.
+# Detect the anatomical axes from actual world-space extents.
 corners=[mesh.matrix_world @ Vector(c) for c in mesh.bound_box]
-xmin=min(v.x for v in corners); xmax=max(v.x for v in corners)
-ymin=min(v.y for v in corners); ymax=max(v.y for v in corners)
-zmin=min(v.z for v in corners); zmax=max(v.z for v in corners)
-cx=(xmin+xmax)*0.5; cy=(ymin+ymax)*0.5
-h=zmax-zmin; w=xmax-xmin
+mins=[min(v[i] for v in corners) for i in range(3)]
+maxs=[max(v[i] for v in corners) for i in range(3)]
+ext=[maxs[i]-mins[i] for i in range(3)]
+vert_i=max(range(3),key=lambda i: ext[i])
+depth_i=min(range(3),key=lambda i: ext[i])
+lr_i=({0,1,2}-{vert_i,depth_i}).pop()
+centers=[(mins[i]+maxs[i])*0.5 for i in range(3)]
+h=ext[vert_i]; w=ext[lr_i]; d=ext[depth_i]
+vmin=mins[vert_i]
 
-def Z(frac):
-    return zmin+h*frac
+def point(lr,dep,vert):
+    p=[centers[0],centers[1],centers[2]]
+    p[lr_i]=lr
+    p[depth_i]=dep
+    p[vert_i]=vert
+    return tuple(p)
 
-# Build a compact humanoid armature matched to the actual Meshy bounds.
+def V(frac):
+    return vmin+h*frac
+
+def LR(norm):
+    return centers[lr_i]+norm*(w*0.5)
+
+DEP=centers[depth_i]
+
+print("LOKY_RIG_AXES",json.dumps({
+    "vertical_axis":vert_i,
+    "left_right_axis":lr_i,
+    "depth_axis":depth_i,
+    "mins":mins,
+    "maxs":maxs,
+    "extents":ext,
+},separators=(',',':')))
+
+# Build basic humanoid armature.
 arm_data=bpy.data.armatures.new("LOKY_Armature")
 arm=bpy.data.objects.new("LOKY_Armature",arm_data)
 bpy.context.collection.objects.link(arm)
@@ -48,92 +71,130 @@ bpy.context.view_layer.objects.active=arm
 arm.select_set(True)
 bpy.ops.object.mode_set(mode='EDIT')
 
-def bone(name,head,tail,parent=None,deform=True):
+def add_bone(name,head,tail,parent=None):
     b=arm.data.edit_bones.new(name)
     b.head=head
     b.tail=tail
-    b.use_deform=deform
+    b.use_deform=True
     if parent:
         b.parent=arm.data.edit_bones[parent]
         b.use_connect=False
     return b
 
-hip_z=Z(0.40)
-spine1_z=Z(0.53)
-chest_z=Z(0.68)
-neck_z=Z(0.80)
-head_mid_z=Z(0.90)
+hip=V(0.40)
+sp1=V(0.52)
+chest=V(0.68)
+neck=V(0.80)
+head_mid=V(0.90)
 
-bone("root",(cx,cy,zmin-0.06*h),(cx,cy,hip_z),deform=True)
-bone("pelvis",(cx,cy,hip_z),(cx,cy,spine1_z),"root")
-bone("spine",(cx,cy,spine1_z),(cx,cy,chest_z),"pelvis")
-bone("chest",(cx,cy,chest_z),(cx,cy,neck_z),"spine")
-bone("neck",(cx,cy,neck_z),(cx,cy,head_mid_z),"chest")
-bone("head",(cx,cy,head_mid_z),(cx,cy,zmax+0.02*h),"neck")
-
-shoulder_x=w*0.19
-elbow_x=w*0.37
-wrist_x=w*0.43
-shoulder_z=Z(0.70)
-elbow_z=Z(0.55)
-wrist_z=Z(0.43)
-hand_z=Z(0.36)
+add_bone("root",point(LR(0),DEP,V(-0.02)),point(LR(0),DEP,hip))
+add_bone("pelvis",point(LR(0),DEP,hip),point(LR(0),DEP,sp1),"root")
+add_bone("spine",point(LR(0),DEP,sp1),point(LR(0),DEP,chest),"pelvis")
+add_bone("chest",point(LR(0),DEP,chest),point(LR(0),DEP,neck),"spine")
+add_bone("neck",point(LR(0),DEP,neck),point(LR(0),DEP,head_mid),"chest")
+add_bone("head",point(LR(0),DEP,head_mid),point(LR(0),DEP,V(1.02)),"neck")
 
 for side,sgn in (("L",-1),("R",1)):
-    sx=cx+sgn*shoulder_x
-    ex=cx+sgn*elbow_x
-    wx=cx+sgn*wrist_x
-    bone(f"upper_arm.{side}",(sx,cy,shoulder_z),(ex,cy,elbow_z),"chest")
-    bone(f"forearm.{side}",(ex,cy,elbow_z),(wx,cy,wrist_z),f"upper_arm.{side}")
-    bone(f"hand.{side}",(wx,cy,wrist_z),(wx,cy,hand_z),f"forearm.{side}")
-
-leg_x=w*0.16
-knee_z=Z(0.23)
-ankle_z=Z(0.07)
-foot_z=Z(0.015)
-for side,sgn in (("L",-1),("R",1)):
-    lx=cx+sgn*leg_x
-    bone(f"thigh.{side}",(lx,cy,hip_z),(lx,cy,knee_z),"pelvis")
-    bone(f"shin.{side}",(lx,cy,knee_z),(lx,cy,ankle_z),f"thigh.{side}")
-    bone(f"foot.{side}",(lx,cy,ankle_z),(lx,ymin-0.10*(ymax-ymin),foot_z),f"shin.{side}")
+    add_bone(f"upper_arm.{side}",point(LR(0.30*sgn),DEP,V(0.70)),point(LR(0.62*sgn),DEP,V(0.56)),"chest")
+    add_bone(f"forearm.{side}",point(LR(0.62*sgn),DEP,V(0.56)),point(LR(0.82*sgn),DEP,V(0.43)),f"upper_arm.{side}")
+    add_bone(f"hand.{side}",point(LR(0.82*sgn),DEP,V(0.43)),point(LR(0.84*sgn),DEP,V(0.34)),f"forearm.{side}")
+    add_bone(f"thigh.{side}",point(LR(0.20*sgn),DEP,hip),point(LR(0.24*sgn),DEP,V(0.23)),"pelvis")
+    add_bone(f"shin.{side}",point(LR(0.24*sgn),DEP,V(0.23)),point(LR(0.23*sgn),DEP,V(0.07)),f"thigh.{side}")
+    add_bone(f"foot.{side}",point(LR(0.23*sgn),DEP,V(0.07)),point(LR(0.24*sgn),mins[depth_i]-0.10*d,V(0.01)),f"shin.{side}")
 
 bpy.ops.object.mode_set(mode='OBJECT')
 
-# Parent mesh to armature. First try Blender heat weights; fall back to envelope.
-for o in bpy.context.selected_objects:
-    o.select_set(False)
-mesh.select_set(True)
-arm.select_set(True)
-bpy.context.view_layer.objects.active=arm
-weight_mode="AUTO"
-try:
-    bpy.ops.object.parent_set(type='ARMATURE_AUTO')
-except Exception as exc:
-    weight_mode="ENVELOPE"
-    print("AUTO_WEIGHTS_FAILED",repr(exc))
-    # Clear partial parenting/groups before fallback.
-    for o in mesh_objects:
-        o.parent=None
-        for vg in list(o.vertex_groups):
-            o.vertex_groups.remove(vg)
-        for mod in list(o.modifiers):
-            if mod.type=='ARMATURE':
-                o.modifiers.remove(mod)
-    bpy.ops.object.select_all(action='DESELECT')
-    mesh.select_set(True)
-    arm.select_set(True)
-    bpy.context.view_layer.objects.active=arm
-    bpy.ops.object.parent_set(type='ARMATURE_ENVELOPE')
+# Deterministic first-pass skin. This is a rig proof, not final smooth weighting.
+deform_names=[
+    "pelvis","spine","chest","neck","head",
+    "upper_arm.L","forearm.L","hand.L",
+    "upper_arm.R","forearm.R","hand.R",
+    "thigh.L","shin.L","foot.L",
+    "thigh.R","shin.R","foot.R",
+]
+groups={name:mesh.vertex_groups.new(name=name) for name in deform_names}
+assign={name:[] for name in deform_names}
 
-# Validate skin setup.
-arm_mods=[m for m in mesh.modifiers if m.type=='ARMATURE']
-if not arm_mods:
-    raise RuntimeError("Armature modifier missing after parenting")
-groups=[g.name for g in mesh.vertex_groups]
-if len(groups)<8:
-    raise RuntimeError(f"Too few vertex groups: {len(groups)}")
+for v in mesh.data.vertices:
+    p=mesh.matrix_world @ v.co
+    vert=p[vert_i]
+    lr=p[lr_i]
+    zn=(vert-vmin)/h if h else 0.5
+    xn=(lr-centers[lr_i])/(w*0.5) if w else 0.0
 
-# Export neutral rigged GLB.
+    # Head/hair before limbs.
+    if zn>=0.79:
+        g="head"
+    elif zn>=0.75:
+        g="neck"
+    # Arms/hands: outer lateral geometry in the upper/mid body.
+    elif abs(xn)>=0.42 and 0.33<=zn<=0.74:
+        side="R" if xn>0 else "L"
+        if zn>=0.57:
+            g=f"upper_arm.{side}"
+        elif zn>=0.43:
+            g=f"forearm.{side}"
+        else:
+            g=f"hand.{side}"
+    # Legs/feet.
+    elif zn<0.40:
+        side="R" if xn>0 else "L"
+        if zn>=0.23:
+            g=f"thigh.{side}"
+        elif zn>=0.07:
+            g=f"shin.{side}"
+        else:
+            g=f"foot.{side}"
+    # Torso.
+    elif zn<0.50:
+        g="pelvis"
+    elif zn<0.62:
+        g="spine"
+    elif zn<0.75:
+        g="chest"
+    else:
+        g="neck"
+    assign[g].append(v.index)
+
+for name,indices in assign.items():
+    if indices:
+        groups[name].add(indices,1.0,'REPLACE')
+
+assigned=sum(len(v) for v in assign.values())
+if assigned!=len(mesh.data.vertices):
+    raise RuntimeError(f"Unassigned vertices: {len(mesh.data.vertices)-assigned}")
+
+# Link skin explicitly; do not depend on heat-weight solver.
+mesh.parent=arm
+mod=mesh.modifiers.new(name="LOKY_Armature",type='ARMATURE')
+mod.object=arm
+
+# Add a tiny proof animation for validation only.
+scene=bpy.context.scene
+scene.frame_start=1
+scene.frame_end=60
+for pb in arm.pose.bones:
+    pb.rotation_mode='XYZ'
+
+def key(frame):
+    scene.frame_set(frame)
+    for name in ("head","neck","upper_arm.L","upper_arm.R"):
+        pb=arm.pose.bones.get(name)
+        if pb:
+            pb.keyframe_insert(data_path="rotation_euler",frame=frame)
+
+key(1)
+arm.pose.bones["head"].rotation_euler[2]=math.radians(8)
+arm.pose.bones["neck"].rotation_euler[2]=math.radians(-3)
+arm.pose.bones["upper_arm.L"].rotation_euler[1]=math.radians(5)
+arm.pose.bones["upper_arm.R"].rotation_euler[1]=math.radians(-5)
+key(30)
+for name in ("head","neck","upper_arm.L","upper_arm.R"):
+    arm.pose.bones[name].rotation_euler=(0,0,0)
+key(60)
+scene.frame_set(1)
+
+# Export standard skinned GLB.
 bpy.ops.object.select_all(action='DESELECT')
 mesh.select_set(True)
 arm.select_set(True)
@@ -148,71 +209,18 @@ bpy.ops.export_scene.gltf(
     export_def_bones=False
 )
 
-# Set up render scene for visual QA.
-scene=bpy.context.scene
-scene.render.engine='BLENDER_EEVEE_NEXT' if bpy.app.version >= (4,0,0) else 'BLENDER_EEVEE'
-scene.render.resolution_x=640
-scene.render.resolution_y=960
-scene.render.resolution_percentage=100
-scene.render.image_settings.file_format='PNG'
-scene.world.color=(0.008,0.015,0.022)
-
-def look_at(obj,point):
-    direction=Vector(point)-obj.location
-    obj.rotation_euler=direction.to_track_quat('-Z','Y').to_euler()
-
-cam_data=bpy.data.cameras.new('RigCam')
-cam=bpy.data.objects.new('RigCam',cam_data)
-bpy.context.collection.objects.link(cam)
-scene.camera=cam
-cam.location=(cx,cy-3.1*h,Z(0.53))
-cam.data.lens=58
-look_at(cam,(cx,cy,Z(0.52)))
-
-for name,loc,energy,size in [
-    ('Key',(cx-w*1.8,cy-1.6*h,Z(0.85)),1200,4.0),
-    ('Fill',(cx+w*1.6,cy-1.1*h,Z(0.60)),700,3.0),
-    ('Rim',(cx,cy+1.0*h,Z(0.90)),1000,3.0),
-]:
-    ld=bpy.data.lights.new(name,'AREA')
-    ld.energy=energy
-    ld.shape='DISK'
-    ld.size=size
-    lo=bpy.data.objects.new(name,ld)
-    bpy.context.collection.objects.link(lo)
-    lo.location=loc
-    look_at(lo,(cx,cy,Z(0.50)))
-
-# Neutral render.
-scene.render.filepath=os.path.join(out_dir,'rig_neutral.png')
-bpy.ops.render.render(write_still=True)
-
-# Small QA pose: head turn + slight arm offset + knee shift.
-for pb in arm.pose.bones:
-    pb.rotation_mode='XYZ'
-head=arm.pose.bones.get('head')
-if head: head.rotation_euler[2]=math.radians(8)
-neck=arm.pose.bones.get('neck')
-if neck: neck.rotation_euler[2]=math.radians(-3)
-ua=arm.pose.bones.get('upper_arm.L')
-if ua: ua.rotation_euler[1]=math.radians(7)
-ub=arm.pose.bones.get('upper_arm.R')
-if ub: ub.rotation_euler[1]=math.radians(-7)
-scene.render.filepath=os.path.join(out_dir,'rig_pose.png')
-bpy.ops.render.render(write_still=True)
-
 report={
-    "weight_mode":weight_mode,
     "mesh":mesh.name,
     "vertex_count":len(mesh.data.vertices),
     "polygon_count":len(mesh.data.polygons),
-    "bounds":{"xmin":xmin,"xmax":xmax,"ymin":ymin,"ymax":ymax,"zmin":zmin,"zmax":zmax},
+    "axis":{"vertical":vert_i,"left_right":lr_i,"depth":depth_i},
+    "bounds":{"mins":mins,"maxs":maxs,"extents":ext},
     "armature":arm.name,
     "bones":[b.name for b in arm.data.bones],
-    "vertex_groups":groups,
+    "assigned_vertices":assigned,
+    "group_counts":{name:len(indices) for name,indices in assign.items()},
     "output_glb":output_glb,
 }
 with open(os.path.join(out_dir,'rig_report.json'),'w',encoding='utf-8') as f:
     json.dump(report,f,indent=2)
-
 print("LOKY_RIG_REPORT",json.dumps(report,separators=(',',':')))
