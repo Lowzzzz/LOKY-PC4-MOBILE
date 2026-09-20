@@ -1,0 +1,144 @@
+name: Owner3D Rig Runtime Smoke
+
+on:
+  push:
+    branches: [work/owner3d-rig-runtime-v1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: owner3d-rig-runtime-v1
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout runtime preview
+        uses: actions/checkout@v4
+
+      - name: Verify protected Mobile baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/live-mobile.js)" = "f28a58275661f8513e9e3b29911c62f51e04bd28"
+          test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "980122bcf882130f2f44496af104eb852eff8531"
+          test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
+          test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
+
+      - name: Verify rig asset exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64,hashlib,json,struct
+          root=Path("site/assets/owner3d-rig-v1")
+          manifest=json.loads((root/"manifest.json").read_text(encoding="utf-8"))
+          assert manifest["chunkCount"]==18
+          parts=[(root/f"chunk_{i:03d}.txt").read_text(encoding="ascii").strip() for i in range(18)]
+          raw=base64.b64decode("".join(parts),validate=True)
+          assert len(raw)==manifest["bytes"]==11911980
+          assert hashlib.sha256(raw).hexdigest()==manifest["sha256"]=="a8c8a62813afb329f53d3de3d87623ac90352750c39f0f445f8e3c84b000c2ab"
+          magic,version,total=struct.unpack_from("<4sII",raw,0)
+          assert magic==b"glTF" and version==2 and total==len(raw)
+          off=12; gltf=None
+          while off<len(raw):
+              ln,tp=struct.unpack_from("<II",raw,off); off+=8
+              data=raw[off:off+ln]; off+=ln
+              if tp==0x4E4F534A:
+                  gltf=json.loads(data.rstrip(b"\x00 ").decode("utf-8"))
+          assert gltf and len(gltf.get("skins",[]))==1
+          assert len(gltf["skins"][0]["joints"])==18
+          prim=gltf["meshes"][0]["primitives"][0]
+          assert "JOINTS_0" in prim["attributes"] and "WEIGHTS_0" in prim["attributes"]
+          assert gltf["accessors"][prim["indices"]]["count"]==540000
+          print("RIG_ASSET_PASS",len(raw),manifest["vertices"],manifest["triangles"],len(manifest["joints"]))
+          PY
+
+      - name: Verify R8R9 runtime syntax and skinning contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check site/mobile-language-avatar-owner3d.js
+          grep -F "0.3.2R4F12R8R9-owner-rig-preview" site/mobile-language-avatar-owner3d.js
+          grep -F "function buildRig(gltf,bin,meshIndex)" site/mobile-language-avatar-owner3d.js
+          grep -F "function updateRig(rig,sec,state)" site/mobile-language-avatar-owner3d.js
+          grep -F "layout(location=3) in uvec4 aJoints;" site/mobile-language-avatar-owner3d.js
+          grep -F "uniform mat4 uJoints[24];" site/mobile-language-avatar-owner3d.js
+          grep -F "gl.vertexAttribIPointer(3,4,jt,0,0);" site/mobile-language-avatar-owner3d.js
+          grep -F "gl.uniformMatrix4fv(this.loc.joints,false,jointMatrices);" site/mobile-language-avatar-owner3d.js
+          grep -F "Array.from({length:18}" site/mobile-language-avatar-owner3d.js
+          grep -F "ownerMeshyRig='v1'" site/mobile-language-avatar-owner3d.js
+          grep -F '<script src="./mobile-language-avatar-owner3d.js?v=0.3.2r4f12r8r9"></script>' site/index.html
+
+      - name: Build WebGL2 smoke page
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > site/rig-runtime-smoke.html <<'HTML'
+          <!doctype html>
+          <html>
+          <body style="margin:0;background:#02070b">
+            <canvas id="c" width="320" height="480" style="width:320px;height:480px"></canvas>
+            <pre id="result">PENDING</pre>
+            <script src="./mobile-language-avatar-owner3d.js"></script>
+            <script>
+            (async()=>{
+              const result=document.getElementById('result');
+              try{
+                if(!window.LOKY_MESHY_AVATAR_3D?.Avatar)throw new Error('NO_RUNTIME');
+                const canvas=document.getElementById('c');
+                const avatar=new window.LOKY_MESHY_AVATAR_3D.Avatar(canvas,{});
+                const urls=Array.from({length:18},(_,i)=>'./assets/owner3d-rig-v1/chunk_'+String(i).padStart(3,'0')+'.txt');
+                const stats=await avatar.loadBase64ChunkUrls(urls);
+                avatar.setState('speaking');
+                avatar._frame(performance.now()+1000);
+                const gl=canvas.getContext('webgl2');
+                gl.finish();
+                const err=gl.getError();
+                avatar.stop();
+                if(stats.vertices!==167772||stats.triangles!==180000||stats.joints!==18)throw new Error('BAD_STATS_'+JSON.stringify(stats));
+                if(err!==gl.NO_ERROR)throw new Error('GL_ERROR_'+err);
+                result.textContent='RIG_PASS '+stats.vertices+' '+stats.triangles+' '+stats.joints+' GL_'+err;
+              }catch(error){
+                result.textContent='RIG_FAIL '+String(error?.stack||error);
+              }
+            })();
+            </script>
+          </body>
+          </html>
+          HTML
+
+      - name: Run WebGL2 Chrome smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$CHROME"
+          "$CHROME" --version
+          cd site
+          python3 -m http.server 8794 --bind 127.0.0.1 >/tmp/rig-http.log 2>&1 &
+          SERVER=$!
+          trap 'kill $SERVER || true' EXIT
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8794/rig-runtime-smoke.html >/dev/null && break
+            sleep 0.2
+          done
+          "$CHROME" \
+            --headless=new \
+            --no-sandbox \
+            --disable-dev-shm-usage \
+            --enable-webgl \
+            --ignore-gpu-blocklist \
+            --use-gl=angle \
+            --use-angle=swiftshader \
+            --virtual-time-budget=30000 \
+            --dump-dom \
+            http://127.0.0.1:8794/rig-runtime-smoke.html > /tmp/rig-dom.txt
+          cat /tmp/rig-dom.txt
+          grep -F 'RIG_PASS 167772 180000 18 GL_0' /tmp/rig-dom.txt
+          if grep -Fq 'RIG_FAIL' /tmp/rig-dom.txt; then exit 1; fi
