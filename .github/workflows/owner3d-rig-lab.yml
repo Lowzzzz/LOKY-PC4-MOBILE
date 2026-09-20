@@ -89,6 +89,25 @@ jobs:
           PY
           test -s rig-output/rig_report.json
 
+      - name: Install headless render libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1
+
+      - name: Render rig visual QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender --background \
+            --python .github/scripts/render-owner3d-rig-v1.py \
+            -- \
+            "$GITHUB_WORKSPACE/rig-output/owner3d-rig-v1.glb" \
+            "$GITHUB_WORKSPACE/rig-output"
+          test -s rig-output/rig_neutral.png
+          test -s rig-output/rig_pose.png
+
       - name: Upload rig lab artifact
         uses: actions/upload-artifact@v4
         with:
