@@ -1,0 +1,204 @@
+name: Owner3D Rig V2 Foot Stability
+
+on:
+  push:
+    branches: [work/owner3d-rig-v2-runtime]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: owner3d-rig-v2-runtime
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout corrected rig preview
+        uses: actions/checkout@v4
+
+      - name: Verify current protected Mobile baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/live-mobile.js)" = "f28a58275661f8513e9e3b29911c62f51e04bd28"
+          test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "463784a9deed990165c3aa5585aff741a583b71b"
+          test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
+          test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
+
+      - name: Verify rig V2 anatomy and runtime contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check site/mobile-language-avatar-owner3d.js
+          grep -F "0.3.2R4F12R8R12-owner-rig-v2-axisfix" site/mobile-language-avatar-owner3d.js
+          grep -F "owner3d-rig-v2/chunk_" site/mobile-language-avatar-owner3d.js
+          grep -F "const model=modelMatrix(0,1,1);" site/mobile-language-avatar-owner3d.js
+          grep -F "uniform mat4 uJoints[24];" site/mobile-language-avatar-owner3d.js
+          grep -F '<script src="./mobile-language-avatar-owner3d.js?v=0.3.2r4f12r8r12"></script>' site/index.html
+          grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r6r1"></script>' site/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64,hashlib,json,struct
+          root=Path("site/assets/owner3d-rig-v2")
+          manifest=json.loads((root/"manifest.json").read_text(encoding="utf-8"))
+          assert manifest["version"]=="owner3d-rig-v2-axisfix"
+          assert manifest["bytes"]==11912184
+          assert manifest["sha256"]=="ebc82865275bf5ff0cdf7e3a42e6cad50922030f2c29124f6220ed1de66de64e"
+          assert manifest["chunkCount"]==18
+          assert manifest["vertices"]==167772 and manifest["triangles"]==180000
+          check=manifest["orientationWeightCheck"]
+          assert check["bottom_foot_shin_ratio"]==1.0
+          assert check["top_head_neck_ratio"]==1.0
+          assert check["bottom_upper_leaks"]==0
+          assert check["top_leg_leaks"]==0
+          geo=manifest["jointGeography"]
+          assert geo["head"]>0.70
+          assert geo["foot.L"]<-0.75 and geo["foot.R"]<-0.75
+          parts=[(root/f"chunk_{i:03d}.txt").read_text(encoding="ascii").strip() for i in range(18)]
+          raw=base64.b64decode("".join(parts),validate=True)
+          assert len(raw)==manifest["bytes"]
+          assert hashlib.sha256(raw).hexdigest()==manifest["sha256"]
+          magic,version,total=struct.unpack_from("<4sII",raw,0)
+          assert magic==b"glTF" and version==2 and total==len(raw)
+          off=12; gltf=None
+          while off<len(raw):
+              ln,tp=struct.unpack_from("<II",raw,off); off+=8
+              data=raw[off:off+ln]; off+=ln
+              if tp==0x4E4F534A:
+                  gltf=json.loads(data.rstrip(b"\x00 ").decode("utf-8"))
+          prim=gltf["meshes"][0]["primitives"][0]
+          assert len(gltf["skins"][0]["joints"])==18
+          assert "JOINTS_0" in prim["attributes"] and "WEIGHTS_0" in prim["attributes"]
+          assert len(gltf.get("animations",[]))>=1
+          print("RIG_V2_ANATOMY_PASS",manifest["sha256"])
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("site/index.html").read_text(encoding="utf-8")
+          owner=s.index("mobile-language-avatar-owner3d.js?v=0.3.2r4f12r8r12")
+          tutor=s.index("mobile-language-tutor.js?v=0.3.2r4f12r6r1")
+          assert owner<tutor
+          print("OWNER_PRELOAD_WITH_LANGUAGE_ISOLATION_PASS")
+          PY
+
+      - name: Build fixed-camera foot stability page
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p rig-v2-proof
+          cat > site/rig-v2-foot.html <<'HTML'
+          <!doctype html><html><body style="margin:0;background:#02070b;color:#bdefff;font:12px monospace">
+          <canvas id="c" width="390" height="720" style="display:block;width:390px;height:720px"></canvas>
+          <pre id="result">PENDING</pre>
+          <script src="./mobile-language-avatar-owner3d.js"></script>
+          <script>
+          (async()=>{
+            const out=document.getElementById('result');
+            try{
+              const canvas=document.getElementById('c');
+              const avatar=new window.LOKY_MESHY_AVATAR_3D.Avatar(canvas,{});
+              window.__a=avatar;
+              const urls=Array.from({length:18},(_,i)=>'./assets/owner3d-rig-v2/chunk_'+String(i).padStart(3,'0')+'.txt');
+              const stats=await avatar.loadBase64ChunkUrls(urls);
+              avatar.stop();
+              avatar.drag={test:true};
+              avatar.yaw=Math.PI;
+              avatar.distance=3.28;
+              avatar.focusZ=-0.12;
+              avatar.setState('ready');
+              const gl=canvas.getContext('webgl2',{preserveDrawingBuffer:false});
+              const snap=(ms)=>{
+                avatar.running=true; avatar._frame(ms); avatar.stop(); gl.finish();
+                const w=canvas.width,h=canvas.height;
+                const lowH=Math.floor(h*0.42);
+                const topY=Math.floor(h*0.48),topH=h-topY;
+                const low=new Uint8Array(w*lowH*4);
+                const top=new Uint8Array(w*topH*4);
+                gl.readPixels(0,0,w,lowH,gl.RGBA,gl.UNSIGNED_BYTE,low);
+                gl.readPixels(0,topY,w,topH,gl.RGBA,gl.UNSIGNED_BYTE,top);
+                return {low,top,w,h};
+              };
+              const a=snap(50);
+              const b=snap(2323);
+              let lowChanged=0,lowMax=0,topChanged=0,topMax=0;
+              for(let i=0;i<a.low.length;i++){
+                const d=Math.abs(a.low[i]-b.low[i]); if(d){lowChanged++; if(d>lowMax)lowMax=d;}
+              }
+              for(let i=0;i<a.top.length;i++){
+                const d=Math.abs(a.top[i]-b.top[i]); if(d){topChanged++; if(d>topMax)topMax=d;}
+              }
+              const err=gl.getError();
+              window.__report={lowChanged,lowMax,topChanged,topMax,err,stats};
+              if(stats.vertices!==167772||stats.triangles!==180000||stats.joints!==18)throw new Error('BAD_STATS '+JSON.stringify(stats));
+              if(err!==gl.NO_ERROR)throw new Error('GL_'+err);
+              if(lowChanged!==0)throw new Error('FOOT_REGION_CHANGED '+JSON.stringify(window.__report));
+              if(topChanged<100)throw new Error('UPPER_BODY_DID_NOT_MOVE '+JSON.stringify(window.__report));
+              out.textContent='RIG_V2_PASS FEET_0 UPPER_'+topChanged+' GL_'+err;
+            }catch(e){out.textContent='RIG_V2_FAIL '+String(e?.stack||e);}
+          })();
+          </script></body></html>
+          HTML
+
+      - name: Run full WebGL2 foot stability proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          cd site
+          python3 -m http.server 8798 --bind 127.0.0.1 >/tmp/rigv2-http.log 2>&1 &
+          SERVER=$!
+          cd ..
+          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --enable-webgl --ignore-gpu-blocklist             --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader             --window-size=390,780 --remote-debugging-port=9226 --user-data-dir=/tmp/rigv2-chrome             http://127.0.0.1:8798/rig-v2-foot.html >/tmp/rigv2-chrome.log 2>&1 &
+          CHROME_PID=$!
+          trap 'kill $CHROME_PID $SERVER 2>/dev/null || true' EXIT
+          for i in $(seq 1 80); do curl -fsS http://127.0.0.1:9226/json >/tmp/rigv2-pages.json && break || true; sleep .25; done
+          node <<'NODE'
+          const fs=require('fs');
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          async function main(){
+            let pages;
+            for(let i=0;i<40;i++){
+              try{pages=await (await fetch('http://127.0.0.1:9226/json')).json();if(pages?.length)break;}catch{}
+              await sleep(250);
+            }
+            const page=pages.find(x=>x.type==='page');
+            if(!page)throw new Error('NO_PAGE');
+            const ws=new WebSocket(page.webSocketDebuggerUrl);
+            await new Promise((res,rej)=>{ws.onopen=res;ws.onerror=rej;});
+            let id=1; const pending=new Map();
+            ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id&&pending.has(m.id)){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(m.error):p.resolve(m);}};
+            const call=(method,params={})=>new Promise((resolve,reject)=>{const n=id++;pending.set(n,{resolve,reject});ws.send(JSON.stringify({id:n,method,params}));});
+            await call('Runtime.enable');await call('Page.enable');
+            let text='';
+            for(let i=0;i<180;i++){
+              const r=await call('Runtime.evaluate',{expression:"document.getElementById('result').textContent",returnByValue:true});
+              text=String(r.result.result.value||'');
+              if(text.startsWith('RIG_V2_PASS'))break;
+              if(text.startsWith('RIG_V2_FAIL'))throw new Error(text);
+              await sleep(250);
+            }
+            if(!text.startsWith('RIG_V2_PASS'))throw new Error('TIMEOUT '+text);
+            const report=await call('Runtime.evaluate',{expression:"JSON.stringify(window.__report)",returnByValue:true});
+            fs.writeFileSync('rig-v2-proof/report.json',String(report.result.result.value||'{}')+'\n');
+            const shot=await call('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:true});
+            fs.writeFileSync('rig-v2-proof/foot-stable.png',Buffer.from(shot.result.data,'base64'));
+            fs.writeFileSync('rig-v2-proof/result.txt',text+'\n');
+            console.log(text);
+            ws.close();
+          }
+          main().catch(e=>{console.error(e);process.exit(1);});
+          NODE
+          grep -F 'RIG_V2_PASS FEET_0 UPPER_' rig-v2-proof/result.txt
+          grep -F '"lowChanged":0' rig-v2-proof/report.json
+          test -s rig-v2-proof/foot-stable.png
+
+      - name: Upload foot stability proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: owner3d-rig-v2-foot-stability
+          path: rig-v2-proof/
+          if-no-files-found: error
