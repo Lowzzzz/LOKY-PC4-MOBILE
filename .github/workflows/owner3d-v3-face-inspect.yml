@@ -42,12 +42,12 @@ jobs:
           echo "/tmp/blender-4.5.14-linux-x64" >> "$GITHUB_PATH"
           sudo apt-get update
           sudo apt-get install -y libegl1 libgl1
-          blender --version | head -4
+          /tmp/blender-4.5.14-linux-x64/blender --version | head -4
       - name: Inspect head and face orientation
         shell: bash
         run: |
           set -euo pipefail
-          blender --background --python .github/scripts/inspect-owner3d-v3.py --             "$GITHUB_WORKSPACE/v3-output/source.glb" "$GITHUB_WORKSPACE/v3-output"
+          /tmp/blender-4.5.14-linux-x64/blender --background --python .github/scripts/inspect-owner3d-v3.py --             "$GITHUB_WORKSPACE/v3-output/source.glb" "$GITHUB_WORKSPACE/v3-output"
           test -s v3-output/face_depth_neg.png
           test -s v3-output/face_depth_pos.png
           test -s v3-output/body_neg.png
