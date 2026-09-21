@@ -1,0 +1,124 @@
+{
+  "version": "owner3d-rig-v3-headsafe",
+  "bytes": 11910316,
+  "sha256": "98cb49d3e45492d215a3f36d338ec06fc34f106fe2cb420437ab90b6aac5b72a",
+  "base64Chars": 15880424,
+  "chunkSize": 900000,
+  "chunkCount": 18,
+  "chunks": [
+    {
+      "name": "chunk_000.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_001.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_002.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_003.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_004.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_005.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_006.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_007.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_008.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_009.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_010.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_011.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_012.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_013.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_014.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_015.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_016.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_017.txt",
+      "chars": 580424
+    }
+  ],
+  "vertices": 167772,
+  "triangles": 180000,
+  "joints": [
+    "root",
+    "pelvis",
+    "spine",
+    "chest",
+    "neck",
+    "head",
+    "upper_arm.L",
+    "forearm.L",
+    "hand.L",
+    "upper_arm.R",
+    "forearm.R",
+    "hand.R",
+    "thigh.L",
+    "shin.L",
+    "foot.L",
+    "thigh.R",
+    "shin.R",
+    "foot.R"
+  ],
+  "animationCount": 1,
+  "lowerBodyStatic": true,
+  "upperBodyMoves": true,
+  "rigProfile": "v3-headsafe-rigid-body",
+  "rigidMotionMax": 0.0,
+  "headMotionMax": 0.024049886295996675,
+  "orientationWeightCheck": {
+    "feet_vertices": 6048,
+    "rigid_vertices": 36007,
+    "head_vertices": 14412,
+    "feet_pelvis_ratio": 1.0,
+    "head_head_ratio": 1.0,
+    "rigid_head_neck_leaks": 0
+  },
+  "axis": {
+    "vertical": 1,
+    "left_right": 0,
+    "depth": 2,
+    "vertical_sign": -1
+  }
+}
