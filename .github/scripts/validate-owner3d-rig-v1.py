@@ -70,23 +70,26 @@ assert np.max(joints)<len(joint_nodes)
 ws=weights.sum(axis=1)
 assert np.max(np.abs(ws-1.0))<1e-5, float(np.max(np.abs(ws-1.0)))
 
-# Anatomical orientation / weight sanity.
-# In exported glTF the character is Z-up: feet at minimum Z, head at maximum Z.
+# Rig V3 SAFE anatomical / weight sanity.
+# Exported glTF is Z-up: feet=min Z, head=max Z.
 z=pos[:,2]
 zmin=float(np.min(z)); zmax=float(np.max(z)); zh=zmax-zmin
 dom_slot=np.argmax(weights,axis=1)
 dom_joint=joints[np.arange(len(joints)),dom_slot]
 dom_names=np.array([joint_names[int(i)] for i in dom_joint],dtype=object)
-bottom=z <= zmin + zh*0.12
-top=z >= zmax - zh*0.12
-bad_bottom=np.isin(dom_names[bottom],["head","neck","chest","spine","upper_arm.L","forearm.L","hand.L","upper_arm.R","forearm.R","hand.R"])
-bad_top=np.isin(dom_names[top],["thigh.L","shin.L","foot.L","thigh.R","shin.R","foot.R"])
-assert not np.any(bad_bottom), f"Upper-body weights leaked into feet zone: {int(np.sum(bad_bottom))}"
-assert not np.any(bad_top), f"Leg/foot weights leaked into head zone: {int(np.sum(bad_top))}"
-bottom_names=dom_names[bottom]
-top_names=dom_names[top]
-assert np.mean(np.isin(bottom_names,["foot.L","foot.R","shin.L","shin.R"])) > 0.90
-assert np.mean(np.isin(top_names,["head","neck"])) > 0.90
+
+feet_zone=z <= zmin + zh*0.12
+rigid_zone=z <= zmin + zh*0.70
+head_zone=z >= zmax - zh*0.12
+
+# Feet/lower body are intentionally locked to pelvis in V3.
+assert np.all(dom_names[feet_zone]=="pelvis"), {
+    "bad_feet":sorted(set(dom_names[feet_zone][dom_names[feet_zone]!="pelvis"].tolist()))
+}
+# Nothing below the neck transition may be controlled by moving neck/head bones.
+assert not np.any(np.isin(dom_names[rigid_zone],["neck","head"])), "Moving head/neck weights leaked into rigid body"
+# The top of the head must remain controlled by head.
+assert np.mean(dom_names[head_zone]=="head") > 0.98
 
 ibm=accessor(skin["inverseBindMatrices"]).astype(np.float64).reshape(-1,4,4)
 ibm=np.transpose(ibm,(0,2,1))
@@ -219,22 +222,27 @@ for name,ji in name_to_joint.items():
             "max_delta":float(np.max(delta[m])),
         }
 
-static_groups=("pelvis","spine","chest","thigh.L","shin.L","foot.L","thigh.R","shin.R","foot.R")
-for name in static_groups:
-    assert group_stats[name]["max_delta"]<1e-7,(name,group_stats[name])
+# Hard guarantee: every vertex below the neck transition is motionless.
+rigid_motion_max=float(np.max(delta[rigid_zone])) if np.any(rigid_zone) else 0.0
+assert rigid_motion_max < 1e-7, rigid_motion_max
 
-for name in ("head","upper_arm.L","upper_arm.R"):
-    assert group_stats[name]["max_delta"]>0.005,(name,group_stats[name])
+# Head/neck must actually move so this is a real rig, not a static export.
+head_motion_max=float(np.max(delta[head_zone])) if np.any(head_zone) else 0.0
+assert head_motion_max > 0.005, head_motion_max
+assert group_stats.get("head",{}).get("max_delta",0.0) > 0.005
 
 result={
+    "rig_profile":"v3-headsafe-rigid-body",
     "orientation_weight_check":{
-        "bottom_vertices":int(np.sum(bottom)),
-        "top_vertices":int(np.sum(top)),
-        "bottom_foot_shin_ratio":float(np.mean(np.isin(bottom_names,["foot.L","foot.R","shin.L","shin.R"]))),
-        "top_head_neck_ratio":float(np.mean(np.isin(top_names,["head","neck"]))),
-        "bottom_upper_leaks":int(np.sum(bad_bottom)),
-        "top_leg_leaks":int(np.sum(bad_top)),
+        "feet_vertices":int(np.sum(feet_zone)),
+        "rigid_vertices":int(np.sum(rigid_zone)),
+        "head_vertices":int(np.sum(head_zone)),
+        "feet_pelvis_ratio":float(np.mean(dom_names[feet_zone]=="pelvis")),
+        "head_head_ratio":float(np.mean(dom_names[head_zone]=="head")),
+        "rigid_head_neck_leaks":int(np.sum(np.isin(dom_names[rigid_zone],["neck","head"]))),
     },
+    "rigid_motion_max":rigid_motion_max,
+    "head_motion_max":head_motion_max,
     "bytes":len(raw),
     "vertices":int(len(pos)),
     "triangles":int(gltf["accessors"][prim["indices"]]["count"]//3),
@@ -246,10 +254,11 @@ result={
     "upper_body_moves":True,
 }
 report_path.write_text(json.dumps(result,indent=2),encoding="utf-8")
-print("RIG_SKIN_MATRIX_PASS",json.dumps({
+print("RIG_V3_HEADSAFE_PASS",json.dumps({
     "vertices":result["vertices"],
     "triangles":result["triangles"],
     "joints":len(joint_names),
-    "head_max":group_stats["head"]["max_delta"],
-    "leg_max":max(group_stats[n]["max_delta"] for n in static_groups if "thigh" in n or "shin" in n or "foot" in n),
+    "rigid_motion_max":rigid_motion_max,
+    "head_motion_max":head_motion_max,
+    "feet_pelvis_ratio":result["orientation_weight_check"]["feet_pelvis_ratio"],
 },separators=(',',':')))
