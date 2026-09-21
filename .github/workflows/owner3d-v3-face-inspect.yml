@@ -1,0 +1,61 @@
+name: Owner3D V3 Face Inspect
+
+on:
+  push:
+    branches: [work/owner3d-v3-fullbody-face]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: owner3d-v3-face-inspect
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct clean R8R13 source GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p v3-output
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64,struct,hashlib
+          parts=[Path(f"site/assets/owner3d/chunk_{i:03d}.txt").read_text().strip() for i in range(13)]
+          raw=base64.b64decode("".join(parts),validate=True)
+          magic,ver,total=struct.unpack_from("<4sII",raw,0)
+          assert magic==b"glTF" and ver==2 and total==len(raw)==8536252
+          Path("v3-output/source.glb").write_bytes(raw)
+          print("SOURCE_SHA",hashlib.sha256(raw).hexdigest())
+          PY
+      - name: Install Blender 4.5.14 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --retry 3 -fL 'https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz' -o /tmp/blender.tar.xz
+          tar -xf /tmp/blender.tar.xz -C /tmp
+          echo "/tmp/blender-4.5.14-linux-x64" >> "$GITHUB_PATH"
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1
+          blender --version | head -4
+      - name: Inspect head and face orientation
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender --background --python .github/scripts/inspect-owner3d-v3.py --             "$GITHUB_WORKSPACE/v3-output/source.glb" "$GITHUB_WORKSPACE/v3-output"
+          test -s v3-output/face_depth_neg.png
+          test -s v3-output/face_depth_pos.png
+          test -s v3-output/body_neg.png
+          test -s v3-output/body_pos.png
+          test -s v3-output/inspect_report.json
+      - name: Upload face inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: owner3d-v3-face-inspect
+          path: v3-output/
+          if-no-files-found: error
