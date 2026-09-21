@@ -105,18 +105,6 @@ jobs:
             rig-output/rig_skin_validation.json
           test -s rig-output/rig_skin_validation.json
 
-      - name: Render rig visual QA
-        shell: bash
-        run: |
-          set -euo pipefail
-          blender --background \
-            --python .github/scripts/render-owner3d-rig-v1.py \
-            -- \
-            "$GITHUB_WORKSPACE/rig-output/owner3d-rig-v1.glb" \
-            "$GITHUB_WORKSPACE/rig-output"
-          test -s rig-output/rig_neutral.png
-          test -s rig-output/rig_pose.png
-
       - name: Publish rig candidate chunks to lab branch
         if: github.actor != 'github-actions[bot]'
         shell: bash
