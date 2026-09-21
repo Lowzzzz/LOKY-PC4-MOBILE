@@ -1,13 +1,14 @@
 (() => {
   'use strict';
 
-  const VERSION='0.3.2R4F12R6-language-visual-clean';
+  const VERSION='0.3.2R4F12R6R1-language-session-isolated';
   const STORE_KEY='loky_pc4_language_tutor_v1';
   const STATS_KEY='loky_pc4_language_tutor_stats_v1';
   const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1';
   const ASSIST_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-language-assist';
   const DEVICE_KEY='loky_pc4_device_capability_v1';
   const AUTO_ASSIST_SETTLE_MS=320;
+  const LIVE_READY_TIMEOUT_MS=9000;
 
   const LANGUAGES={
     es:{label:'Español',native:'Español',code:'es'},
@@ -52,6 +53,7 @@
   let autoAssistSeq=0;
   let autoAssistLastPhrase='';
   let floatingAssist=null;
+  let liveSwitchQueue=Promise.resolve();
   const assistCache=new Map();
 
   function normalizeState(raw={}){
@@ -71,8 +73,14 @@
   }
 
   function loadState(){
-    try{return normalizeState(JSON.parse(localStorage.getItem(STORE_KEY)||'{}'))}
-    catch{return normalizeState()}
+    try{
+      const loaded=normalizeState(JSON.parse(localStorage.getItem(STORE_KEY)||'{}'));
+      if(loaded.active){
+        loaded.active=false;
+        localStorage.setItem(STORE_KEY,JSON.stringify(loaded));
+      }
+      return loaded;
+    }catch{return normalizeState()}
   }
 
   function saveState(next){
@@ -173,7 +181,43 @@
     }catch{return false}
   }
 
-  function activate(){
+  function delay(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
+
+  function queueLiveSwitch(task){
+    const run=liveSwitchQueue.catch(()=>{}).then(task);
+    liveSwitchQueue=run.catch(()=>{});
+    return run;
+  }
+
+  async function waitLiveReady(timeoutMs=LIVE_READY_TIMEOUT_MS){
+    const end=Date.now()+timeoutMs;
+    while(Date.now()<end){
+      const live=window.LOKY_PC4_LIVE;
+      const ws=live?.state?.activeWs;
+      if(live?.state?.setupReady&&ws?.readyState===WebSocket.OPEN)return true;
+      await delay(40);
+    }
+    throw new Error('LANGUAGE_LIVE_READY_TIMEOUT');
+  }
+
+  async function restartLiveFreshIfRunning(){
+    return queueLiveSwitch(async()=>{
+      const live=window.LOKY_PC4_LIVE;
+      if(!live?.stop||!live?.start||live?.state?.desired!==true)return false;
+      try{
+        live.stop();
+        await delay(80);
+        await live.start();
+        await waitLiveReady();
+        return true;
+      }catch(error){
+        try{live.stop()}catch{}
+        throw error;
+      }
+    });
+  }
+
+  async function activate(){
     state=saveState({...state,configured:true,active:true,scenario:scenario()});
     sessionStartedAt=Date.now();
     stats.sessions++;
@@ -183,17 +227,24 @@
     updateSlot();
     startTurnTracking();
 
-    const sent=sendControl([
-      '[LOKY CONTROL — START LANGUAGE TUTOR]',
-      tutorInstruction(),
-      '',
-      'Empieza ahora. Saluda en el idioma objetivo con una frase corta adecuada al nivel, explica en el idioma base solo si el nivel lo necesita y haz la primera pregunta. No describas el modo ni sus reglas.'
-    ].join('\n'));
-
-    return {active:true,sent};
+    try{
+      const restarted=await restartLiveFreshIfRunning();
+      const sent=sendControl([
+        '[LOKY CONTROL — START LANGUAGE TUTOR]',
+        'Empieza ahora. Saluda en el idioma objetivo con una frase corta adecuada al nivel y haz la primera pregunta. No describas el modo ni sus reglas.'
+      ].join('\n'));
+      return {active:true,sent,restarted};
+    }catch(error){
+      state=saveState({...state,active:false});
+      sessionStartedAt=0;
+      document.body?.classList.remove('loky-language-active');
+      updateSlot();
+      stopTurnTracking();
+      throw error;
+    }
   }
 
-  function deactivate({silent=false}={}){
+  async function deactivate({silent=false}={}){
     if(state.active&&sessionStartedAt){
       stats.minutes+=Math.max(0,(Date.now()-sessionStartedAt)/60000);
       stats.lastAt=Date.now();
@@ -204,14 +255,11 @@
     document.body?.classList.remove('loky-language-active');
     updateSlot();
     stopTurnTracking();
-    if(!silent){
-      sendControl([
-        '[LOKY CONTROL — EXIT LANGUAGE TUTOR]',
-        'Termina el modo de aprendizaje de idiomas ahora.',
-        'Vuelve al comportamiento normal de LOKY y continúa en español salvo que el usuario pida otro idioma.'
-      ].join('\n'));
-    }
-    return true;
+
+    // Never send an "exit tutor" prompt into the normal conversation.
+    // The tutor socket is destroyed and a brand-new base LOKY session is created.
+    const restarted=await restartLiveFreshIfRunning();
+    return {active:false,restarted,silent:Boolean(silent)};
   }
 
   function stripTeachingPayloads(raw){
@@ -596,6 +644,15 @@
     overlay=null;
   }
 
+  async function leaveOverlay(){
+    if(state.active){
+      try{await deactivate({silent:true})}
+      catch(error){console.warn('LOKY Languages exit session reset',error)}
+    }
+    closeOverlay();
+    return true;
+  }
+
   function optionSelect(selected){
     const select=make('select','loky-language-select');
     for(const [key,meta] of Object.entries(LANGUAGES)){
@@ -673,9 +730,19 @@
 
     const start=make('button','loky-language-start',state.active?'ACTUALIZAR Y CONTINUAR':'COMENZAR CON LOKY');
     start.type='button';
-    start.addEventListener('click',()=>{
-      activate();
-      renderLive(root);
+    start.addEventListener('click',async()=>{
+      if(start.disabled)return;
+      const previous=start.textContent;
+      start.disabled=true;
+      start.textContent='PREPARANDO…';
+      try{
+        await activate();
+        renderLive(root);
+      }catch(error){
+        console.warn('LOKY Languages start session reset',error);
+        start.disabled=false;
+        start.textContent=previous;
+      }
     });
 
     card.append(pair,levels,goals,start);
@@ -683,8 +750,7 @@
       const exit=make('button','loky-language-exit','SALIR DEL MODO IDIOMAS');
       exit.type='button';
       exit.addEventListener('click',()=>{
-        deactivate();
-        closeOverlay();
+        leaveOverlay().catch(error=>console.warn('LOKY Languages exit',error));
       });
       card.appendChild(exit);
     }
@@ -773,7 +839,7 @@
     const top=make('header','loky-language-top');
     const back=make('button','loky-language-back','VOLVER');
     back.type='button';
-    back.addEventListener('click',closeOverlay);
+    back.addEventListener('click',()=>{leaveOverlay().catch(error=>console.warn('LOKY Languages back',error));});
     const heading=make('div','loky-language-heading');
     heading.append(
       make('strong','', 'LOKY LANGUAGES'),
@@ -847,7 +913,7 @@
     scheduleAutoAssist,
     paintFloatingAssist,
     open:openOverlay,
-    close:closeOverlay,
+    close:leaveOverlay,
     install:installSlot,
   };
 })();

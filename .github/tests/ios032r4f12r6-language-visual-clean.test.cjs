@@ -117,7 +117,7 @@ vm.createContext(context);
   const api=context.LOKY_PC4_LANGUAGE_TUTOR;
 
   assert(api,'Language Tutor API missing');
-  assert.equal(api.version,'0.3.2R4F12R6-language-visual-clean');
+  assert.equal(api.version,'0.3.2R4F12R6R1-language-session-isolated');
 
   assert.equal(slot1.disabled,false,'future-op-1 must remain enabled');
   assert(slot1.classList.contains('feature-language'));
@@ -145,7 +145,7 @@ vm.createContext(context);
   assert.equal(bodySent.source,'es');
   assert.equal(bodySent.target,'en');
 
-  api.activate();
+  await api.activate();
   assert.equal(api.state.active,true);
   const beforeRepeat=activeWs.sent.length;
   assert(api.quick('repeat'),'repeat tool must send through existing Live socket');
@@ -160,10 +160,10 @@ vm.createContext(context);
   await new Promise(resolve=>setTimeout(resolve,430));
   assert(fetchCalls.length>=1,'automatic assist must call silent backend after settle');
 
-  api.deactivate({silent:true});
+  await api.deactivate({silent:true});
   assert.equal(api.state.active,false);
 
-  assert(index.includes('<script src="./mobile-language-tutor.js?v=0.3.2r4f12r6"></script>'));
+  assert(index.includes('<script src="./mobile-language-tutor.js?v=0.3.2r4f12r6r1"></script>'));
 
   assert(src.includes("const ASSIST_ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-language-assist'"));
   assert(src.includes('const AUTO_ASSIST_SETTLE_MS=320'));
@@ -189,12 +189,19 @@ vm.createContext(context);
   assert(!src.includes("['TRADUCIR','translate']"));
   assert(!src.includes('data-lang-teaching-card'));
 
-  // The tutor still reuses the existing Live transport rather than creating another one.
+  // The tutor still reuses the protected Live transport, but switches to fresh sessions.
   assert(src.includes('const previousSend=WebSocket.prototype.send'));
+  assert(src.includes('async function restartLiveFreshIfRunning()'));
+  assert(src.includes('live.stop();'));
+  assert(src.includes('await live.start();'));
+  assert(src.includes('await waitLiveReady();'));
+  assert(src.includes('async function leaveOverlay()'));
+  assert(src.includes("back.addEventListener('click',()=>{leaveOverlay()"));
+  assert(!src.includes('[LOKY CONTROL — EXIT LANGUAGE TUTOR]'));
   assert(!/new\s+WebSocket\s*\(/.test(src));
   assert(!/getUserMedia\s*\(/.test(src));
   assert(!/speechSynthesis/.test(src));
   assert(!/navigator\.geolocation/.test(src));
 
-  console.log('R4F12R4 auto floating translation tests PASS');
+  console.log('R4F12R6R1 isolated language tutor + visual tests PASS');
 })().catch(error=>{console.error(error);process.exit(1);});
