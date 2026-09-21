@@ -1,0 +1,126 @@
+{
+  "version": "owner3d-rig-v2-axisfix",
+  "bytes": 11912184,
+  "sha256": "ebc82865275bf5ff0cdf7e3a42e6cad50922030f2c29124f6220ed1de66de64e",
+  "base64Chars": 15882912,
+  "chunkSize": 900000,
+  "chunkCount": 18,
+  "chunks": [
+    {
+      "name": "chunk_000.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_001.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_002.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_003.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_004.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_005.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_006.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_007.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_008.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_009.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_010.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_011.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_012.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_013.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_014.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_015.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_016.txt",
+      "chars": 900000
+    },
+    {
+      "name": "chunk_017.txt",
+      "chars": 582912
+    }
+  ],
+  "vertices": 167772,
+  "triangles": 180000,
+  "joints": [
+    "root",
+    "pelvis",
+    "spine",
+    "chest",
+    "neck",
+    "head",
+    "upper_arm.L",
+    "forearm.L",
+    "hand.L",
+    "upper_arm.R",
+    "forearm.R",
+    "hand.R",
+    "thigh.L",
+    "shin.L",
+    "foot.L",
+    "thigh.R",
+    "shin.R",
+    "foot.R"
+  ],
+  "animationCount": 1,
+  "lowerBodyStatic": true,
+  "upperBodyMoves": true,
+  "orientationWeightCheck": {
+    "bottom_vertices": 6048,
+    "top_vertices": 14412,
+    "bottom_foot_shin_ratio": 1.0,
+    "top_head_neck_ratio": 1.0,
+    "bottom_upper_leaks": 0,
+    "top_leg_leaks": 0
+  },
+  "jointGeography": {
+    "head": 0.7604610340322269,
+    "neck": 0.5703405271567428,
+    "pelvis": -0.1901414990425111,
+    "thigh.L": -0.1901414990425111,
+    "shin.L": -0.5133463671539382,
+    "foot.L": -0.8175391519673602,
+    "thigh.R": -0.1901414990425111,
+    "shin.R": -0.5133463668526737,
+    "foot.R": -0.8175391815467767
+  }
+}
