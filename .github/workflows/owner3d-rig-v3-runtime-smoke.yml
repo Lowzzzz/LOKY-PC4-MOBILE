@@ -1,0 +1,116 @@
+name: Owner3D Rig V3 Runtime Smoke
+
+on:
+  push:
+    branches: [work/owner3d-rig-v3-runtime]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: owner3d-rig-v3-runtime
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify stable protected files and V3 asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/live-mobile.js)" = "f28a58275661f8513e9e3b29911c62f51e04bd28"
+          node --check site/mobile-language-avatar-owner3d.js
+          grep -F "0.3.2R4F12R8R15-owner-rig-v3-headsafe" site/mobile-language-avatar-owner3d.js
+          grep -F "owner3d-rig-v3/chunk_" site/mobile-language-avatar-owner3d.js
+          grep -F '<script src="./mobile-language-avatar-owner3d.js?v=0.3.2r4f12r8r15"></script>' site/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64,hashlib,json,struct
+          root=Path("site/assets/owner3d-rig-v3")
+          m=json.loads((root/"manifest.json").read_text())
+          assert m["version"]=="owner3d-rig-v3-headsafe"
+          assert m["rigProfile"]=="v3-headsafe-rigid-body"
+          assert m["rigidMotionMax"]==0
+          assert m["orientationWeightCheck"]["feet_pelvis_ratio"]==1
+          assert m["orientationWeightCheck"]["rigid_head_neck_leaks"]==0
+          assert m["headMotionMax"]>0.005
+          parts=[(root/f"chunk_{i:03d}.txt").read_text().strip() for i in range(m["chunkCount"])]
+          raw=base64.b64decode("".join(parts),validate=True)
+          assert hashlib.sha256(raw).hexdigest()==m["sha256"]=="98cb49d3e45492d215a3f36d338ec06fc34f106fe2cb420437ab90b6aac5b72a"
+          magic,version,total=struct.unpack_from("<4sII",raw,0)
+          assert magic==b"glTF" and version==2 and total==len(raw)
+          print("RIG_V3_ASSET_PASS",len(raw),m["rigidMotionMax"],m["headMotionMax"])
+          PY
+
+      - name: Build full V3 runtime page
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > site/rig-v3-smoke.html <<'HTML'
+          <!doctype html><html><body style="margin:0;background:#02070b;color:#bdefff;font:12px monospace">
+          <canvas id="c" width="390" height="720" style="display:block;width:390px;height:720px"></canvas>
+          <pre id="result">PENDING</pre>
+          <script src="./mobile-language-avatar-owner3d.js"></script>
+          <script>
+          (async()=>{
+            const result=document.getElementById('result');
+            try{
+              const canvas=document.getElementById('c');
+              const avatar=new window.LOKY_MESHY_AVATAR_3D.Avatar(canvas,{});
+              const urls=Array.from({length:18},(_,i)=>'./assets/owner3d-rig-v3/chunk_'+String(i).padStart(3,'0')+'.txt');
+              const stats=await avatar.loadBase64ChunkUrls(urls);
+              avatar.stop();
+              avatar.drag={test:true};
+              avatar.setState('ready');
+              const gl=canvas.getContext('webgl2');
+              const snap=t=>{
+                avatar.running=true; avatar._frame(t); avatar.stop(); gl.finish();
+                const px=new Uint8Array(canvas.width*canvas.height*4);
+                gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,px);
+                return px;
+              };
+              const a=snap(0);
+              const b=snap(2300);
+              let lowerDiff=0,upperDiff=0;
+              const w=canvas.width,h=canvas.height;
+              for(let y=0;y<h;y++){
+                for(let x=0;x<w;x++){
+                  const o=(y*w+x)*4;
+                  const d=Math.abs(a[o]-b[o])+Math.abs(a[o+1]-b[o+1])+Math.abs(a[o+2]-b[o+2])+Math.abs(a[o+3]-b[o+3]);
+                  if(d>4){
+                    if(y<h*0.45)lowerDiff++;
+                    if(y>h*0.63)upperDiff++;
+                  }
+                }
+              }
+              const err=gl.getError();
+              if(stats.vertices!==167772||stats.triangles!==180000||stats.joints!==18)throw new Error('BAD_STATS_'+JSON.stringify(stats));
+              if(err!==gl.NO_ERROR)throw new Error('GL_ERROR_'+err);
+              if(lowerDiff!==0)throw new Error('LOWER_BODY_PIXEL_MOTION_'+lowerDiff);
+              if(upperDiff<10)throw new Error('HEAD_NOT_MOVING_'+upperDiff);
+              result.textContent='RIG_V3_PASS LOWER_'+lowerDiff+' UPPER_'+upperDiff+' GL_'+err;
+            }catch(e){result.textContent='RIG_V3_FAIL '+String(e?.stack||e);}
+          })();
+          </script></body></html>
+          HTML
+
+      - name: Run full V3 in Chrome WebGL2
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          cd site
+          python3 -m http.server 8798 --bind 127.0.0.1 >/tmp/v3-http.log 2>&1 &
+          SERVER=$!
+          trap 'kill $SERVER 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8798/rig-v3-smoke.html >/dev/null && break || true; sleep .2; done
+          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --enable-webgl --ignore-gpu-blocklist             --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader             --virtual-time-budget=12000 --dump-dom             http://127.0.0.1:8798/rig-v3-smoke.html > /tmp/v3-dom.txt
+          cat /tmp/v3-dom.txt
+          grep -E '<pre id="result">RIG_V3_PASS LOWER_0 UPPER_[1-9][0-9]* GL_0</pre>' /tmp/v3-dom.txt
+          if grep -Fq '<pre id="result">RIG_V3_FAIL ' /tmp/v3-dom.txt; then exit 1; fi
