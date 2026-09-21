@@ -203,6 +203,18 @@ def in_roi(i,x0,x1,y0,y1,af0=0.80,af1=1.01,front=-0.12):
 
 # ---------- face morph targets ----------
 # Projection diagnostics before creating keys.
+head_proj=[q for q in proj if q[2]>=0.80]
+front_proj=[q for q in head_proj if q[3]<=0.35]
+def qstats(values):
+    values=sorted(values)
+    if not values:return None
+    def q(p):return values[min(len(values)-1,max(0,int(round((len(values)-1)*p))))]
+    return {"min":values[0],"p01":q(.01),"p05":q(.05),"p25":q(.25),"p50":q(.50),"p75":q(.75),"p95":q(.95),"p99":q(.99),"max":values[-1]}
+print("V3_PROJ_HEAD_X",json.dumps(qstats([x[0] for x in head_proj]),separators=(',',':')))
+print("V3_PROJ_HEAD_Y",json.dumps(qstats([x[1] for x in head_proj]),separators=(',',':')))
+print("V3_PROJ_FRONT_X",json.dumps(qstats([x[0] for x in front_proj]),separators=(',',':')))
+print("V3_PROJ_FRONT_Y",json.dumps(qstats([x[1] for x in front_proj]),separators=(',',':')))
+print("V3_PROJ_COUNTS",len(proj),len(head_proj),len(front_proj))
 for label,roi in {
     "eye_screen_left":(185,270,525,575),
     "eye_screen_right":(385,470,525,575),
