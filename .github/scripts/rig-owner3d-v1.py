@@ -115,7 +115,10 @@ for side,sgn in (("L",-1),("R",1)):
 
 bpy.ops.object.mode_set(mode='OBJECT')
 
-# Deterministic first-pass skin. This is a rig proof, not final smooth weighting.
+# Rig V3 SAFE skin:
+# - lower body / feet / arms / torso remain mathematically rigid
+# - only the neck/head transition deforms
+# - at most two weights per vertex, normalized exactly
 deform_names=[
     "pelvis","spine","chest","neck","head",
     "upper_arm.L","forearm.L","hand.L",
@@ -124,56 +127,45 @@ deform_names=[
     "thigh.R","shin.R","foot.R",
 ]
 groups={name:mesh.vertex_groups.new(name=name) for name in deform_names}
-assign={name:[] for name in deform_names}
+weighted_counts={name:0 for name in deform_names}
+
+def smooth01(x):
+    x=max(0.0,min(1.0,x))
+    return x*x*(3.0-2.0*x)
+
+def addw(name,vid,wgt):
+    if wgt<=1e-8:
+        return
+    groups[name].add([vid],float(wgt),'REPLACE')
+    weighted_counts[name]+=1
 
 for v in mesh.data.vertices:
     p=mesh.matrix_world @ v.co
     vert=p[vert_i]
-    lr=p[lr_i]
-    zn=(vmax-vert)/h if h else 0.5
-    xn=(lr-centers[lr_i])/(w*0.5) if w else 0.0
+    zn=(vmax-vert)/h if h else 0.5  # 0=feet, 1=head after Meshy axis correction
 
-    # Head/hair first.
-    if zn>=0.79:
-        g="head"
-    elif zn>=0.75:
-        g="neck"
-    # Legs/feet own the complete lower 40% before any arm rule can match.
-    elif zn<0.40:
-        side="R" if xn>0 else "L"
-        if zn>=0.23:
-            g=f"thigh.{side}"
-        elif zn>=0.07:
-            g=f"shin.{side}"
-        else:
-            g=f"foot.{side}"
-    # Arms/hands: only outer lateral geometry above the leg boundary.
-    elif abs(xn)>=0.42 and 0.40<=zn<=0.74:
-        side="R" if xn>0 else "L"
-        if zn>=0.57:
-            g=f"upper_arm.{side}"
-        elif zn>=0.47:
-            g=f"forearm.{side}"
-        else:
-            g=f"hand.{side}"
-    # Torso.
-    elif zn<0.50:
-        g="pelvis"
-    elif zn<0.62:
-        g="spine"
-    elif zn<0.75:
-        g="chest"
+    if zn < 0.62:
+        # Feet, legs, hips and lower torso: one rigid body influence.
+        addw("pelvis",v.index,1.0)
+    elif zn < 0.72:
+        # Upper torso and shoulders stay rigid too.
+        addw("chest",v.index,1.0)
+    elif zn < 0.80:
+        # Smooth chest -> neck transition.
+        t=smooth01((zn-0.72)/0.08)
+        addw("chest",v.index,1.0-t)
+        addw("neck",v.index,t)
+    elif zn < 0.88:
+        # Smooth neck -> head transition.
+        t=smooth01((zn-0.80)/0.08)
+        addw("neck",v.index,1.0-t)
+        addw("head",v.index,t)
     else:
-        g="neck"
-    assign[g].append(v.index)
+        addw("head",v.index,1.0)
 
-for name,indices in assign.items():
-    if indices:
-        groups[name].add(indices,1.0,'REPLACE')
-
-assigned=sum(len(v) for v in assign.values())
-if assigned!=len(mesh.data.vertices):
-    raise RuntimeError(f"Unassigned vertices: {len(mesh.data.vertices)-assigned}")
+assigned=len(mesh.data.vertices)
+if not weighted_counts["pelvis"] or not weighted_counts["head"]:
+    raise RuntimeError(f"V3 weight regions invalid: {weighted_counts}")
 
 # Link skin explicitly; do not depend on heat-weight solver.
 world_before=mesh.matrix_world.copy()
@@ -183,11 +175,12 @@ mesh.matrix_world=world_before
 mod=mesh.modifiers.new(name="LOKY_Armature",type='ARMATURE')
 mod.object=arm
 
-# Add a tiny proof animation for validation only.
+# Rig V3 SAFE proof animation: head + neck only.
+# Arms and everything below the shoulders must remain rigid during this phase.
 scene=bpy.context.scene
 scene.frame_start=1
 scene.frame_end=60
-animated=("head","neck","upper_arm.L","upper_arm.R")
+animated=("head","neck")
 for pb in arm.pose.bones:
     pb.rotation_mode='XYZ'
 
@@ -205,10 +198,8 @@ insert_pose(1)
 
 scene.frame_set(30)
 reset_pose()
-arm.pose.bones["head"].rotation_euler[2]=math.radians(12)
-arm.pose.bones["neck"].rotation_euler[2]=math.radians(-4)
-arm.pose.bones["upper_arm.L"].rotation_euler[1]=math.radians(9)
-arm.pose.bones["upper_arm.R"].rotation_euler[1]=math.radians(-9)
+arm.pose.bones["head"].rotation_euler[2]=math.radians(10)
+arm.pose.bones["neck"].rotation_euler[2]=math.radians(-3)
 insert_pose(30)
 
 scene.frame_set(60)
@@ -242,7 +233,8 @@ report={
     "armature_matrix_world":[list(row) for row in arm.matrix_world],
     "bones":[b.name for b in arm.data.bones],
     "assigned_vertices":assigned,
-    "group_counts":{name:len(indices) for name,indices in assign.items()},
+    "group_counts":weighted_counts,
+    "rig_profile":"v3-headsafe-rigid-body",
     "output_glb":output_glb,
 }
 with open(os.path.join(out_dir,'rig_report.json'),'w',encoding='utf-8') as f:
