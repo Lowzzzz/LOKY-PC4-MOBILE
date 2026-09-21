@@ -186,6 +186,7 @@ scene.camera=cam
 scene.render.resolution_x=700
 scene.render.resolution_y=900
 scene.render.resolution_percentage=100
+bpy.context.view_layer.update()
 
 proj=[]
 for v in mesh.data.vertices:
