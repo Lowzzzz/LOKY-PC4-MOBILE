@@ -1,0 +1,183 @@
+name: Languages Session Isolation Smoke
+
+on:
+  push:
+    branches: [work/language-session-isolation-r1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: languages-session-isolation-r1
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify protected conversation core unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:site/live-mobile.js)" = "f28a58275661f8513e9e3b29911c62f51e04bd28"
+          test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
+          test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
+
+      - name: Verify isolated Tutor contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check site/mobile-language-tutor.js
+          grep -F "0.3.2R4F12R6R1-language-session-isolated" site/mobile-language-tutor.js
+          grep -F "async function restartLiveFreshIfRunning()" site/mobile-language-tutor.js
+          grep -F "live.stop();" site/mobile-language-tutor.js
+          grep -F "await live.start();" site/mobile-language-tutor.js
+          grep -F "await waitLiveReady();" site/mobile-language-tutor.js
+          grep -F "async function activate()" site/mobile-language-tutor.js
+          grep -F "async function deactivate({silent=false}={})" site/mobile-language-tutor.js
+          grep -F "async function leaveOverlay()" site/mobile-language-tutor.js
+          grep -F "back.addEventListener('click',()=>{leaveOverlay()" site/mobile-language-tutor.js
+          grep -F "close:leaveOverlay" site/mobile-language-tutor.js
+          if grep -Fq "[LOKY CONTROL — EXIT LANGUAGE TUTOR]" site/mobile-language-tutor.js; then exit 1; fi
+          grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r6r1"></script>' site/index.html
+
+      - name: Build browser isolation test
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > site/language-session-isolation-smoke.html <<'HTML'
+          <!doctype html>
+          <html>
+          <body>
+            <button class="future-op-1"></button>
+            <div id="userTranscript">—</div>
+            <div id="lokyTranscript">—</div>
+            <div id="conversationState">ESCUCHANDO</div>
+            <pre id="result">PENDING</pre>
+            <script>
+            window.__events=[];
+            window.__setups=[];
+            window.__sent=[];
+            class MockWebSocket{
+              static OPEN=1;
+              constructor(){
+                this.readyState=1;
+                this.url='wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained';
+              }
+              send(data){
+                window.__sent.push(String(data));
+                try{
+                  const parsed=JSON.parse(data);
+                  if(parsed.setup)window.__setups.push(parsed.setup);
+                }catch{}
+              }
+              close(){this.readyState=3;}
+            }
+            window.WebSocket=MockWebSocket;
+
+            const liveState={
+              desired:true,
+              setupReady:true,
+              activeWs:new MockWebSocket(),
+              userSpeaking:false,
+              transcriptBuffer:''
+            };
+            window.LOKY_PC4_LIVE={
+              state:liveState,
+              stop(){
+                window.__events.push('stop');
+                liveState.desired=false;
+                liveState.setupReady=false;
+                try{liveState.activeWs?.close()}catch{}
+                liveState.activeWs=null;
+              },
+              async start(){
+                window.__events.push('start');
+                liveState.desired=true;
+                const ws=new MockWebSocket();
+                liveState.activeWs=ws;
+                ws.send(JSON.stringify({
+                  setup:{
+                    model:'models/test',
+                    systemInstruction:{parts:[{text:'BASE LOKY NORMAL'}]},
+                    sessionResumption:{}
+                  }
+                }));
+                liveState.setupReady=true;
+              }
+            };
+
+            localStorage.setItem('loky_pc4_language_tutor_v1',JSON.stringify({
+              configured:true,
+              active:true,
+              source:'es',
+              target:'en',
+              level:'starter',
+              goal:'conversation'
+            }));
+            </script>
+            <script src="./mobile-language-tutor.js"></script>
+            <script>
+            (async()=>{
+              const out=document.getElementById('result');
+              const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+              try{
+                const tutor=window.LOKY_PC4_LANGUAGE_TUTOR;
+                if(!tutor)throw new Error('NO_TUTOR_API');
+
+                if(tutor.state.active!==false)throw new Error('STALE_ACTIVE_SURVIVED_RELOAD');
+
+                const activated=await tutor.activate();
+                if(!activated.active)throw new Error('ACTIVATE_FALSE');
+                if(window.__events.join(',')!=='stop,start')throw new Error('ENTER_RESTART_'+window.__events.join(','));
+                if(window.__setups.length!==1)throw new Error('ENTER_SETUP_COUNT_'+window.__setups.length);
+                const enterText=(window.__setups[0].systemInstruction?.parts||[]).map(x=>x.text||'').join('\n');
+                if(!enterText.includes('LOKY MULTILINGUAL LANGUAGE TUTOR'))throw new Error('TUTOR_INSTRUCTION_MISSING');
+                if(!enterText.includes('BASE LOKY NORMAL'))throw new Error('BASE_INSTRUCTION_MISSING');
+
+                tutor.open();
+                const back=document.querySelector('.loky-language-back');
+                if(!back)throw new Error('NO_BACK_BUTTON');
+                back.click();
+
+                for(let i=0;i<100&&tutor.state.active;i++)await sleep(30);
+                if(tutor.state.active!==false)throw new Error('BACK_LEFT_TUTOR_ACTIVE');
+                for(let i=0;i<100&&window.__events.length<4;i++)await sleep(30);
+
+                if(window.__events.join(',')!=='stop,start,stop,start')throw new Error('EXIT_RESTART_'+window.__events.join(','));
+                if(window.__setups.length!==2)throw new Error('EXIT_SETUP_COUNT_'+window.__setups.length);
+                const exitText=(window.__setups[1].systemInstruction?.parts||[]).map(x=>x.text||'').join('\n');
+                if(exitText.includes('LOKY MULTILINGUAL LANGUAGE TUTOR'))throw new Error('TUTOR_LEAKED_INTO_NORMAL');
+                if(exitText!=='BASE LOKY NORMAL')throw new Error('NORMAL_SETUP_DIRTY_'+exitText);
+                if(window.__sent.some(x=>x.includes('EXIT LANGUAGE TUTOR')))throw new Error('EXIT_PROMPT_LEAK');
+                if(document.querySelector('.loky-language-overlay'))throw new Error('OVERLAY_NOT_CLOSED');
+
+                out.textContent='LANGUAGE_ISOLATION_PASS fresh_tutor fresh_normal back_exits no_exit_prompt';
+              }catch(error){
+                out.textContent='LANGUAGE_ISOLATION_FAIL '+String(error?.stack||error);
+              }
+            })();
+            </script>
+          </body>
+          </html>
+          HTML
+
+      - name: Run Chrome isolation test
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          cd site
+          python3 -m http.server 8798 --bind 127.0.0.1 >/tmp/lang-http.log 2>&1 &
+          SERVER=$!
+          trap 'kill $SERVER 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8798/language-session-isolation-smoke.html >/dev/null && break || true; sleep .2; done
+          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage             --virtual-time-budget=8000 --dump-dom             http://127.0.0.1:8798/language-session-isolation-smoke.html >/tmp/lang-dom.txt
+          cat /tmp/lang-dom.txt
+          grep -F '<pre id="result">LANGUAGE_ISOLATION_PASS fresh_tutor fresh_normal back_exits no_exit_prompt</pre>' /tmp/lang-dom.txt
+          if grep -Fq '<pre id="result">LANGUAGE_ISOLATION_FAIL ' /tmp/lang-dom.txt; then exit 1; fi
