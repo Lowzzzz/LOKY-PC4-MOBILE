@@ -202,6 +202,21 @@ def in_roi(i,x0,x1,y0,y1,af0=0.80,af1=1.01,front=-0.12):
     return x0<=px<=x1 and y0<=py<=y1 and af0<=af<=af1 and dn<=front
 
 # ---------- face morph targets ----------
+# Projection diagnostics before creating keys.
+for label,roi in {
+    "eye_screen_left":(185,270,525,575),
+    "eye_screen_right":(385,470,525,575),
+    "mouth":(265,405,340,405),
+    "jaw":(235,435,235,415),
+    "brow_left":(175,300,585,640),
+    "brow_right":(375,500,585,640),
+}.items():
+    x0,x1,y0,y1=roi
+    raw_count=sum(1 for px,py,af,dn in proj if x0<=px<=x1 and y0<=py<=y1)
+    head_count=sum(1 for px,py,af,dn in proj if x0<=px<=x1 and y0<=py<=y1 and af>=0.80)
+    front_count=sum(1 for px,py,af,dn in proj if x0<=px<=x1 and y0<=py<=y1 and af>=0.80 and dn<=0.35)
+    print("V3_ROI",label,"raw",raw_count,"head",head_count,"front",front_count)
+
 basis=mesh.shape_key_add(name="Basis")
 morph_counts={}
 
