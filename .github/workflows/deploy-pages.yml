@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "5708e5a395bc581b9bd55ea8aea5dcc4cbb1074f"
+          test "$(git rev-parse HEAD:site/index.html)" = "a736db7b645c0166d4c382719afc06ab7e9f9eb6"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
@@ -236,7 +236,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
-          test "$(git rev-parse HEAD:site/index.html)" = "5708e5a395bc581b9bd55ea8aea5dcc4cbb1074f"
+          test "$(git rev-parse HEAD:site/index.html)" = "a736db7b645c0166d4c382719afc06ab7e9f9eb6"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           grep -F "const VERSION='0.3.2R4F9-cloud-background-alarms'" site/mobile-background-alarm.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'" site/mobile-background-alarm.js
@@ -263,7 +263,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
           test "$(git rev-parse HEAD:site/mobile-web-search.js)" = "be2dfce56a7af5e1abbb4f2277a635ac16c03c38"
-          test "$(git rev-parse HEAD:site/index.html)" = "5708e5a395bc581b9bd55ea8aea5dcc4cbb1074f"
+          test "$(git rev-parse HEAD:site/index.html)" = "a736db7b645c0166d4c382719afc06ab7e9f9eb6"
           grep -F "const VERSION='0.3.2R4F10R3-turn-safe-search'" site/mobile-web-search.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'" site/mobile-web-search.js
           grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-web-search.js
@@ -306,7 +306,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "f7314f4e0dab972697059337b838becd11f8c5f8"
           test "$(git rev-parse HEAD:site/mobile-actions.js)" = "5803be78d341cbeff06a7e45f608bc80c51193c8"
-          test "$(git rev-parse HEAD:site/index.html)" = "5708e5a395bc581b9bd55ea8aea5dcc4cbb1074f"
+          test "$(git rev-parse HEAD:site/index.html)" = "a736db7b645c0166d4c382719afc06ab7e9f9eb6"
           grep -F "const VERSION='0.3.2R4F11R6-timer-delete'" site/mobile-actions.js
           grep -F 'new MutationObserver(scheduleFromTranscript)' site/mobile-actions.js
           grep -F 'state?.transcriptBuffer' site/mobile-actions.js
@@ -349,7 +349,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "463784a9deed990165c3aa5585aff741a583b71b"
           test "$(git rev-parse HEAD:site/language-avatar.webp)" = "9119b39fcc21891bb95d5f3f95b57444277723f6"
           test "$(git cat-file -s HEAD:site/language-avatar.webp)" -gt 10000
-          test "$(git rev-parse HEAD:site/index.html)" = "5708e5a395bc581b9bd55ea8aea5dcc4cbb1074f"
+          test "$(git rev-parse HEAD:site/index.html)" = "a736db7b645c0166d4c382719afc06ab7e9f9eb6"
           grep -F "const VERSION='0.3.2R4F12R6R1-language-session-isolated'" site/mobile-language-tutor.js
           grep -F "const STORE_KEY='loky_pc4_language_tutor_v1'" site/mobile-language-tutor.js
           grep -F "const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1'" site/mobile-language-tutor.js
@@ -408,47 +408,54 @@ jobs:
           grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r6r1"></script>' site/index.html
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|speechSynthesis|navigator\.geolocation' site/mobile-language-tutor.js; then exit 1; fi
 
-      - name: Verify R4F12R8R13 SAFE Owner 3D no-rig
+      - name: Verify R4F12R8R15 Owner rig V3 head-safe
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "5708e5a395bc581b9bd55ea8aea5dcc4cbb1074f"
+          test "$(git rev-parse HEAD:site/index.html)" = "a736db7b645c0166d4c382719afc06ab7e9f9eb6"
           test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "463784a9deed990165c3aa5585aff741a583b71b"
           test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
-          test "$(git rev-parse HEAD:site/mobile-language-avatar-owner3d.js)" = "b33fff1fc09815f66d132e67bab29107cb7d04c5"
-          grep -F '<script src="./mobile-language-avatar-owner3d.js?v=0.3.2r4f12r8r13"></script>' site/index.html
+          test "$(git rev-parse HEAD:site/mobile-language-avatar-owner3d.js)" = "7cc6d86d5caeb23d87ab7bed6de326beb4a5b25e"
+          grep -F '<script src="./mobile-language-avatar-owner3d.js?v=0.3.2r4f12r8r15"></script>' site/index.html
           grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r6r1"></script>' site/index.html
-          grep -F "0.3.2R4F12R8R13-safe-norig-owner" site/mobile-language-avatar-owner3d.js
-          grep -F "const MODEL_CHUNKS=Array.from({length:13}" site/mobile-language-avatar-owner3d.js
-          grep -F "assets/owner3d/chunk_" site/mobile-language-avatar-owner3d.js
-          grep -F "uniform float uBreath; uniform float uSway; uniform float uHead;" site/mobile-language-avatar-owner3d.js
-          grep -F "const bodyBreath=Math.sin(sec*1.22)*motionGain;" site/mobile-language-avatar-owner3d.js
-          grep -F "gl.uniform1f(this.loc.breath,bodyBreath)" site/mobile-language-avatar-owner3d.js
+          grep -F "0.3.2R4F12R8R15-owner-rig-v3-headsafe" site/mobile-language-avatar-owner3d.js
+          grep -F "const MODEL_CHUNKS=Array.from({length:18}" site/mobile-language-avatar-owner3d.js
+          grep -F "assets/owner3d-rig-v3/chunk_" site/mobile-language-avatar-owner3d.js
+          grep -F "uniform mat4 uJoints[24];" site/mobile-language-avatar-owner3d.js
+          grep -F "JOINTS_0" site/mobile-language-avatar-owner3d.js
+          grep -F "gl.uniformMatrix4fv(this.loc.joints,false,jointMatrices);" site/mobile-language-avatar-owner3d.js
           grep -F "const OWNER_HINT_KEY='loky_pc4_owner3d_hint_v1';" site/mobile-language-avatar-owner3d.js
           grep -F ".loky-owner3d-hint .loky-language-avatar{display:none!important}" site/mobile-language-avatar-owner3d.js
           grep -F "function removeOwner2D(hero)" site/mobile-language-avatar-owner3d.js
           grep -F "hero.dataset.ownerAvatar='3d-only';" site/mobile-language-avatar-owner3d.js
-          grep -F "hero.dataset.ownerMeshy3d='error-3d';" site/mobile-language-avatar-owner3d.js
           grep -F "this.distance=3.62" site/mobile-language-avatar-owner3d.js
           grep -F "this.focusZ=0.02" site/mobile-language-avatar-owner3d.js
-          grep -F "this.distance=clamp(this.distance*(this.touchDistance/Math.max(1,d)),1.10,5.6)" site/mobile-language-avatar-owner3d.js
           grep -F "gestureSurface:hero.closest('.loky-language-overlay')||hero" site/mobile-language-avatar-owner3d.js
-          if grep -Fq 'uJoints[24]' site/mobile-language-avatar-owner3d.js; then exit 1; fi
-          if grep -Fq 'JOINTS_0' site/mobile-language-avatar-owner3d.js; then exit 1; fi
           if grep -Fq 'owner3d-rig-v2/chunk_' site/mobile-language-avatar-owner3d.js; then exit 1; fi
           node --check site/mobile-language-avatar-owner3d.js
           python3 - <<'PY'
           from pathlib import Path
-          import base64,json,struct
+          import base64,hashlib,json,struct
           s=Path("site/index.html").read_text(encoding="utf-8")
-          assert s.index("mobile-language-avatar-owner3d.js?v=0.3.2r4f12r8r13") < s.index("mobile-language-tutor.js?v=0.3.2r4f12r6r1")
+          assert s.index("mobile-language-avatar-owner3d.js?v=0.3.2r4f12r8r15") < s.index("mobile-language-tutor.js?v=0.3.2r4f12r6r1")
+          root=Path("site/assets/owner3d-rig-v3")
+          m=json.loads((root/"manifest.json").read_text(encoding="utf-8"))
+          assert m["version"]=="owner3d-rig-v3-headsafe"
+          assert m["rigProfile"]=="v3-headsafe-rigid-body"
+          assert m["rigidMotionMax"]==0
+          assert m["orientationWeightCheck"]["feet_pelvis_ratio"]==1
+          assert m["orientationWeightCheck"]["rigid_head_neck_leaks"]==0
+          assert m["headMotionMax"]>0.005
+          assert m["vertices"]==167772
+          assert m["triangles"]==180000
+          assert len(m["joints"])==18
           parts=[]
-          for i in range(13):
-              p=Path(f"site/assets/owner3d/chunk_{i:03d}.txt")
+          for i in range(m["chunkCount"]):
+              p=root/f"chunk_{i:03d}.txt"
               assert p.is_file(),p
-              parts.append(p.read_text(encoding="utf-8").strip())
+              parts.append(p.read_text(encoding="ascii").strip())
           raw=base64.b64decode("".join(parts),validate=True)
-          assert len(raw)==8536252
+          assert hashlib.sha256(raw).hexdigest()==m["sha256"]=="98cb49d3e45492d215a3f36d338ec06fc34f106fe2cb420437ab90b6aac5b72a"
           magic,version,total=struct.unpack_from("<4sII",raw,0)
           assert magic==b"glTF" and version==2 and total==len(raw)
           off=12; gltf=None
@@ -458,11 +465,11 @@ jobs:
               if tp==0x4E4F534A:
                   gltf=json.loads(data.rstrip(b"\x00 ").decode("utf-8"))
           prim=gltf["meshes"][0]["primitives"][0]
-          assert gltf["accessors"][prim["attributes"]["POSITION"]]["count"]==167761
+          assert gltf["accessors"][prim["attributes"]["POSITION"]]["count"]==167772
           assert gltf["accessors"][prim["indices"]]["count"]==540000
-          assert "JOINTS_0" not in prim["attributes"]
-          assert "WEIGHTS_0" not in prim["attributes"]
-          print("OWNER SAFE NO-RIG PASS: 167761 vertices / 180000 triangles")
+          assert "JOINTS_0" in prim["attributes"] and "WEIGHTS_0" in prim["attributes"]
+          assert len(gltf["skins"][0]["joints"])==18
+          print("OWNER RIG V3 HEADSAFE PASS",m["rigidMotionMax"],m["headMotionMax"])
           PY
 
       - name: Verify iOS 0.3.2R4F10R3 Mobile conversation turn guard
