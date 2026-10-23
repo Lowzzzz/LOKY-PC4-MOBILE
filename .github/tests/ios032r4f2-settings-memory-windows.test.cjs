@@ -214,4 +214,32 @@ assert(body.classList.contains('loky-silenced'));
 api.resume();
 assert.equal(api.silenced,false);
 
+// Exercise the real PCM scheduler and server-content handler with the feature
+// silence getter. No microphone, AudioContext device, network or real audio.
+const liveSource=fs.readFileSync('site/live-mobile.js','utf8');
+function liveFunction(name){const start=liveSource.search(new RegExp('  (?:async )?function '+name+'\\('));assert(start>=0,name);const end=liveSource.indexOf('\n  }',start);return liveSource.slice(start,end+4);}
+const scheduled=[];
+liveState.audioContext={currentTime:2,state:'running',destination:{},createBuffer(channels,count,rate){return {duration:count/rate,getChannelData:()=>new Float32Array(count)};},createBufferSource(){const source={connect(){},start(at){this.at=at;scheduled.push(this);},stop(){this.stopped=true;this.onended?.();}};return source;}};
+context.state=liveState;context.ui={me:els.userTranscript,loky:element('lokyTranscript')};
+context.base64ToInt16=()=>new Int16Array(240);
+context.setState=label=>{els.conversationState.textContent=label;api.thinkingGate.sync();};
+for(const name of ['clearPlayback','playPcm24k','handleServerContent'])vm.runInContext(liveFunction(name),context);
+const audioPacket={modelTurn:{parts:[{inlineData:{mimeType:'audio/pcm',data:'FAKE_PCM'}}]}};
+for(let cycle=0;cycle<10;cycle++){
+  liveState.userSpeaking=false;api.resume();context.clearPlayback();
+  const count=scheduled.length;context.handleServerContent(audioPacket);context.handleServerContent(audioPacket);
+  assert.equal(scheduled.length,count+2,'one source per PCM chunk');assert.equal(liveState.playing.size,2);
+  assert(Math.abs(scheduled.at(-1).at-(scheduled.at(-2).at+.01))<1e-9,'PCM scheduling gap');
+  api.handlePhrase(cycle%2?'silencio':'LOKY silencio');
+  assert.equal(liveState.playing.size,0);assert(scheduled.at(-1).stopped&&scheduled.at(-2).stopped);assert.equal(track.enabled,true,'silence must still hear wake phrase');
+  context.handleServerContent(audioPacket);context.handleServerContent({turnComplete:true});context.handleServerContent(audioPacket);
+  assert.equal(scheduled.length,count+2,'late server PCM must remain muted even after core resets suppression');
+  api.handlePhrase(cycle%2?'háblame':'LOKY háblame');assert.equal(api.silenced,false);
+  context.handleServerContent(audioPacket);assert.equal(scheduled.length,count+3,'resume schedules once');
+  liveState.userSpeaking=true;context.handleServerContent(audioPacket);assert.equal(scheduled.length,count+3,'user interruption must suppress playback');
+  context.handleServerContent({interrupted:true});assert.equal(liveState.playing.size,0);
+  liveState.userSpeaking=false;context.handleServerContent(audioPacket);assert.equal(scheduled.length,count+4,'return to conversation schedules once');
+  context.clearPlayback();context.handleServerContent({turnComplete:true});
+}
+console.log('PASS: 10 silence/wake cycles, late PCM suppression, queue clearing, interruption, contiguous PCM scheduling and no duplicates. Synthetic audio only.');
 console.log('R4F2 settings/memory windows tests PASS');

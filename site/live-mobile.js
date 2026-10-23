@@ -29,6 +29,7 @@
 
   const state={
     desired:false,
+    lifecycle:0,
     activeWs:null,
     pendingWs:null,
     token:null,
@@ -259,10 +260,17 @@
     if(state.audioContext.state!=='running')await state.audioContext.resume();
   }
 
-  async function ensureMic(){
+  function assertLive(lifecycle){
+    if(!state.desired||state.lifecycle!==lifecycle){
+      const error=new Error('LIVE_CANCELLED');error.code='LIVE_CANCELLED';throw error;
+    }
+  }
+
+  async function ensureMic(lifecycle=state.lifecycle){
+    assertLive(lifecycle);
     if(state.mediaStream?.active)return;
     if(!navigator.mediaDevices?.getUserMedia)throw new Error('MIC_UNAVAILABLE');
-    state.mediaStream=await navigator.mediaDevices.getUserMedia({
+    const stream=await navigator.mediaDevices.getUserMedia({
       audio:{
         echoCancellation:true,
         noiseSuppression:true,
@@ -271,6 +279,11 @@
       },
       video:false,
     });
+    if(!state.desired||state.lifecycle!==lifecycle){
+      for(const track of stream.getTracks()){try{track.stop()}catch{}}
+      assertLive(lifecycle);
+    }
+    state.mediaStream=stream;
   }
 
   function startCapture(){
@@ -464,6 +477,7 @@
       state.reconnectTimer=0;
       state.retryAttempt++;
       resumeSession(reason).catch(error=>{
+        if(error?.code==='LIVE_CANCELLED')return;
         console.warn('LOKY resume',error);
         if(state.desired)scheduleRecovery('retry');
       });
@@ -558,6 +572,7 @@
   async function handleSocketMessage(ws,role,raw){
     let message;
     try{message=JSON.parse(await normalizeWsData(raw))}catch{return}
+    if(!state.desired||(role==='active'?state.activeWs!==ws:state.pendingWs!==ws))return;
 
     if(message.setupComplete){
       if(role==='pending')promotePending(ws);
@@ -578,6 +593,7 @@
         state.goAwayTimer=setTimeout(()=>{
           state.goAwayTimer=0;
           resumeSession('goaway').catch(error=>{
+            if(error?.code==='LIVE_CANCELLED')return;
             console.warn('LOKY goaway resume',error);
             scheduleRecovery('goaway-failed');
           });
@@ -621,7 +637,8 @@
     };
   }
 
-  async function openPending(auth,handle=''){
+  async function openPending(auth,handle='',lifecycle=state.lifecycle){
+    assertLive(lifecycle);
     if(state.pendingWs)return state.pendingWs;
     const ws=new WebSocket(`${WS_BASE}?access_token=${encodeURIComponent(auth.token)}`);
     ws.binaryType='arraybuffer';
@@ -629,28 +646,38 @@
 
     await new Promise((resolve,reject)=>{
       let settled=false;
-      state.connectTimer=setTimeout(()=>{
+      const connectTimer=setTimeout(()=>{
         if(settled)return;
         settled=true;
         reject(new Error('LIVE_CONNECT_TIMEOUT'));
       },CONNECT_TIMEOUT_MS);
 
+      state.connectTimer=connectTimer;
+      const clearOwnTimer=()=>{clearTimeout(connectTimer);if(state.connectTimer===connectTimer)state.connectTimer=0;};
+
       ws.onopen=()=>{
         if(settled)return;
         settled=true;
-        clearTimeout(state.connectTimer);
-        state.connectTimer=0;
+        clearOwnTimer();
         resolve();
+      };
+      ws.onclose=()=>{
+        if(settled)return;
+        settled=true;
+        clearOwnTimer();
+        try{assertLive(lifecycle)}catch(error){reject(error);return;}
+        reject(new Error('LIVE_WEBSOCKET_CLOSED'));
       };
       ws.onerror=()=>{
         if(settled)return;
         settled=true;
-        clearTimeout(state.connectTimer);
-        state.connectTimer=0;
+        clearOwnTimer();
         reject(new Error('LIVE_WEBSOCKET_ERROR'));
       };
     });
 
+    assertLive(lifecycle);
+    if(ws.readyState!==WebSocket.OPEN)throw new Error('LIVE_WEBSOCKET_CLOSED');
     attachPendingHandlers(ws);
     ws.send(JSON.stringify(setupPayload(auth.model,handle)));
 
@@ -665,35 +692,45 @@
     return ws;
   }
 
-  async function startSession(){
+  async function startSession(lifecycle=state.lifecycle){
+    assertLive(lifecycle);
     setState('CONECTANDO','Preparando conversación nativa…');
     setBadge('GEMINI LIVE · CONECTANDO',false);
     const auth=await requestToken(true);
-    await openPending(auth,'');
+    assertLive(lifecycle);
+    await openPending(auth,'',lifecycle);
   }
 
   async function resumeSession(reason='resume'){
     if(!state.desired||state.pendingWs)return;
+    const lifecycle=state.lifecycle;
     setState('RECONECTANDO',reason==='goaway'?'Renovando sesión…':'Recuperando conversación…');
     setBadge('RECONECTANDO',false);
 
     const handle=state.resumeHandle;
     try{
       const auth=await requestToken(false);
-      await openPending(auth,handle);
+      assertLive(lifecycle);
+      await openPending(auth,handle,lifecycle);
     }catch(firstError){
+      assertLive(lifecycle);
       const pending=state.pendingWs;
       state.pendingWs=null;
       clearTimers();
       try{pending?.close()}catch{}
       if(!state.desired)throw firstError;
-      const fresh=await requestToken(true);
-      await openPending(fresh,handle);
+      try{
+        const fresh=await requestToken(true);
+        assertLive(lifecycle);
+        await openPending(fresh,handle,lifecycle);
+      }catch(error){assertLive(lifecycle);throw error;}
     }
   }
 
   async function startLive(){
+    if(state.desired)return;
     if(!paired())return refreshActivation();
+    const lifecycle=++state.lifecycle;
     state.desired=true;
     state.resumeHandle='';
     state.retryAttempt=0;
@@ -704,12 +741,17 @@
     resetAttention();
     if(ui.me)ui.me.textContent='—';
     if(ui.loky)ui.loky.textContent='—';
-    await primeAudio();
-    await ensureMic();
-    await startSession();
+    try{
+      await primeAudio();
+      assertLive(lifecycle);
+      await ensureMic(lifecycle);
+      assertLive(lifecycle);
+      await startSession(lifecycle);
+    }catch(error){assertLive(lifecycle);throw error;}
   }
 
   function stopLive(){
+    state.lifecycle++;
     state.desired=false;
     state.setupReady=false;
     state.resumeHandle='';
@@ -738,6 +780,7 @@
   }
 
   function failStart(error){
+    if(error?.code==='LIVE_CANCELLED')return;
     console.error('LOKY Live',error);
     state.desired=false;
     state.setupReady=false;
