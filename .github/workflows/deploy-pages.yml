@@ -67,7 +67,7 @@ jobs:
           test "$(git rev-parse HEAD:site/live-mobile.js)" = "f28a58275661f8513e9e3b29911c62f51e04bd28"
           test "$(git rev-parse HEAD:site/sphere-mobile.js)" = "9550b79c231527cc4e659f15ce35a8d3bb973380"
           test "$(git rev-parse HEAD:site/ios-audio-stability.js)" = "d8254b160719a647fc07164a96f3955d8b268bfd"
-          test "$(git rev-parse HEAD:site/app.js)" = "1f635fdda78933dda2fa0b66d3c4bef41768ffc7"
+          test "$(git rev-parse HEAD:site/app.js)" = "5fd085fb0f6ef9ecd7f9c15e3a0d272484a865e3"
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "f7314f4e0dab972697059337b838becd11f8c5f8"
           test "$(git rev-parse HEAD:site/mobile.css)" = "b4eff4577685dce6b07867cc040d4b8369be2a51"
           test "$(git rev-parse HEAD:site/mobile-noise-guard.js)" = "c632c64738c0bb34d7e372d28a5532d238b23398"
@@ -76,11 +76,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "a736db7b645c0166d4c382719afc06ab7e9f9eb6"
+          test "$(git rev-parse HEAD:site/index.html)" = "1a4ce2f1053a87b255df6f75f6f4dc8c35c279d2"
           test "$(git rev-parse HEAD:site/mobile-seismic.js)" = "6acbdcad502f1313a5af5ae2d675ba23340d38d9"
           test "$(git rev-parse HEAD:site/mobile-earth-reference.js)" = "e09bc1c27548fc520229e856de22139107ed0ab1"
           test "$(git rev-parse HEAD:site/mobile-settings-plus.js)" = "82723f1c591ce5c7137098edb0431778622d5fa5"
-          test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
+          test "$(git rev-parse HEAD:site/sw.js)" = "c9a6b9640defb6164864de004e4875c120585e82"
           if test -e site/mobile-continent-detail.js; then exit 1; fi
           grep -F '<script src="./mobile-settings-plus.js?v=0.3.2r4f5"></script>' site/index.html
           grep -F '<script src="./mobile-planner.js?v=0.3.2r4f8"></script>' site/index.html
@@ -93,7 +93,7 @@ jobs:
           grep -F "const PRECOMPILED_URL='./earth-geometry-r4f6.json'" site/mobile-earth-reference.js
           grep -F 'function scheduleWarmGeometry(' site/mobile-earth-reference.js
           grep -F 'scheduleWarmGeometry();' site/mobile-earth-reference.js
-          grep -F "const VERSION='loky-pc4-mobile-ios-0.3.2-r4f9r1'" site/sw.js
+          grep -F "const VERSION='loky-pc4-mobile-ios-0.3.2-mascota-m2'" site/sw.js
           grep -F 'mobile-settings-plus\.js' site/sw.js
           grep -F 'mobile-background-alarm\.js' site/sw.js
           grep -F 'mobile-seismic\.js' site/sw.js
@@ -141,6 +141,9 @@ jobs:
         run: |
           set -euo pipefail
           node --check site/sphere-mobile.js
+          node --check site/pet-renderer.js
+          node --check site/pet-commands.js
+          node --check site/pet-mobile.js
           node --check site/app.js
           node --check site/live-mobile.js
           node --check site/ios-audio-stability.js
@@ -236,8 +239,8 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
-          test "$(git rev-parse HEAD:site/index.html)" = "a736db7b645c0166d4c382719afc06ab7e9f9eb6"
-          test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
+          test "$(git rev-parse HEAD:site/index.html)" = "1a4ce2f1053a87b255df6f75f6f4dc8c35c279d2"
+          test "$(git rev-parse HEAD:site/sw.js)" = "c9a6b9640defb6164864de004e4875c120585e82"
           grep -F "const VERSION='0.3.2R4F9-cloud-background-alarms'" site/mobile-background-alarm.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-push'" site/mobile-background-alarm.js
           grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-background-alarm.js
@@ -261,9 +264,9 @@ jobs:
           test "$(git rev-parse HEAD:site/live-mobile.js)" = "f28a58275661f8513e9e3b29911c62f51e04bd28"
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-background-alarm.js)" = "b1f9a26e73511d6e3229305f371507ab80a6d539"
-          test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
+          test "$(git rev-parse HEAD:site/sw.js)" = "c9a6b9640defb6164864de004e4875c120585e82"
           test "$(git rev-parse HEAD:site/mobile-web-search.js)" = "be2dfce56a7af5e1abbb4f2277a635ac16c03c38"
-          test "$(git rev-parse HEAD:site/index.html)" = "a736db7b645c0166d4c382719afc06ab7e9f9eb6"
+          test "$(git rev-parse HEAD:site/index.html)" = "1a4ce2f1053a87b255df6f75f6f4dc8c35c279d2"
           grep -F "const VERSION='0.3.2R4F10R3-turn-safe-search'" site/mobile-web-search.js
           grep -F "const ENDPOINT='https://novgwydgcvlboujnmygq.supabase.co/functions/v1/loky-pc4-mobile-search'" site/mobile-web-search.js
           grep -F "const DEVICE_KEY='loky_pc4_device_capability_v1'" site/mobile-web-search.js
@@ -292,7 +295,7 @@ jobs:
           grep -F "label==='PENSANDO'" site/sphere-mobile.js
           grep -F 'uniform float uMotion;' site/sphere-mobile.js
           grep -F 'uniform float uState;' site/sphere-mobile.js
-          grep -F '<script src="./sphere-mobile.js?v=0.3.2r4f10r3r1"></script>' site/index.html
+          grep -F '<script src="./pet-renderer.js"></script>' site/index.html
           grep -F '<script src="./live-mobile.js?v=0.3.2r4f10r3"></script>' site/index.html
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|speechSynthesis|navigator\.geolocation' site/mobile-web-search.js; then exit 1; fi
           if grep -E -q 'new[[:space:]]+WebSocket|getUserMedia[[:space:]]*\(|fetch[[:space:]]*\(' site/sphere-mobile.js; then exit 1; fi
@@ -306,7 +309,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-planner.js)" = "ffc8a6035276a085460807dba396927aa44ed1cc"
           test "$(git rev-parse HEAD:site/mobile-features.js)" = "f7314f4e0dab972697059337b838becd11f8c5f8"
           test "$(git rev-parse HEAD:site/mobile-actions.js)" = "5803be78d341cbeff06a7e45f608bc80c51193c8"
-          test "$(git rev-parse HEAD:site/index.html)" = "a736db7b645c0166d4c382719afc06ab7e9f9eb6"
+          test "$(git rev-parse HEAD:site/index.html)" = "1a4ce2f1053a87b255df6f75f6f4dc8c35c279d2"
           grep -F "const VERSION='0.3.2R4F11R6-timer-delete'" site/mobile-actions.js
           grep -F 'new MutationObserver(scheduleFromTranscript)' site/mobile-actions.js
           grep -F 'state?.transcriptBuffer' site/mobile-actions.js
@@ -349,7 +352,7 @@ jobs:
           test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "463784a9deed990165c3aa5585aff741a583b71b"
           test "$(git rev-parse HEAD:site/language-avatar.webp)" = "9119b39fcc21891bb95d5f3f95b57444277723f6"
           test "$(git cat-file -s HEAD:site/language-avatar.webp)" -gt 10000
-          test "$(git rev-parse HEAD:site/index.html)" = "a736db7b645c0166d4c382719afc06ab7e9f9eb6"
+          test "$(git rev-parse HEAD:site/index.html)" = "1a4ce2f1053a87b255df6f75f6f4dc8c35c279d2"
           grep -F "const VERSION='0.3.2R4F12R6R1-language-session-isolated'" site/mobile-language-tutor.js
           grep -F "const STORE_KEY='loky_pc4_language_tutor_v1'" site/mobile-language-tutor.js
           grep -F "const AVATAR_URL='./language-avatar.webp?v=0.3.2r4f12r1'" site/mobile-language-tutor.js
@@ -412,9 +415,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:site/index.html)" = "a736db7b645c0166d4c382719afc06ab7e9f9eb6"
+          test "$(git rev-parse HEAD:site/index.html)" = "1a4ce2f1053a87b255df6f75f6f4dc8c35c279d2"
           test "$(git rev-parse HEAD:site/mobile-language-tutor.js)" = "463784a9deed990165c3aa5585aff741a583b71b"
-          test "$(git rev-parse HEAD:site/sw.js)" = "17a9b05710f48efcf5325c81016450324ab94884"
+          test "$(git rev-parse HEAD:site/sw.js)" = "c9a6b9640defb6164864de004e4875c120585e82"
           test "$(git rev-parse HEAD:site/mobile-language-avatar-owner3d.js)" = "7cc6d86d5caeb23d87ab7bed6de326beb4a5b25e"
           grep -F '<script src="./mobile-language-avatar-owner3d.js?v=0.3.2r4f12r8r15"></script>' site/index.html
           grep -F '<script src="./mobile-language-tutor.js?v=0.3.2r4f12r6r1"></script>' site/index.html
@@ -495,6 +498,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node .github/tests/mobile-pet-preview.test.cjs
           node .github/tests/ios032r4-pc4-conversation-port.test.cjs
           node .github/tests/ios032r4f10r3-turn-safe-sphere-reactive.test.cjs
           node .github/tests/ios032r4f2-settings-memory-windows.test.cjs

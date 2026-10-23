@@ -12,22 +12,8 @@
 
   buildLabel.textContent=`iOS ${BUILD} · GEMINI LIVE NATIVE`;
 
-  let sphere=null;
-  try{
-    sphere=new window.LokyMobileSphere.MobileSphere(document.getElementById('lokySphere'));
-    sphere.init();
-    sphere.start();
-    status.textContent='SPHERE · 15K';
-  }catch(error){
-    console.error(error);
-    status.textContent='VISUAL FALLBACK';
-    fallback.classList.remove('hidden');
-  }
-
-  addEventListener('loky:sphere-quality',event=>{
-    const count=event.detail?.count||0;
-    if(count)status.textContent=`SPHERE · ${Math.round(count/1000)}K ADAPTIVE`;
-  });
+  // Pet rendering is owned by pet-renderer.js; retain the PWA/update shell.
+  const sphere=null;
 
   function setSheet(open){
     statusSheet.classList.toggle('hidden',!open);

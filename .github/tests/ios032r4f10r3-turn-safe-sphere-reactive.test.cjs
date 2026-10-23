@@ -26,7 +26,9 @@ for(const needle of [
   "*0.028;",
 ]) assert(sphere.includes(needle),`missing sphere contract: ${needle}`);
 
-assert(index.includes('<script src="./sphere-mobile.js?v=0.3.2r4f10r3r1"></script>'));
+// The original sphere source stays frozen; the M2 screen uses the pet instead.
+assert(!index.includes('<script src="./sphere-mobile.js'));
+assert(index.includes('<script src="./pet-renderer.js"></script>'));
 assert(index.includes('<script src="./live-mobile.js?v=0.3.2r4f10r3"></script>'));
 
 assert(live.includes("const VERSION='0.3.2R4-pc4-conversation-port'"));

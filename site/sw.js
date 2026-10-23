@@ -1,7 +1,8 @@
-const VERSION='loky-pc4-mobile-ios-0.3.2-r4f9r1';
+const VERSION='loky-pc4-mobile-ios-0.3.2-mascota-m2';
 const CACHE=`${VERSION}-shell`;
 const SHELL=[
-  './','./index.html','./mobile.css','./sphere-mobile.js','./app.js','./live-mobile.js',
+  './','./index.html','./mobile.css','./pet-mobile.css','./pet-commands.js','./pet-renderer.js','./pet-mobile.js',
+  './pet-assets/manifest.json','./pet-assets/reposo.webp','./pet-assets/room-mobile.webp','./app.js','./live-mobile.js',
   './ios-audio-stability.js','./mobile-features.js','./mobile-settings-plus.js','./mobile-background-alarm.js',
   './mobile-noise-guard.js','./mobile-seismic.js','./mobile-earth-reference.js',
   './earth-geometry-r4f6.json','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-512.png'
@@ -38,7 +39,7 @@ self.addEventListener('fetch',event=>{
 
   const runtimeAsset=
     event.request.mode==='navigate'||
-    /\/(index\.html|app\.js|live-mobile\.js|ios-audio-stability\.js|sphere-mobile\.js|mobile-features\.js|mobile-settings-plus\.js|mobile-background-alarm\.js|mobile-noise-guard\.js|mobile-seismic\.js|mobile-earth-reference\.js|earth-geometry-r4f6\.json|mobile\.css|version\.json|manifest\.webmanifest)$/.test(url.pathname);
+    /\/(index\.html|pet-mobile\.css|pet-commands\.js|pet-renderer\.js|pet-mobile\.js|app\.js|live-mobile\.js|ios-audio-stability\.js|sphere-mobile\.js|mobile-features\.js|mobile-settings-plus\.js|mobile-background-alarm\.js|mobile-noise-guard\.js|mobile-seismic\.js|mobile-earth-reference\.js|earth-geometry-r4f6\.json|mobile\.css|version\.json|manifest\.webmanifest)$/.test(url.pathname);
 
   if(runtimeAsset){
     event.respondWith(networkFirst(event.request));

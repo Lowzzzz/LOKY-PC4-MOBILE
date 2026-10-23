@@ -2,41 +2,32 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=5">
   <meta name="theme-color" content="#06111b">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LOKY PC4">
   <meta name="format-detection" content="telephone=no">
-  <title>LOKY PC4 Mobile</title>
+  <title>LOKY PC4 Mobile iOS</title>
+
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-180.png">
   <link rel="stylesheet" href="./mobile.css">
+  <link rel="stylesheet" href="./pet-mobile.css">
 </head>
-<body>
+<body class="pet-candidate" data-pet-mode="integrated">
   <main id="app" class="app-shell" aria-label="LOKY PC4 Mobile iOS">
     <header class="topbar">
-      <div class="brand">
-        <span class="brand-dot" aria-hidden="true"></span>
-        <span>LOKY PC4</span>
-      </div>
-      <div id="status" class="status" aria-live="polite">READY</div>
+      <div class="brand"><span class="paw" aria-hidden="true"><svg viewBox="0 0 32 32"><ellipse cx="7" cy="11" rx="3.5" ry="4.8" transform="rotate(-25 7 11)"/><ellipse cx="13" cy="6" rx="3.3" ry="4.5"/><ellipse cx="21" cy="7" rx="3.3" ry="4.5" transform="rotate(15 21 7)"/><ellipse cx="27" cy="13" rx="3.3" ry="4.5" transform="rotate(30 27 13)"/><path d="M8 25c-2-5 4-13 9-12s11 9 8 13c-2 3-5 0-8 0s-7 3-9-1Z"/></svg></span><div><strong>LOKY</strong><small id="petConnection">VISTA PREVIA</small></div></div>
+      <button id="petMenuButton" class="glass-button" aria-label="Abrir menú" aria-expanded="false" aria-controls="petMenu">☰</button>
     </header>
-
-    <section class="stage" aria-label="Esfera LOKY">
-      <div class="cosmic-background" aria-hidden="true">
-        <div class="nebula"></div>
-        <div class="stars"></div>
-        <div class="stars soft"></div>
-      </div>
-      <div class="sphere-wrap">
-        <canvas id="lokySphere" aria-label="Esfera de partículas LOKY PC4"></canvas>
-        <div class="orbital-ring ring-a" aria-hidden="true"></div>
-        <div class="orbital-ring ring-b" aria-hidden="true"></div>
-      </div>
-      <div id="fallback" class="fallback hidden" role="status">GPU visual no disponible.</div>
+    <section class="stage pet-stage" aria-label="Habitación de LOKY">
+      <div class="room" aria-hidden="true"></div>
+      <span class="preview-tag">TU COMPAÑERO</span>
+      <canvas id="mobilePet" tabindex="0" role="button" aria-label="LOKY: toca para saludar o arrastra para mover"></canvas>
+      <p id="petStatus" role="status">Preparando a LOKY…</p>
     </section>
-
+    <section class="welcome"><span>UN RATITO CONTIGO</span><h1>¡Qué bueno verte!</h1><p>Estoy aquí para ti.</p></section>
     <section class="conversation-shell" aria-label="Conversación LOKY">
       <div class="conversation-head">
         <div class="conversation-copy">
@@ -55,8 +46,10 @@
         <button id="activateButton" class="activate-button" type="button">ACTIVAR</button>
       </div>
 
+      <button id="petConnect" class="pet-connect" type="button">Hablar con LOKY</button>
       <button id="talkButton" class="talk-button hidden" type="button" data-active="0">HABLAR CON LOKY</button>
 
+      <div class="pet-quick"><button id="petSilence" class="glass-button" type="button" aria-pressed="false">Silencio</button><button id="petStop" class="glass-button" type="button">Detener</button></div>
       <div class="transcript-grid" aria-live="polite">
         <div class="transcript-line"><span>TÚ</span><p id="userTranscript">—</p></div>
         <div class="transcript-line"><span>LOKY</span><p id="lokyTranscript">—</p></div>
@@ -71,7 +64,7 @@
     <aside id="statusSheet" class="status-sheet hidden" aria-label="Estado de LOKY PC4 Mobile">
       <button id="closeSheet" class="sheet-close" type="button" aria-label="Cerrar">×</button>
       <div class="sheet-title">LOKY PC4 MOBILE</div>
-      <div class="sheet-row"><span>Visual</span><strong>SPHERE 15K · PROTEGIDA</strong></div>
+      <div class="sheet-row"><span>Visual</span><strong>MASCOTA M2</strong></div>
       <div class="sheet-row"><span>Cloud</span><strong>GITHUB PAGES</strong></div>
       <div class="sheet-row"><span>Versión</span><strong>iOS 0.3.2</strong></div>
       <div class="sheet-row"><span>Conversación</span><strong>GEMINI LIVE NATIVO</strong></div>
@@ -81,8 +74,9 @@
     <div id="sheetBackdrop" class="sheet-backdrop hidden" aria-hidden="true"></div>
   </main>
 
-  <script src="./sphere-mobile.js?v=0.3.2r4f10r3r1"></script>
-  <script src="./app.js?v=0.3.2"></script>
+
+
+  <script src="./app.js?v=0.3.2-mascota-m2"></script>
   <script src="./live-mobile.js?v=0.3.2r4f10r3"></script>
   <script src="./ios-audio-stability.js?v=0.3.2"></script>
   <script src="./mobile-features.js?v=0.3.2r4f1"></script>
@@ -96,5 +90,13 @@
   <script src="./mobile-noise-guard.js?v=0.3.2r4f2r1"></script>
   <script src="./mobile-seismic.js?v=0.3.2r4f3"></script>
   <script src="./mobile-earth-reference.js?v=0.3.2r4f6"></script>
+  <dialog id="petMenu" aria-labelledby="petMenuTitle">
+    <header><div><span class="eyebrow">LOKY MOBILE</span><h2 id="petMenuTitle">Tu espacio</h2></div><button id="petMenuClose" class="glass-button" aria-label="Cerrar menú">✕</button></header>
+    <nav aria-label="Secciones"><button data-tab="actions" aria-selected="true">Mascota</button><button data-tab="care">Cuidados</button><button data-tab="store">Tienda</button><button data-tab="tools">Funciones</button></nav>
+    <div id="petMenuContent"></div>
+  </dialog>
+  <script src="./pet-commands.js"></script>
+  <script src="./pet-renderer.js"></script>
+  <script src="./pet-mobile.js"></script>
 </body>
 </html>
