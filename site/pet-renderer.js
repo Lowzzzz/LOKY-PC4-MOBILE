@@ -9,6 +9,9 @@ let manifest,loaded=false,images={},clip='reposo',position=0,direction=1,pending
 let nextPaint=0,walkElapsed=0,walkOffset=0,walkPending=false,actionReceipt=null;const timings=[];
 let loadEpoch=0;const loading={};
 const isWalk=name=>name==='caminar'||name.startsWith('caminar_');
+// Playback-only candidate: keep the atlas data and 30 Hz paint budget unchanged.
+const playbackRate=name=>isWalk(name)?1.18:name==='saludar'?1.2:manifest?.clips[name]?.kind==='turn'?1.35:1;
+const frameRate=name=>(manifest.clips[name].fps||manifest.fps*1.15)*playbackRate(name);
 const turnFor=name=>name==='caminar'?'giro_derecha':name==='caminar_abajo'?null:isWalk(name)?'giro_'+name.slice(8):null;
 async function loadClips(names){
   const fresh=[];
@@ -50,6 +53,7 @@ api.onWalkFrame?.(value=>{
 });
 async function choose(value){
   if(!manifest?.clips[value])return;
+  if(value===clip&&manifest.clips[value].loop&&!pending)return;
   const epoch=++loadEpoch,oldTurn=turnFor(clip),newTurn=turnFor(value);
   try{await loadClips([value,oldTurn,newTurn]);}catch{if(actionReceipt){api.actionResult?.({...actionReceipt,ok:false});actionReceipt=null;}return;}
   if(epoch!==loadEpoch)return;
@@ -134,7 +138,7 @@ function draw(){
   ctx.setTransform(scale,0,0,scale,0,0);ctx.clearRect(0,0,320,320);ctx.translate(walkOffset,0);
   if(!images[clip])return;
   const tile=n=>ctx.drawImage(images[clip],(n%spec.columns)*size,Math.floor(n/spec.columns)*size,size,size,0,0,320,320);
-  if(isWalk(clip)){ctx.globalAlpha=1-fraction;tile(i);ctx.globalCompositeOperation='lighter';ctx.globalAlpha=fraction;tile(j);ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;}else tile(i);
+  if(isWalk(clip)||clip==='saludar'||spec.kind==='turn'){ctx.globalAlpha=1-fraction;tile(i);ctx.globalCompositeOperation='lighter';ctx.globalAlpha=fraction;tile(j);ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;}else tile(i);
   if(!points.length)return;
   paintFace(clock);
   ctx.globalAlpha=faceAlpha;
@@ -149,8 +153,8 @@ function draw(){
 }
 function render(now){const begin=performance.now();draw();timings.push({at:now,cost:performance.now()-begin,clip});if(timings.length>300)timings.shift();}
 function tick(now){
-  if(!paused&&!document.hidden&&manifest){const dt=Math.min(.04,(now-(last||now))/1000);clock+=dt;window.LokyPetMotion?.step(dt,isWalk(clip));
-    if(isWalk(clip)){walkElapsed+=dt;position=(walkElapsed*(manifest.clips[clip].fps||manifest.fps))%manifest.clips[clip].count;}else position+=dt*(manifest.clips[clip].fps||manifest.fps*1.15)*direction;
+  if(!paused&&!document.hidden&&manifest){const dt=Math.max(0,Math.min(.1,(now-(last||now))/1000));clock+=dt;window.LokyPetMotion?.step(dt,isWalk(clip));
+    if(isWalk(clip)){walkElapsed+=dt;position=(walkElapsed*frameRate(clip))%manifest.clips[clip].count;}else position+=dt*frameRate(clip)*direction;
     const spec=manifest.clips[clip];
     if(direction<0&&position<=0){const target=pending||'reposo';position=0;clip='reposo';pending=null;choose(target);}
     else if(position>=spec.count){if(spec.loop)position%=spec.count;else if(spec.kind==='turn')start(pending||'reposo');else if(clip==='saludar'||spec.kind==='gesture')start('reposo');else position=spec.count-1;}

@@ -6,13 +6,13 @@
   const status=$('petStatus'),activation=$('activationPanel');
   const integrated=document.body.dataset.petMode==='integrated';
   const parking=document.createElement('div');parking.hidden=true;document.body.append(parking);parking.append(activation);
-  let x=0,y=0,vector=null,lastVector=[1,0],speed=28,target=null,drag=null,epoch=0,expressionDemo=null,demoTimer=0;
+  let x=0,y=0,vector=null,lastVector=[1,0],speed=33.04,motionSpeed=0,target=null,drag=null,epoch=0,expressionDemo=null,demoTimer=0;
   let initialized=false,lastState='',lastStatus='',tab='actions';
   const labels={reposo:'En reposo',sentarse:'Sentado',saludar:'¡Hola!',caminar:'Paseando',inclinar:'Con curiosidad',asentir:'¡Sí!',negar:'Un gesto de no',patita:'Aquí está mi patita'};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  function bounds(){const vertical=canvas.clientHeight*.37;const low=24-stage.clientHeight*.65+vertical;const high=stage.clientHeight*.35-24-vertical;return {x:Math.max(0,stage.clientWidth/2-canvas.clientWidth*.36-10),yMin:low>high?(low+high)/2:Math.min(0,low),yMax:low>high?(low+high)/2:high};}
+  function bounds(animation=pet.inspect().clip){const vertical=canvas.clientHeight*.37;const low=24-stage.clientHeight*.65+vertical;const high=stage.clientHeight*.35-24-vertical;const footprint=(animation==='saludar'||animation==='patita')?.34:.26;return {x:Math.max(0,stage.clientWidth/2-canvas.clientWidth*footprint-10),yMin:low>high?(low+high)/2:Math.min(0,low),yMax:low>high?(low+high)/2:high};}
   function home(){const b=bounds();return [0,clamp(0,b.yMin,b.yMax)];}
-  function place(){const b=bounds();x=clamp(x,-b.x,b.x);y=clamp(y,b.yMin,b.yMax);canvas.style.transform=`translate(${x}px,${y}px)`;canvas.dataset.x=x.toFixed(2);canvas.dataset.y=y.toFixed(2);}
+  function place(animation){const b=bounds(typeof animation==='string'?animation:undefined);x=clamp(x,-b.x,b.x);y=clamp(y,b.yMin,b.yMax);canvas.style.transform=`translate(${x}px,${y}px)`;canvas.dataset.x=x.toFixed(2);canvas.dataset.y=y.toFixed(2);}
   function announce(text){if(text!==lastStatus){status.textContent=text;lastStatus=text;}const feedback=$('petFeedback');if(feedback)feedback.textContent=text;}
   function resolveState(){
     if(features?.silenced)return 'SILENCED';
@@ -33,11 +33,11 @@
     if(lastState!==state){lastState=state;if(state==='SILENCED')announce('En silencio · toca Volver a hablar');else if(state==='LISTENING')announce('Te escucho');else if(state==='THINKING')announce('Estoy pensando…');else if(state==='SPEAKING')announce('Hablando contigo');else if(state==='IDLE'&&initialized)announce('Tócame para saludar · puedes moverme');}
     const info=pet.inspect();canvas.dataset.clip=info.clip;canvas.dataset.frame=String(Math.floor(info.position));canvas.dataset.renderFps=info.renderFps.toFixed(1);canvas.dataset.renderCostMax=info.renderCostMax.toFixed(2);canvas.dataset.ready=String(info.ready);
   }
-  function stop(){epoch++;vector=null;target=null;pet.choose('reposo');announce('Me quedo aquí');}
+  function stop(){epoch++;vector=null;motionSpeed=0;target=null;pet.choose('reposo');announce('Me quedo aquí');}
   async function act(action){
     if(!commands.ACTIONS.includes(action))return {executed:false,error:'invalid_action'};
     const current=++epoch;
-    vector=null;target=null;
+    vector=null;motionSpeed=0;target=null;
     await pet.ready;
     if(current!==epoch)return {executed:false,error:'superseded'};
     let clip=action,heading=null;
@@ -50,13 +50,14 @@
     const ok=await pet.choose(clip);
     if(current!==epoch)return {executed:false,error:'superseded'};
     if(!ok){announce('No pude cargar ese movimiento. Inténtalo otra vez.');return {executed:false,error:'asset_unavailable'};}
-    vector=heading;announce(labels[clip]||(heading?'Caminando dentro de la habitación':'Listo'));
+    vector=heading;place(clip);announce(labels[clip]||(heading?'Caminando dentro de la habitación':'Listo'));
     return {executed:true,verified:true,action,clip,evidence:{scope:'mobile_viewport',status:'animation_loaded'}};
   }
   window.LokyPetMotion={step(dt,walking){
     if(!walking||!vector||drag||document.hidden)return;
-    const b=bounds(),nextX=x+vector[0]*speed*dt,nextY=y+vector[1]*speed*dt;
-    if(target&&Math.hypot(target[0]-x,target[1]-y)<=speed*dt+1){x=target[0];y=target[1];place();stop();return;}
+    motionSpeed+=(speed-motionSpeed)*(1-Math.exp(-dt/.12));
+    const b=bounds(),nextX=x+vector[0]*motionSpeed*dt,nextY=y+vector[1]*motionSpeed*dt;
+    if(target&&Math.hypot(target[0]-x,target[1]-y)<=motionSpeed*dt+1){x=target[0];y=target[1];place();stop();return;}
     x=nextX;y=nextY;place();
     if(Math.abs(x-nextX)>.001||Math.abs(y-nextY)>.001)stop();
   }};

@@ -1,4 +1,4 @@
-const VERSION='loky-pc4-mobile-ios-0.3.2-mascota-m2-compact';
+const VERSION='loky-pc4-mobile-ios-0.3.2-mascota-m2-compact-motion1';
 const CACHE=`${VERSION}-shell`;
 const SHELL=[
   './','./index.html','./mobile.css','./pet-mobile.css','./pet-commands.js','./pet-renderer.js','./pet-mobile.js',
