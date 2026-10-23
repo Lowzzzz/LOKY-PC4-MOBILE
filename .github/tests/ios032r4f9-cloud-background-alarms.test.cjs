@@ -33,7 +33,7 @@ assert(!/new\s+WebSocket\s*\(/.test(bg));
 assert(!/LOKY_PC4_LIVE/.test(bg));
 assert(!/speechSynthesis/.test(bg));
 
-assert(sw.includes("const VERSION='loky-pc4-mobile-ios-0.3.2-mascota-m2-compact-motion1'"));
+assert(sw.includes("const VERSION='loky-pc4-mobile-ios-0.3.2-mascota-m2-compact-motion1-actions1'"));
 assert(sw.includes("'./mobile-background-alarm.js'"));
 assert(sw.includes("self.addEventListener('push'"));
 assert(sw.includes("self.registration.showNotification"));

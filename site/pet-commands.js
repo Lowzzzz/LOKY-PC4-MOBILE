@@ -73,6 +73,9 @@ exports.createVoiceCommands=({act,getState,now=Date.now})=>{
     let ownerTurn=turnClosed||!buffer?null:turn;
     while(true){
       if(quiet()||epoch!==ownerEpoch)return unavailable();
+      // A late tool call may ask for the result of the local shortcut after
+      // turnComplete. Return that same recent receipt; never execute it twice.
+      if(receipt&&(ownerTurn===null||ownerTurn===turn)&&now()-receipt.at<=1500)return receipt.action===action?receipt.result:rejected();
       if(closures!==ownerClosures)return rejected();
       if(ownerTurn===null&&!turnClosed&&buffer)ownerTurn=turn;
       if(ownerTurn!==null){
@@ -92,11 +95,12 @@ exports.createVoiceCommands=({act,getState,now=Date.now})=>{
   },receive(payload){
     if(!payload||payload.eventType!=='live-message'){if(payload?.eventType==='live-close'||payload?.eventType==='live-error')reset();return;}
     if(quiet()){reset();return;}
-    const state=getState(),responseStarted=Boolean(payload.outputTranscription||(Array.isArray(payload.audio)&&payload.audio.length));
+    const responseStarted=Boolean(payload.outputTranscription||(Array.isArray(payload.audio)&&payload.audio.length));
     const chunk=typeof payload.inputTranscription==='string'?payload.inputTranscription:'';
     if(payload.interrupted)reset();
     if(chunk){
-      if(state==='SPEAKING'&&(turnClosed||responding||!buffer)&&!payload.interrupted)return;
+      // Native input transcription belongs to the user, even when audio playback
+      // has already changed the UI to SPEAKING. Output text never enters buffer.
       if(turnClosed)begin();
       if(now()-started>8000||buffer.length+chunk.length>160)blocked=true;
       if(!blocked)buffer+=chunk;
