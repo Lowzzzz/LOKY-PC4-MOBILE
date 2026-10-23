@@ -73,7 +73,7 @@
   const grid=()=>{const g=document.createElement('div');g.className='pet-grid';content.append(g);return g;};
   const paragraph=(text,className='')=>{const p=document.createElement('p');p.className=className;p.textContent=text;content.append(p);return p;};
   function closeMenu(){menu.close();$('petMenuButton').setAttribute('aria-expanded','false');$('petMenuButton').focus();}
-  function openMenu(section='actions'){renderTab(section);if(!menu.open)menu.showModal();$('petMenuButton').setAttribute('aria-expanded','true');}
+  function openMenu(section='actions'){if(section==='store'){closeMenu();window.LokyStore?.open();return;}renderTab(section);if(!menu.open)menu.showModal();$('petMenuButton').setAttribute('aria-expanded','true');}
   $('petMenuButton').onclick=()=>openMenu();$('petMenuClose').onclick=closeMenu;
   menu.addEventListener('close',()=>{$('petMenuButton').setAttribute('aria-expanded','false');parking.append(activation);});
   menu.addEventListener('click',event=>{if(event.target===menu){const r=menu.getBoundingClientRect();if(event.clientY<r.top||event.clientX<r.left||event.clientX>r.right)closeMenu();}});
@@ -92,7 +92,7 @@
     }else if(next==='care'){
       paragraph('Un momento para LOKY','eyebrow');const g=grid();actionButton(g,'Descansar sentado','sentarse');actionButton(g,'Dar un paseo','caminar');actionButton(g,'Jugar: dame la patita','patita');actionButton(g,'Volver al reposo','reposo');
       paragraph('Estos botones ejecutan animaciones reales. Alimentación, agua, energía y progreso persistente están pendientes de la integración de cuidados. Esta prueba no cambia estadísticas ni consume puntos.','pet-notice');
-    }else if(next==='store'){renderStore('gestos');}
+    }else if(next==='store'){closeMenu();window.LokyStore?.open();}
     else{
       const g=grid();const open=fn=>()=>{closeMenu();fn?.();};
       g.append(button('Configuración',open(()=>document.querySelector('.feature-settings')?.click())),button('Memorias y agenda',open(()=>document.querySelector('.feature-memory')?.click())),button('Aprender idiomas',open(()=>window.LOKY_PC4_LANGUAGE_TUTOR?.open())),button('Sismos / volver',open(()=>window.LOKY_PC4_SEISMIC?.toggle())),button('Alarmas',open(()=>window.LOKY_PC4_PLANNER?.open('alarm'))),button('Transcripción',()=>showTranscript()));
@@ -101,13 +101,6 @@
     }
   }
   function showTranscript(){parking.append(activation);content.replaceChildren();paragraph('Transcripción de esta sesión');paragraph('Tú: '+$('userTranscript').textContent);paragraph('LOKY: '+$('lokyTranscript').textContent);content.append(button('Volver a funciones',()=>renderTab('tools')));}
-  function renderStore(category){
-    content.replaceChildren();const section=document.createElement('section');section.className='pet-store';section.innerHTML='<div class="store-heading"><strong>LOKY PTS STORE</strong><span>DEMOSTRACIÓN</span></div><p>Explora y prueba. No hay saldo real ni compras en esta versión.</p><div class="store-categories"></div><div class="store-shelf" aria-label="Artículos de ejemplo; desliza horizontalmente"></div>';
-    const categories=section.querySelector('.store-categories');for(const [key,label] of [['gestos','Gestos'],['cuidados','Cuidados'],['closet','Closet']]){const b=button(label,()=>renderStore(key));b.setAttribute('aria-pressed',String(category===key));categories.append(b);}
-    const items=category==='gestos'?[['👋','Un saludo','Animación disponible','saludar'],['🐾','Dar la patita','Animación disponible','patita'],['☺','Curiosidad','Animación disponible','inclinar']]:category==='cuidados'?[['☾','Descanso','Sentarse, sin cambiar energía','sentarse'],['♧','Un paseo','Caminar dentro de Mobile','caminar'],['◉','Alimento','Cuidados aún no integrados',null]]:[['✧','Sin accesorios','Tu mascota original, sin lazos','reposo'],['◇','Accesorios','Catálogo pendiente de integración',null]];
-    for(const [icon,title,description,action] of items){const article=document.createElement('article');article.className='store-item';const art=document.createElement('span');art.className='store-icon';art.textContent=icon;art.setAttribute('aria-hidden','true');const h=document.createElement('h4');h.textContent=title;const p=document.createElement('p');p.textContent=description;const b=button(action?'Probar animación':'No disponible',()=>{closeMenu();act(action);});b.disabled=!action;article.append(art,h,p,b);section.querySelector('.store-shelf').append(article);}
-    content.append(section);paragraph('Artículos de ejemplo. Compras, inventario y cuidados completos todavía no disponibles.','pet-notice');
-  }
   $('petConnect').onclick=()=>openMenu('tools');
   new MutationObserver(sync).observe($('talkButton'),{attributes:true,attributeFilter:['class']});
   new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['class']});
