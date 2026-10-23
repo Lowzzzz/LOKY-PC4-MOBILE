@@ -28,7 +28,7 @@ assert(!/getUserMedia\s*\(/.test(earth));
 assert(!/new\s+WebSocket\s*\(/.test(earth));
 assert(!/LOKY_PC4_LIVE/.test(earth));
 
-assert(sw.includes("const VERSION='loky-pc4-mobile-ios-0.3.2-mascota-m2'"));
+assert(sw.includes("const VERSION='loky-pc4-mobile-ios-0.3.2-mascota-m2-compact'"));
 for(const name of [
   'mobile-features.js','mobile-settings-plus.js','mobile-noise-guard.js',
   'mobile-seismic.js','mobile-earth-reference.js','earth-geometry-r4f6.json'
