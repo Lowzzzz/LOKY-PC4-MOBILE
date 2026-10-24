@@ -1,0 +1,72 @@
+/* Lightweight Mobile panels; existing functions and handlers remain intact. */
+:root{--nav-line:rgba(112,205,240,.38);--nav-glass:linear-gradient(135deg,rgba(63,129,173,.18),rgba(15,38,60,.34));--nav-bg:radial-gradient(ellipse at 0 0,rgba(23,63,101,.34),transparent 68%),rgba(7,24,44,.82);--nav-top:max(24px,env(safe-area-inset-top));--nav-bottom:max(24px,env(safe-area-inset-bottom))}
+#petMenu.nav-frame,#lokyStore,.nav-native.nav-frame,.nav-language.nav-frame{position:fixed;inset:0;margin:auto;box-sizing:border-box;width:min(calc(100vw - 24px),430px);height:calc(100dvh - var(--nav-top) - var(--nav-bottom));max-width:none;max-height:none;padding:0;border:1px solid var(--nav-line);border-radius:22px;background:var(--nav-bg);color:#f4f8ff;box-shadow:0 14px 45px #0006,inset 0 1px 0 #b6e8ff14;overflow:hidden;transform:none;font-family:system-ui,sans-serif;transition:opacity 120ms ease}
+#petMenu.nav-frame[open],#lokyStore[open]{display:flex;flex-direction:column}
+#petMenu.nav-frame::backdrop,#lokyStore::backdrop{background:rgba(2,10,22,.38);backdrop-filter:none;-webkit-backdrop-filter:none}
+#petMenu .nav-header,.nav-native .nav-native-header{height:56px;min-height:56px;flex:none;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:3px;margin:0;padding:0 8px;border:0;border-bottom:1px solid #70cdf01f;background:none;position:relative}
+.nav-brand,.nav-brand[hidden],#petMenu .eyebrow,#petMenu nav[hidden]{display:none!important}
+#petMenu .nav-header>div:not(.nav-brand){grid-column:2;grid-row:1;min-width:0}
+#petMenu .nav-title h2,.nav-native .loky-window-brand-copy strong{margin:0;text-align:center;color:#f4f8ff;font:600 clamp(20px,5.5vw,22px)/1.2 system-ui;letter-spacing:-.02em}
+.nav-back,#petMenu .nav-back,.nav-native .loky-window-back{grid-column:1;grid-row:1;position:static;min-width:44px;width:44px;min-height:44px;height:44px;border:0!important;border-radius:12px;background:none!important;box-shadow:none!important;color:#a4d5ec;font:500 24px system-ui;padding:0;white-space:nowrap;overflow:hidden;text-align:left}
+#petMenuClose,.nav-close,#lokyStore .pts-header [data-action=close]{grid-column:3;grid-row:1;position:static;width:44px!important;min-width:44px!important;height:44px;min-height:44px!important;padding:0;border:0!important;border-radius:12px!important;background:none!important;box-shadow:none!important;color:#c9e8f6;font:300 29px/1 system-ui}
+#petMenuContent{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:16px;scrollbar-width:thin}
+.nav-home-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-content:start}
+#petMenu .nav-card,#petMenu .nav-row{border:1px solid var(--nav-line);border-radius:22px;background:var(--nav-glass);box-shadow:inset 0 1px 0 #c8eeff0c,0 5px 16px #0002;color:#f4f8ff;font:500 16px system-ui;min-height:44px;cursor:pointer}
+#petMenu .nav-card{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;padding:12px}
+.nav-icon{width:42px;height:42px;fill:none;stroke:#8be0f8;stroke-width:3;stroke-linejoin:round;stroke-linecap:round;filter:none;flex:none}
+.nav-settings-list{display:flex;flex-direction:column;gap:10px}
+#petMenu .nav-row{height:72px;min-height:72px;display:flex;align-items:center;gap:14px;padding:10px 16px;text-align:left;border-radius:18px}
+.nav-row .nav-icon{width:28px;height:28px}.nav-chevron{margin-left:auto;color:#a4d5ec;font-size:23px;font-weight:400}.nav-value{display:block;margin-top:3px;font-size:12px;color:#a4d5ec;font-weight:400}
+#petMenu nav{flex:none;margin:8px 12px 0}#petMenu nav button{min-height:44px}#petMenu .pet-grid button{min-height:44px;background:var(--nav-glass);border-color:var(--nav-line);font-size:13px}
+#petMenuContent p{font-size:13px;line-height:1.5;color:#a4d5ec}#petMenuContent input{min-height:44px}
+body.loky-window-open .app-shell{transform:none}
+.nav-native.nav-frame{display:flex;flex-direction:column;z-index:1000}.nav-native.nav-frame:before{display:none}
+.nav-native .loky-window-brand{grid-row:1;grid-column:2;text-align:center;display:block}.nav-native .loky-window-brand-dot,.nav-native .loky-window-brand-copy span,.nav-native .loky-window-spacer{display:none}
+.nav-native .loky-feature-content{flex:1;min-height:0;padding:16px;overflow:auto;display:grid;align-content:start;gap:12px}
+.nav-native .loky-dash-card,.nav-native .loky-settings-card,.nav-native .loky-device-control,.nav-native .loky-device-manage{background:var(--nav-glass);border:1px solid var(--nav-line);border-radius:18px;box-shadow:none}
+.nav-native button{min-height:44px}.nav-native .loky-dash-copy strong,.nav-native .loky-settings-card strong{font-size:14px;letter-spacing:0;color:#f4f8ff}.nav-native .loky-dash-copy span{font-size:12px;line-height:1.4;color:#a4d5ec}.nav-native .loky-mode-chip,.nav-native .loky-dash-open{font-size:11px}.nav-native .loky-dash-meta{font-size:10px}
+.nav-native .loky-settings-modal-card{background:var(--nav-bg);border:1px solid var(--nav-line);border-radius:20px;max-height:90%;overflow:auto}
+.nav-native .loky-planner-screen{position:absolute;inset:56px 0 0;border-radius:0;background:var(--nav-bg);overflow:auto;padding:12px}
+.nav-native .loky-planner-screen button,.nav-native .loky-planner-screen input{min-height:44px;font-size:12px}
+.nav-language.nav-frame{z-index:1000}.nav-language .loky-language-top{min-height:56px;align-items:center;padding:0 8px;grid-template-columns:44px minmax(0,1fr) 44px}.nav-language .loky-language-back{min-height:44px;padding:0;font-size:20px;background:none;border:0}.nav-language .nav-close{grid-column:3}.nav-language .loky-language-settings:not([hidden]){position:absolute;right:12px;top:65px;min-height:44px;z-index:8}.nav-language .loky-language-heading strong{font-size:18px}.nav-language .loky-language-config{max-height:calc(100% - 70px)}
+/* Store presentation only: original balances, products and transaction handlers. */
+#lokyStore .pts-room{display:none}
+#lokyStore .pts-header{height:100px;min-height:100px;flex:none;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;grid-template-rows:56px 36px;align-items:center;justify-items:center;gap:0;padding:0 8px;margin:0;border:0}
+#lokyStore .pts-header h2{grid-column:2;grid-row:1;display:block;white-space:nowrap;margin:0;font:600 clamp(17px,5vw,21px)/1.2 system-ui;letter-spacing:-.02em;color:#f4f8ff}
+#lokyStore .pts-header h2 b,#lokyStore .pts-header h2 small{font:inherit;text-shadow:none;letter-spacing:inherit}#lokyStore .pts-paw{display:none}
+#lokyStore .pts-header .pts-back{grid-column:1;grid-row:1;position:static;width:44px!important;min-width:44px!important;height:44px;min-height:44px!important;overflow:hidden;padding:0;background:none!important;box-shadow:none!important;border:0!important;border-radius:12px!important;font-size:24px;text-align:left;color:#a4d5ec}
+#lokyStore .pts-balance{grid-column:2;grid-row:2;margin:0;padding:6px 16px;background:var(--nav-glass);border:1px solid var(--nav-line);font-size:13px;color:#c4ecff}
+#lokyStore .pts-test{flex:none;margin:0 12px 8px;font-size:9px;color:#a4d5ec;letter-spacing:0}
+#lokyStore .pts-tabs{flex:none;display:flex;gap:8px;padding:0 16px 12px}
+#lokyStore .pts-tabs button{min-height:62px;padding:6px 3px;font-size:13px;border:1px solid var(--nav-line)!important;border-radius:16px;background:var(--nav-glass)!important;box-shadow:none!important;gap:2px}
+#lokyStore .pts-tabs [aria-pressed=true]{background:linear-gradient(#21caf3,#0786bd)!important;border-color:#6be1ff!important;color:#03273c}
+#lokyStore .pts-tabs svg,#lokyStore .pts-tabs img{width:30px;height:30px;filter:none}
+#lokyStore .pts-body{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;overscroll-behavior:contain;padding:0 16px 10px}
+#lokyStore .pts-showcase{flex:1 0 220px;min-height:220px;isolation:isolate}
+#lokyStore .pts-showcase:before{left:5%;right:5%;bottom:32px;height:110px;background:url('./store-assets/walnut-counter.webp') center bottom/100% auto no-repeat;border:0;border-radius:0;box-shadow:none}
+#lokyStore .pts-showcase:after{display:none}
+#lokyStore .pts-shelf{inset:0 0 68px;padding:0 15%;overflow-x:auto;overflow-y:hidden}
+#lokyStore .pts-product>img{position:absolute;width:79%;max-width:79%;height:100%;max-height:100%;bottom:0;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 3px 3px #0007)}
+#lokyStore .pts-product>svg{position:absolute;width:72%;height:100%;max-height:100%;bottom:0}
+#lokyStore .pts-product:before{bottom:-1px;height:8px;background:radial-gradient(ellipse,#0008,transparent 70%);border:0;box-shadow:none}
+#lokyStore .pts-carousel-controls{inset:0;align-items:center}
+#lokyStore .pts-carousel-controls button{position:absolute;top:40%}#lokyStore .pts-carousel-controls button:last-child{right:0}
+#lokyStore .pts-carousel-controls button{width:44px;height:44px;min-height:44px!important;border:1px solid var(--nav-line)!important;background:var(--nav-glass)!important;box-shadow:none!important;font-size:25px}
+#lokyStore .pts-dots{position:absolute;left:50%;top:auto;bottom:10px;translate:-50% 0;gap:7px}#lokyStore .pts-dots span{width:8px;height:8px}#lokyStore .pts-swipe{display:none}
+#lokyStore .pts-detail{flex:none;min-height:204px;padding:12px 8px;background:none;border:0;box-shadow:none;border-radius:0}
+#lokyStore .pts-detail-title{display:flex;flex-direction:column;align-items:center;gap:6px}#lokyStore .pts-detail h3{font:600 20px system-ui;color:#f4f8ff}#lokyStore .pts-detail-title>span{font-size:17px;color:#a4d5ec;border:0;background:none;padding:0}
+#lokyStore .pts-detail p{text-align:center;font-size:11px;line-height:1.4;color:#a4d5ec;margin:8px 0 12px}
+#lokyStore .pts-detail-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+#lokyStore .pts-detail-actions button{min-height:44px;font-size:13px;border:1px solid var(--nav-line);background:var(--nav-glass);box-shadow:none}
+#lokyStore .pts-detail-actions button[data-action=buy]{flex:0 0 90%;order:-1;min-height:52px!important;height:52px;border-radius:20px}
+#lokyStore .pts-detail-actions button[data-action=buy],#lokyStore .pts-detail-actions button[data-action=confirm]{background:linear-gradient(#21caf3,#0786bd)!important;border-color:#61dcff!important;color:#022b40!important;box-shadow:none!important;font-size:16px}
+#lokyStore .pts-detail-actions button[data-action=preview]{flex:0 0 90%;background:none!important;color:#a4d5ec!important;border-color:transparent!important}
+#lokyStore .pts-detail-actions button:disabled{background:#183248!important;color:#92b2c6!important;border-color:#3e667d!important;box-shadow:none!important}
+#lokyStore .pts-footer{flex:none;padding:6px 16px 14px;gap:10px}#lokyStore .pts-footer button{background:var(--nav-glass);border:1px solid var(--nav-line);box-shadow:none;min-height:44px!important;font-size:13px;padding:8px}
+#lokyStore .pts-message{flex:none;margin:0 16px;font-size:11px;color:#a4d5ec}#lokyStore .pts-message:empty{margin:0;height:0}
+#lokyStore .pts-inventory{height:auto;min-height:100%;overflow:visible}#lokyStore .pts-inventory button{min-height:44px}
+@media(max-width:360px){#petMenuContent{padding:12px}.nav-home-grid{gap:10px}#petMenu .nav-card{font-size:14px;gap:12px}.nav-icon{width:38px;height:38px}#petMenu .nav-row{padding:10px 12px;font-size:14px;gap:10px}#lokyStore .pts-header h2{font-size:17px}#lokyStore .pts-tabs{padding-left:12px;padding-right:12px}#lokyStore .pts-body{padding-left:12px;padding-right:12px}}
+.nav-native .loky-window-back,.nav-language .loky-language-back,#lokyStore .pts-header .pts-back{font-size:0}
+.nav-native .loky-window-back:before,.nav-language .loky-language-back:before,#lokyStore .pts-header .pts-back:before{content:'←';font-size:24px}
+@media(prefers-reduced-motion:reduce){#petMenu.nav-frame,#lokyStore,.nav-native.nav-frame{transition:none}}
+

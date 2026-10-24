@@ -73,11 +73,11 @@
   const grid=()=>{const g=document.createElement('div');g.className='pet-grid';content.append(g);return g;};
   const paragraph=(text,className='')=>{const p=document.createElement('p');p.className=className;p.textContent=text;content.append(p);return p;};
   function closeMenu(){menu.close();$('petMenuButton').setAttribute('aria-expanded','false');$('petMenuButton').focus();}
-  function openMenu(section='actions'){if(section==='store'){closeMenu();window.LokyStore?.open();return;}renderTab(section);if(!menu.open)menu.showModal();$('petMenuButton').setAttribute('aria-expanded','true');}
+  function openMenu(section='home'){if(window.LokyNavigation)return window.LokyNavigation.open(section);if(section==='store'){closeMenu();window.LokyStore?.open();return;}renderTab(section);if(!menu.open)menu.showModal();$('petMenuButton').setAttribute('aria-expanded','true');}
   $('petMenuButton').onclick=()=>openMenu();$('petMenuClose').onclick=closeMenu;
   menu.addEventListener('close',()=>{$('petMenuButton').setAttribute('aria-expanded','false');parking.append(activation);});
   menu.addEventListener('click',event=>{if(event.target===menu){const r=menu.getBoundingClientRect();if(event.clientY<r.top||event.clientX<r.left||event.clientX>r.right)closeMenu();}});
-  for(const b of menu.querySelectorAll('[data-tab]'))b.onclick=()=>renderTab(b.dataset.tab);
+  for(const b of menu.querySelectorAll('[data-tab]'))b.onclick=()=>window.LokyNavigation?window.LokyNavigation.open(b.dataset.tab):renderTab(b.dataset.tab);
   function actionButton(g,label,action){g.append(button(label,async()=>{closeMenu();await act(action);}));}
   function renderTab(next){
     tab=next;menu.dataset.mode=next;parking.append(activation);content.replaceChildren();for(const b of menu.querySelectorAll('[data-tab]'))b.setAttribute('aria-selected',String(b.dataset.tab===next));
@@ -108,7 +108,7 @@
   if(!integrated)$('buildLabel').textContent='VISTA PREVIA M2';
   // Preserve all original feature hooks; only this candidate owns the pet overlay.
   if(!integrated)window.LOKY_PC4_MOBILE={build:'0.3.2-pet-m1',platform:'ios-pwa-candidate',phase:'preview',sphereStats:()=>null,petStats:()=>pet.inspect()};
-  window.LokyMobilePet={act,stop,resolveState,openMenu,inspect:()=>({...pet.inspect(),x,y,bounds:bounds(),moving:!!vector,tab,menuOpen:menu.open})};
+  window.LokyMobilePet={act,stop,resolveState,openMenu,renderSection:renderTab,inspect:()=>({...pet.inspect(),x,y,bounds:bounds(),moving:!!vector,tab,menuOpen:menu.open})};
   document.addEventListener('visibilitychange',()=>{if(document.hidden){drag=null;stop();}});
   pet.ready.then(ok=>{if(ok){initialized=true;place();announce('Tócame para saludar · puedes moverme');sync();}});
   setInterval(sync,100);

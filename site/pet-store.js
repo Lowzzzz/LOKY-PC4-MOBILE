@@ -4,7 +4,7 @@
   const $=selector=>dialog.querySelector(selector);
   const dialog=document.createElement('dialog');dialog.id='lokyStore';dialog.setAttribute('aria-labelledby','ptsTitle');
   let wallet=null,identity=null,category='food',selected='snack',view='shop',intent=null,busy=false,entry=null,opener=null,epoch=0;
-  let prop=null,propTimer=0,noticeTimer=0;
+  let prop=null,propTimer=0,noticeTimer=0,afterClose=null,detailMode=null,viewTrail=[];
   const descriptions={snack:'Un detalle para LOKY. Al ofrecerlo, inclina la cabeza y se consume una galleta.',ball:'Una pelota azul para su habitación. Tócala para jugar y pedirle la patita.','ball-coral':'La misma diversión, en coral. Puedes guardarla y volver a usarla.',outfit:'Las prendas aún no están adaptadas a esta mascota. No están a la venta.'};
   const paw='<path d="M36 65c-9-15 6-33 14-33s23 18 14 33c-4 8-10 0-14 0s-10 8-14 0Z"/><ellipse cx="28" cy="30" rx="7" ry="10" transform="rotate(-25 28 30)"/><ellipse cx="43" cy="19" rx="7" ry="10"/><ellipse cx="59" cy="19" rx="7" ry="10"/><ellipse cx="74" cy="30" rx="7" ry="10" transform="rotate(25 74 30)"/>';
   function art(id){
@@ -16,7 +16,7 @@
     return svg.replaceAll('id="','id="'+id+'-').replaceAll('url(#','url(#'+id+'-');
   }
   function button(label,action,extra=''){return '<button type="button" data-action="'+action+'" '+extra+'>'+label+'</button>';}
-  dialog.innerHTML='<div class="pts-room" aria-hidden="true"><i></i><i></i><span><svg viewBox="0 0 100 90" aria-hidden="true">'+paw+'</svg><br>LOKY</span></div><header class="pts-header"><h2 id="ptsTitle"><span class="pts-paw"><svg viewBox="0 0 100 90" aria-hidden="true">'+paw+'</svg></span><b>LOKY</b> <small>PTS STORE</small></h2><span class="pts-balance"></span>'+button('×','close','aria-label="Cerrar tienda"')+'</header><p class="pts-test">PRUEBA LOCAL · PTS virtuales de prueba</p><nav class="pts-tabs" aria-label="Categorías de tienda"></nav><div class="pts-body"></div><p class="pts-message" role="status" aria-live="polite"></p><footer class="pts-footer">'+button('♧ &nbsp; Mi clóset','closet')+button('▣ &nbsp; Inventario','inventory')+'</footer>';
+  dialog.innerHTML='<div class="pts-room" aria-hidden="true"><i></i><i></i><span><svg viewBox="0 0 100 90" aria-hidden="true">'+paw+'</svg><br>LOKY</span></div><header class="pts-header">'+button('← Atrás','back','class="pts-back" aria-label="Atrás"')+'<h2 id="ptsTitle"><span class="pts-paw"><svg viewBox="0 0 100 90" aria-hidden="true">'+paw+'</svg></span><b>LOKY</b> <small>PTS STORE</small></h2><span class="pts-balance"></span>'+button('×','close','aria-label="Cerrar tienda"')+'</header><p class="pts-test">PRUEBA LOCAL · PTS virtuales de prueba</p><nav class="pts-tabs" aria-label="Categorías de tienda"></nav><div class="pts-body"></div><p class="pts-message" role="status" aria-live="polite"></p><footer class="pts-footer">'+button('♧ &nbsp; Mi clóset','closet')+button('▣ &nbsp; Inventario','inventory')+'</footer>';
   document.body.append(dialog);
   const toast=document.createElement('p');toast.className='pts-toast';toast.setAttribute('role','status');document.body.append(toast);toast.hidden=true;
   function notify(text){toast.textContent=text;toast.hidden=false;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>toast.hidden=true,4500);}
@@ -40,6 +40,7 @@
   function fail(error){const messages={STORE_INSUFFICIENT_BALANCE:'No quedan suficientes PTS de prueba.',STORE_SAVE_FAILED:'No se pudo guardar. No se ha descontado el saldo. Puedes reintentar.',STORE_DATA_INVALID:'Los datos de prueba no se pueden leer. No se han borrado ni reiniciado.',STORE_STORAGE_UNAVAILABLE:'El navegador no permite guardar el inventario.',STORE_LOCK_UNAVAILABLE:'Este navegador no permite compras seguras entre pestañas.',STORE_USE_FAILED:'No se pudo usar el artículo. Sigue en tu inventario.',STORE_ALREADY_OWNED:'Ya tienes este artículo.',STORE_NOT_OWNED:'No tienes unidades disponibles.',STORE_ALREADY_EQUIPPED:'Esta pelota ya está en la habitación.',STORE_ITEM_UNAVAILABLE:'Este artículo todavía no está disponible.'};message(messages[error.code]||'No se pudo completar la acción. Vuelve a abrir la tienda.');}
   function cancelIntent(){if(intent)wallet?.cancel(intent);intent=null;}
   function render(){
+    detailMode=null;
     const state=wallet.snapshot(),items=wallet.catalogue();$('.pts-balance').textContent='◉ '+state.balance+' PTS';
     $('.pts-tabs').innerHTML=[['food','Comida'],['clothes','Ropa'],['toys','Juguetes']].map(([id,label])=>button(art(id)+'<span>'+label+'</span>','category','data-category="'+id+'" aria-pressed="'+(view==='shop'&&category===id)+'"')).join('');
     const body=$('.pts-body');message('');
@@ -54,45 +55,48 @@
   }
   function scrollSelected(smooth=true){const shelf=$('.pts-shelf'),item=shelf?.querySelector('[data-id="'+selected+'"]');if(item)shelf.scrollTo({left:item.offsetLeft-(shelf.clientWidth-item.offsetWidth)/2,behavior:smooth&&!matchMedia('(prefers-reduced-motion: reduce)').matches?'smooth':'instant'});}
   function renderDetail(){
+    detailMode=null;
     const item=wallet.catalogue().find(i=>i.id===selected),detail=$('.pts-detail');if(!detail)return;
     const owned=item.owned>0&&item.kind==='durable';
     detail.innerHTML='<div class="pts-detail-title"><h3>'+item.name+'</h3><span>'+(item.available?'◉ '+item.price+' PTS':'NO DISPONIBLE')+'</span></div><p>'+descriptions[item.id]+'</p><div class="pts-detail-actions">'+button('◉ &nbsp; Vista previa','preview')+button(owned?'En inventario':'🛒 &nbsp; Comprar',owned?'inventory':'buy',!item.available?'disabled':'')+'</div>';
     for(const dot of dialog.querySelectorAll('.pts-dots span'))dot.classList.toggle('active',dot.dataset.id===selected);
   }
-  function close(fromBack=false){
+  function close(fromBack=false,returnBack=false){
     if(busy)return;epoch++;cancelIntent();dialog.close();opener?.focus();
-    if(!fromBack&&entry&&history.state?.lokyStoreEntry===entry)history.back();entry=null;
+    if(!fromBack&&entry&&history.state?.lokyStoreEntry===entry)history.back();entry=null;const callback=afterClose;afterClose=null;callback?.(returnBack);
   }
-  async function open(){
-    if(dialog.open)return;opener=document.activeElement;view='shop';category='food';selected='snack';cancelIntent();
+  function back(){if(busy)return;if(intent||detailMode){cancelIntent();renderDetail();return;}if(viewTrail.length){view=viewTrail.pop();render();return;}close(false,true);}
+  async function open(options={}){
+    if(dialog.open)return;opener=document.activeElement;view=options.view==='inventory'?'inventory':'shop';category='food';selected='snack';viewTrail=[];afterClose=options.onClose||null;cancelIntent();
     dialog.showModal();$('.pts-body').innerHTML='<p class="pts-loading">Abriendo tu tienda de prueba…</p>';
     const run=++epoch;
     try{await connect();if(run!==epoch)return;render();entry=crypto.randomUUID();history.pushState({...history.state,lokyStoreEntry:entry},'');}catch(error){fail(error);}
   }
   async function transact(operation,id){
     if(busy)return;busy=true;dialog.setAttribute('aria-busy','true');
-    try{const token=intent||wallet.prepare(operation,id);await wallet.commit(token);intent=null;if(operation==='buy'){view='inventory';render();message('Compra guardada con PTS de prueba.');}else{busy=false;close();notify(operation==='unequip'?'Pelota guardada.':id==='snack'?'Galleta ofrecida.':'Pelota en la habitación: tócala para jugar.');}}
+    try{const token=intent||wallet.prepare(operation,id);await wallet.commit(token);intent=null;if(operation==='buy'){if(view!=='inventory')viewTrail.push(view);view='inventory';render();message('Compra guardada con PTS de prueba.');}else{busy=false;close();notify(operation==='unequip'?'Pelota guardada.':id==='snack'?'Galleta ofrecida.':'Pelota en la habitación: tócala para jugar.');}}
     catch(error){clearProp();restoreEquipped();fail(error);}finally{busy=false;dialog.removeAttribute('aria-busy');}
   }
   dialog.addEventListener('click',event=>{
     const b=event.target.closest('button[data-action]');if(!b||busy)return;const action=b.dataset.action;
     try{
       if(action==='close'){close();return;}
+      if(action==='back'){back();return;}
       if(!wallet)return;
       if(action==='confirm'){transact('buy',selected);return;}
       cancelIntent();
       if(action==='category'){category=b.dataset.category;view='shop';render();}
-      else if(['inventory','closet','shop'].includes(action)){view=action;render();}
+      else if(['inventory','closet','shop'].includes(action)){if(action!==view)viewTrail.push(view);view=action;render();}
       else if(action==='select'){selected=b.dataset.id;renderDetail();scrollSelected();}
       else if(action==='next'||action==='previous'){const items=wallet.catalogue().filter(i=>i.category===category),index=items.findIndex(i=>i.id===selected);selected=items[Math.max(0,Math.min(items.length-1,index+(action==='next'?1:-1)))].id;renderDetail();scrollSelected();}
       else if(action==='buy'){intent=wallet.prepare('buy',selected);const item=wallet.catalogue().find(i=>i.id===selected);$('.pts-detail').innerHTML='<h3>¿Comprar '+item.name+'?</h3><p>Se descontarán '+item.price+' PTS de prueba. No hay dinero real.</p><div class="pts-detail-actions">'+button('Cancelar','cancel')+button('Confirmar compra','confirm')+'</div>';$('.pts-detail [data-action="confirm"]').focus();}
       else if(action==='cancel')renderDetail();
-      else if(action==='preview'){$('.pts-detail').innerHTML='<div class="pts-preview">'+art(selected)+'<p>'+descriptions[selected]+'</p></div>'+button('Volver al artículo','cancel');}
+      else if(action==='preview'){detailMode='preview';$('.pts-detail').innerHTML='<div class="pts-preview">'+art(selected)+'<p>'+descriptions[selected]+'</p></div>'+button('Volver al artículo','cancel');}
       else if(action==='use'||action==='unequip')transact(action,b.dataset.id);
     }catch(error){fail(error);}
   });
-  dialog.addEventListener('cancel',event=>{event.preventDefault();if(intent){cancelIntent();renderDetail();}else close();});
-  window.addEventListener('popstate',()=>{if(dialog.open&&entry&&history.state?.lokyStoreEntry!==entry){if(busy){entry=null;return;}close(true);}});
+  dialog.addEventListener('cancel',event=>{event.preventDefault();if(intent){cancelIntent();renderDetail();}else back();});
+  window.addEventListener('popstate',()=>{if(dialog.open&&entry&&history.state?.lokyStoreEntry!==entry){if(busy){entry=null;return;}close(true,true);}});
   window.addEventListener('storage',event=>{if(event.key===DEVICE_KEY){epoch++;cancelIntent();wallet=null;identity=null;clearProp();if(dialog.open){dialog.close();notify('El perfil cambió. Abre la tienda de nuevo.');}}else if(event.key?.startsWith('loky_mobile_store_test_v1:')&&dialog.open&&!busy){try{cancelIntent();render();}catch(error){fail(error);}}});
   window.LokyStore=Object.freeze({open});
   // Restore an already-owned toy locally; no microphone, network or extra animation loop.

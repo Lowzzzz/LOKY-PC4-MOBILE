@@ -1,8 +1,9 @@
-const VERSION='loky-pc4-mobile-ios-0.3.2-mascota-m2-compact-motion1-actions1-lifecycle1-store1';
+const VERSION='loky-pc4-mobile-ios-0.3.2-mascota-m2-compact-motion1-actions1-lifecycle1-store1-navglass1';
 const CACHE=`${VERSION}-shell`;
 const SHELL=[
-  './','./index.html','./mobile.css','./pet-mobile.css','./pet-commands.js','./pet-renderer.js','./pet-mobile.js',
-  './pet-store.css?v=store-raster1','./pet-store-model.js?v=store-raster1','./pet-store.js?v=store-raster1',
+  './','./index.html','./mobile.css','./pet-mobile.css','./pet-commands.js','./pet-renderer.js','./pet-mobile.js?v=nav3',
+  './pet-store.css?v=store-raster1','./pet-store-model.js?v=store-raster1','./pet-store.js?v=nav3',
+  './pet-navigation.css?v=light1','./pet-navigation.js?v=light1',
   './store-assets/boutique-background.webp','./store-assets/walnut-counter.webp','./store-assets/food-bowl.webp','./store-assets/ball-blue.webp','./store-assets/ball-coral.webp',
   './pet-assets/manifest.json','./pet-assets/reposo.webp','./pet-assets/room-mobile.webp','./app.js','./live-mobile.js',
   './ios-audio-stability.js','./mobile-features.js','./mobile-settings-plus.js','./mobile-background-alarm.js',
@@ -43,7 +44,7 @@ self.addEventListener('fetch',event=>{
     event.request.mode==='navigate'||
     /\/(index\.html|pet-store\.css|pet-store-model\.js|pet-store\.js|pet-mobile\.css|pet-commands\.js|pet-renderer\.js|pet-mobile\.js|app\.js|live-mobile\.js|ios-audio-stability\.js|sphere-mobile\.js|mobile-features\.js|mobile-settings-plus\.js|mobile-background-alarm\.js|mobile-noise-guard\.js|mobile-seismic\.js|mobile-earth-reference\.js|earth-geometry-r4f6\.json|mobile\.css|version\.json|manifest\.webmanifest)$/.test(url.pathname);
 
-  if(runtimeAsset){
+  if(runtimeAsset||/\/pet-navigation\.(css|js)$/.test(url.pathname)){
     event.respondWith(networkFirst(event.request));
     return;
   }
